@@ -3,6 +3,8 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <string>
+#include "TextRenderer.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void processInput(GLFWwindow* window);
@@ -105,6 +107,10 @@ int main()
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
+    // 创建文本渲染器
+    TextRenderer textRenderer("C:\\Windows\\Fonts\\arial.ttf", 800, 600);
+    textRenderer.setShaderProgram(shaderProgram);
+
     // 渲染循环
     while (!glfwWindowShouldClose(window))
     {
@@ -124,9 +130,10 @@ int main()
         int vertexColorLocation = glGetUniformLocation(shaderProgram, "ourColor");
         glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
 
+        textRenderer.renderText("Hello, GLFW!", 25.0f, 550.0f, 1.0f, glm::vec3(0.5f, 0.8f, 0.2f));//绘制文字
         // 绘制三角形
-        glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        //glBindVertexArray(VAO);
+        //glDrawArrays(GL_TRIANGLES, 0, 3);
 
         // 交换缓冲区和处理事件
         glfwSwapBuffers(window);

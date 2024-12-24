@@ -190,6 +190,8 @@ int main1() {
     //renderer.addShape(&l1);
     //renderer.addShape(&t1);
 
+
+
     // äÖÈ¾Ñ­»·
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // Çå¿Õ»º³åÇø

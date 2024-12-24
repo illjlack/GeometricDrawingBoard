@@ -1,183 +1,165 @@
-#include <GL/glew.h>
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <iostream>
-#include <vector>
+#include <fstream>
+#include <sstream>
 
-class Shape {
-public:
-    virtual void draw() = 0;  // 每个几何体的绘制接口
-    virtual ~Shape() = default;
-};
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void processInput(GLFWwindow* window);
 
-class Point : public Shape {
-private:
-    float x, y, z;  // 点的坐标
-    float r, g, b, a;  // 点的颜色
+// 从文件中读取着色器源代码的函数
+std::string readShaderSource(const char* filepath);
 
-public:
-    Point(float x, float y, float z, float r = 1.0f, float g = 1.0f, float b = 1.0f, float a = 1.0f)
-        : x(x), y(y), z(z), r(r), g(g), b(b), a(a) {
-    }
+const unsigned int SCR_WIDTH = 800;
+const unsigned int SCR_HEIGHT = 600;
 
-    void draw() override {
-        glBegin(GL_POINTS);  // OpenGL 绘制点
-        glColor4f(r, g, b, a);  // 设置颜色
-        glVertex3f(x, y, z);  // 绘制点
-        glEnd();
-    }
-};
+int main()
+{
+    // glfw: initialize and configure
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-class Line : public Shape {
-private:
-    float x1, y1, z1, x2, y2, z2;  // 线段的两个端点
-    float r, g, b, a;  // 线的颜色
-    float width;  // 线宽
+#ifdef __APPLE__
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
+#endif
 
-public:
-    Line(float x1, float y1, float z1, float x2, float y2, float z2,
-        float r = 1.0f, float g = 1.0f, float b = 1.0f, float a = 1.0f, float width = 1.0f)
-        : x1(x1), y1(y1), z1(z1), x2(x2), y2(y2), z2(z2), r(r), g(g), b(b), a(a), width(width) {
-    }
-
-    void draw() override {
-        glLineWidth(width);  // 设置线宽
-        glBegin(GL_LINES);  // OpenGL 绘制线段
-        glColor4f(r, g, b, a);  // 设置颜色
-        glVertex3f(x1, y1, z1);  // 起点
-        glVertex3f(x2, y2, z2);  // 终点
-        glEnd();
-    }
-};
-
-class Triangle : public Shape {
-private:
-    float x1, y1, z1, x2, y2, z2, x3, y3, z3;  // 三角形的三个顶点
-    float r, g, b, a;  // 三角形的颜色
-
-public:
-    Triangle(float x1, float y1, float z1, float x2, float y2, float z2, float x3, float y3, float z3,
-        float r = 1.0f, float g = 1.0f, float b = 1.0f, float a = 1.0f)
-        : x1(x1), y1(y1), z1(z1), x2(x2), y2(y2), z2(z2), x3(x3), y3(y3), z3(z3), r(r), g(g), b(b), a(a) {
-    }
-
-    void draw() override {
-        glBegin(GL_TRIANGLES);  // OpenGL 绘制三角形
-        glColor4f(r, g, b, a);  // 设置颜色
-        glVertex3f(x1, y1, z1);  // 第一个顶点
-        glVertex3f(x2, y2, z2);  // 第二个顶点
-        glVertex3f(x3, y3, z3);  // 第三个顶点
-        glEnd();
-    }
-};
-
-class ShapeRenderer {
-private:
-    std::vector<Shape*> shapes;  // 存储所有形状
-
-public:
-    // 添加形状
-    void addShape(Shape* shape) {
-        shapes.push_back(shape);
-    }
-
-    // 绘制所有形状
-    void drawShapes() {
-        for (Shape* shape : shapes) {
-            shape->draw();
-        }
-    }
-};
-
-void setupLighting() {
-    // 启用光照
-    glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
-
-    // 设置光源位置（可视化效果的关键）
-    GLfloat light_position[] = { 0.0f, 0.0f, 1.0f, 0.0f };
-    glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-
-    // 设置光源颜色（白色光）
-    GLfloat light_color[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, light_color);
-
-    // 设置材质属性
-    GLfloat material_diffuse[] = { 0.8f, 0.8f, 0.8f, 1.0f };
-    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, material_diffuse);
-    GLfloat material_specular[] = { 0.5f, 0.5f, 0.5f, 1.0f };
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, material_specular);
-    glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 50.0f);  // 光泽度
-}
-
-int main() {
-    // 初始化 GLFW
-    if (!glfwInit()) {
-        std::cerr << "Failed to initialize GLFW!" << std::endl;
-        return -1;
-    }
-
-    // 创建窗口
-    GLFWwindow* window = glfwCreateWindow(800, 600, "OpenGL Shapes", NULL, NULL);
-    if (!window) {
-        std::cerr << "Failed to create GLFW window!" << std::endl;
+    // glfw window creation
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "LearnOpenGL", NULL, NULL);
+    if (window == NULL)
+    {
+        std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
         return -1;
     }
-
     glfwMakeContextCurrent(window);
-    glewInit();  // 初始化 GLEW
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
-    // 设置视角和投影矩阵
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(45.0, 800.0 / 600.0, 0.1, 100.0);  // 透视投影
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    glTranslatef(0.0f, 0.0f, -5.0f);  // 移动物体，使其位于视野中
-
-    // 设置光照
-    setupLighting();
-
-    ShapeRenderer renderer;
-
-    // 创建几何图形
-    Point p1(0.0f, 0.0f, 0.0f);
-    Line l1(-0.5f, -0.5f, 0.0f, 0.5f, 0.5f, 0.0f);
-    Triangle t1(-0.5f, -0.5f, 0.0f, 0.5f, -0.5f, 0.0f, 0.0f, 0.5f, 0.0f);
-
-    // 将几何图形添加到渲染器
-    renderer.addShape(&p1);
-    renderer.addShape(&l1);
-    renderer.addShape(&t1);
-
-    // 渲染循环
-    while (!glfwWindowShouldClose(window)) {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // 清空缓冲区
-
-        // 获取程序开始以来的时间（秒）
-        float time = glfwGetTime();
-
-        // 根据时间控制旋转角度，旋转速度为每秒 30 度
-        float angle = time * 30.0f;  // 每秒旋转 30 度
-
-        // 重新设置光源位置，避免受模型视图矩阵影响
-        GLfloat light_position[] = { 0.0f, 0.0f, 1.0f, 0.0f };
-        glLightfv(GL_LIGHT0, GL_POSITION, light_position);  // 确保光源位置不受旋转影响
-
-        // 旋转物体
-        glPushMatrix();  // 保存当前的矩阵
-        glRotatef(angle, 0.0f, 1.0f, 0.0f);  // 绕Y轴旋转物体
-
-        // 绘制所有形状
-        renderer.drawShapes();
-
-        glPopMatrix();  // 恢复矩阵
-
-        glfwSwapBuffers(window);  // 交换缓冲区
-        glfwPollEvents();  // 处理事件
+    // glad: load all OpenGL function pointers
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        std::cout << "Failed to initialize GLAD" << std::endl;
+        return -1;
     }
 
-    glfwDestroyWindow(window);
+    // 从文件中读取着色器源代码
+    std::string vertexShaderSource = readShaderSource("vertex_shader.glsl");
+    std::string fragmentShaderSource = readShaderSource("fragment_shader.glsl");
+
+    // 创建并编译顶点着色器
+    unsigned int vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    const char* vertexShaderCode = vertexShaderSource.c_str();
+    glShaderSource(vertexShader, 1, &vertexShaderCode, NULL);
+    glCompileShader(vertexShader);
+    int success;
+    char infoLog[512];
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    if (!success)
+    {
+        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+    }
+
+    // 创建并编译片段着色器
+    unsigned int fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+    const char* fragmentShaderCode = fragmentShaderSource.c_str();
+    glShaderSource(fragmentShader, 1, &fragmentShaderCode, NULL);
+    glCompileShader(fragmentShader);
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+    if (!success)
+    {
+        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
+    }
+
+    // 创建着色器程序
+    unsigned int shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    if (!success) {
+        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
+    }
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    // 设置顶点数据 (和缓冲区)，并配置顶点属性
+    float vertices[] = {
+        -0.5f, -0.5f, 0.0f, // left  
+         0.5f, -0.5f, 0.0f, // right 
+         0.0f,  0.5f, 0.0f  // top   
+    };
+
+    unsigned int VBO, VAO;
+    glGenVertexArrays(1, &VAO);
+    glGenBuffers(1, &VBO);
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    // 渲染循环
+    while (!glfwWindowShouldClose(window))
+    {
+        // 输入处理
+        processInput(window);
+
+        // 渲染
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+
+        // 记得激活着色器
+        glUseProgram(shaderProgram);
+
+        // 更新uniform颜色
+        float timeValue = glfwGetTime();
+        float greenValue = sin(timeValue) / 2.0f + 0.5f;
+        int vertexColorLocation = glGetUniformLocation(shaderProgram, "ourColor");
+        glUniform4f(vertexColorLocation, 0.0f, greenValue, 0.0f, 1.0f);
+
+        // 绘制三角形
+        glBindVertexArray(VAO);
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+
+        // 交换缓冲区和处理事件
+        glfwSwapBuffers(window);
+        glfwPollEvents();
+    }
+
+    // 释放资源
+    glDeleteVertexArrays(1, &VAO);
+    glDeleteBuffers(1, &VBO);
+    glDeleteProgram(shaderProgram);
+
     glfwTerminate();
     return 0;
+}
+
+// 从文件读取着色器源代码
+std::string readShaderSource(const char* filepath)
+{
+    std::ifstream file(filepath);
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    return buffer.str();
+}
+
+// 处理输入
+void processInput(GLFWwindow* window)
+{
+    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+        glfwSetWindowShouldClose(window, true);
+}
+
+// 当窗口尺寸改变时调用的回调函数
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+    glViewport(0, 0, width, height);
 }

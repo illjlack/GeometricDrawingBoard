@@ -27,6 +27,9 @@
     <ClCompile Include="TextRenderer.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="Shader.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h">
@@ -36,6 +39,9 @@
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="TextRenderer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Shader.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
@@ -48,5 +54,13 @@
     <ResourceCompile Include="work01.rc">
       <Filter>资源文件</Filter>
     </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="huiyuanai.png">
+      <Filter>资源文件</Filter>
+    </Image>
+    <Image Include="muxiang.png">
+      <Filter>资源文件</Filter>
+    </Image>
   </ItemGroup>
 </Project>

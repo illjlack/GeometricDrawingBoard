@@ -1,4 +1,5 @@
-#include <GL/glew.h>
+
+#include "Camera.h"
 #include <GLFW/glfw3.h>
 
 #include <glm/glm.hpp>
@@ -8,7 +9,6 @@
 #include <iostream>
 #include <vector>
 
-#include "Camera.h"
 
 class Shape {
 public:
@@ -94,129 +94,3 @@ public:
         }
     }
 };
-
-void setupLighting() {
-    // 启用光照
-    glEnable(GL_LIGHTING);
-    glEnable(GL_LIGHT0);
-
-    // 设置光源位置
-    GLfloat light_position[] = { 0.0f, 0.0f, 1.0f, 0.0f };
-    glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-
-    // 设置光源颜色（白色光）
-    GLfloat light_color[] = { 1.0f, 1.0f, 1.0f, 1.0f };
-    glLightfv(GL_LIGHT0, GL_DIFFUSE, light_color);
-
-    // 设置材质属性
-    GLfloat material_diffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f };  // 设置材质的漫反射颜色
-    glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, material_diffuse);
-    GLfloat material_specular[] = { 0.5f, 0.5f, 0.5f, 1.0f };
-    glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, material_specular);
-    glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 50.0f);  // 设置光泽度
-}
-
-
-Camera camera;
-
-void processKeyboardInput(GLFWwindow* window, float deltaTime)
-{
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        camera.processMovement(Movement::FORWARD, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        camera.processMovement(Movement::BACKWARD, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        camera.processMovement(Movement::LEFT, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        camera.processMovement(Movement::RIGHT, deltaTime);
-
-    if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
-        camera.processRotation(Rotate::UP, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
-        camera.processRotation(Rotate::DOWN, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
-        camera.processRotation(Rotate::LEFT, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
-        camera.processRotation(Rotate::RIGHT, deltaTime);
-}
-
-int main1() {
-    // 初始化 GLFW
-    if (!glfwInit()) {
-        std::cerr << "Failed to initialize GLFW!" << std::endl;
-        return -1;
-    }
-
-    // 创建窗口
-    GLFWwindow* window = glfwCreateWindow(800, 600, "OpenGL Shapes", NULL, NULL);
-    if (!window) {
-        std::cerr << "Failed to create GLFW window!" << std::endl;
-        glfwTerminate();
-        return -1;
-    }
-
-    glfwMakeContextCurrent(window);
-    glewInit();  // 初始化 GLEW
-
-    glEnable(GL_DEPTH_TEST);  // 启用深度测试
-
-    // 设置视角和投影矩阵
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    gluPerspective(45.0, 800.0 / 600.0, 0.1, 100.0);  // 透视投影
-
-    // 设置光照
-    setupLighting();
-
-    // 创建几何图形
-    ShapeRenderer renderer;
-
-    // 创建坐标轴
-    Line xAxis(-10.0f, 0.0f, 0.0f, 10.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f);  // X轴：红色
-    Line yAxis(0.0f, -10.0f, 0.0f, 0.0f, 10.0f, 0.0f, 0.0f, 1.0f, 0.0f);  // Y轴：绿色
-    Line zAxis(0.0f, 0.0f, -10.0f, 0.0f, 0.0f, 10.0f, 0.0f, 0.0f, 1.0f);  // Z轴：蓝色
-
-    // 添加坐标轴到渲染器
-    renderer.addShape(&xAxis);
-    renderer.addShape(&yAxis);
-    renderer.addShape(&zAxis);
-
-    // 创建其他几何图形
-    //Point p1(5.0f, 5.0f, 1.0f);
-    //Line l1(-0.5f, -0.5f, -1.0f, 0.5f, 0.5f, 0.0f);
-    //Triangle t1(-0.5f, -0.5f, 0.0f, 0.5f, -0.5f, 0.0f, 0.0f, 0.5f, 1.0f);
-
-    //renderer.addShape(&p1);
-    //renderer.addShape(&l1);
-    //renderer.addShape(&t1);
-
-
-
-    // 渲染循环
-    while (!glfwWindowShouldClose(window)) {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);  // 清空缓冲区
-
-        // 获取时间
-        float deltaTime = 0.0f;
-        float lastFrame = 0.0f;
-        float currentFrame = glfwGetTime();
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
-
-        processKeyboardInput(window, deltaTime);
-
-        // 更新视图矩阵
-        glm::mat4 view = camera.getViewMatrix();
-        glLoadMatrixf(&view[0][0]);  // 设置视图矩阵
-
-        // 绘制所有形状
-        renderer.drawShapes();
-
-        glfwSwapBuffers(window);  // 交换缓冲区
-        glfwPollEvents();  // 处理事件
-    }
-
-    glfwDestroyWindow(window);
-    glfwTerminate();
-    return 0;
-}

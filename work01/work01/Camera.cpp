@@ -1,57 +1,66 @@
 #include "Camera.h"
 
-Camera::Camera(glm::vec3 startPosition, glm::vec3 startfront) : position(startPosition)
+// 构造函数：初始化相机参数
+Camera::Camera(glm::vec3 position, glm::vec3 up, float yaw, float pitch)
+    : Front(glm::vec3(0.0f, 0.0f, -1.0f)), MovementSpeed(SPEED), MouseSensitivity(SENSITIVITY), Zoom(ZOOM)
 {
-
+    Position = position;
+    WorldUp = up;
+    Yaw = yaw;
+    Pitch = pitch;
+    updateCameraVectors();
 }
 
-// 获取相机的视图矩阵
-glm::mat4 Camera::getViewMatrix() {
-	return glm::lookAt(position, position + front, up);
-}
-
-// 处理相机运动
-void Camera::processMovement(Movement direction, float deltaTime)
+// 获取视图矩阵
+glm::mat4 Camera::GetViewMatrix()
 {
-	float velocity = cameraSpeed * deltaTime;
-	if (direction == Movement::FORWARD)
-		position += front * velocity;
-	if (direction == Movement::BACKWARD)
-		position -= front * velocity;
-	if (direction == Movement::LEFT)
-		position -= right * velocity;
-	if (direction == Movement::RIGHT)
-		position += right * velocity;
+    return glm::lookAt(Position, Position + Front, Up);
 }
 
-// 处理相机旋转
-void Camera::processRotation(Rotate direction, float deltaTime)
+// 处理键盘输入
+void Camera::ProcessKeyboard(Camera_Movement direction, float deltaTime)
 {
-	float velocity = rotationSpeed * deltaTime;
-	if (direction == Rotate::UP)
-		pitch += velocity;
-	if (direction == Rotate::DOWN)
-		pitch -= velocity;
-	if (direction == Rotate::LEFT)
-		yaw -= velocity;
-	if (direction == Rotate::RIGHT)
-		yaw += velocity;
-
-	// 更新相机的方向向量
-	updateCameraVectors();
+    float velocity = MovementSpeed * deltaTime;
+    if (direction == FORWARD) Position += Front * velocity;
+    if (direction == BACKWARD) Position -= Front * velocity;
+    if (direction == LEFT) Position -= Right * velocity;
+    if (direction == RIGHT) Position += Right * velocity;
 }
 
-// 更新相机的方向向量
-void Camera::updateCameraVectors() {
-	glm::vec3 newFront;
-	newFront.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-	newFront.y = sin(glm::radians(pitch));
-	newFront.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+// 处理鼠标移动输入
+void Camera::ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch)
+{
+    xoffset *= MouseSensitivity;
+    yoffset *= MouseSensitivity;
 
-	front = glm::normalize(newFront);//向量归一化
+    Yaw += xoffset;
+    Pitch += yoffset;
 
-	// 计算右向量
-	right = glm::normalize(glm::cross(front, up));
-	// 计算上向量
-	up = glm::normalize(glm::cross(right, front));
+    if (constrainPitch) {
+        if (Pitch > 89.0f) Pitch = 89.0f;
+        if (Pitch < -89.0f) Pitch = -89.0f;
+    }
+
+    updateCameraVectors();
+}
+
+// 处理鼠标滚轮输入
+void Camera::ProcessMouseScroll(float yoffset)
+{
+    Zoom -= (float)yoffset;
+    if (Zoom < 1.0f) Zoom = 1.0f;
+    if (Zoom > 100.0f) Zoom = 45.0f;
+}
+
+// 更新相机方向向量
+void Camera::updateCameraVectors()
+{
+    glm::vec3 front;
+    front.x = cos(glm::radians(Yaw)) * cos(glm::radians(Pitch));
+    front.y = sin(glm::radians(Pitch));
+    front.z = sin(glm::radians(Yaw)) * cos(glm::radians(Pitch));
+    Front = glm::normalize(front);
+
+    Right = glm::normalize(glm::cross(Front, WorldUp));
+    Up = glm::normalize(glm::cross(Right, Front));
 }

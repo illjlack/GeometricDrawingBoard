@@ -17,23 +17,18 @@ glm::mat4 Camera::GetViewMatrix()
     return glm::lookAt(Position, Position + Front, Up);
 }
 
-//glm::mat4 Camera::GetProjectionMatrix()
-//{
-//    return glm::perspective(glm::radians(Zoom), aspectRatio, nearPlane, farPlane);
-//}
-
 // 处理键盘输入
 void Camera::ProcessKeyboard(Camera_Movement direction, float deltaTime)
 {
     float velocity = MovementSpeed * deltaTime;
-    if (direction == Camera_Movement::FORWARD) Position += Front * velocity;
-    if (direction == Camera_Movement::BACKWARD) Position -= Front * velocity;
-    if (direction == Camera_Movement::LEFT) Position -= Right * velocity;
-    if (direction == Camera_Movement::RIGHT) Position += Right * velocity;
+    if (direction == FORWARD) Position += Front * velocity;
+    if (direction == BACKWARD) Position -= Front * velocity;
+    if (direction == LEFT) Position -= Right * velocity;
+    if (direction == RIGHT) Position += Right * velocity;
 }
 
 // 处理鼠标移动输入
-void Camera::ProcessMouseMovement(float xoffset, float yoffset, bool constrainPitch)
+void Camera::ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch)
 {
     xoffset *= MouseSensitivity;
     yoffset *= MouseSensitivity;
@@ -42,8 +37,8 @@ void Camera::ProcessMouseMovement(float xoffset, float yoffset, bool constrainPi
     Pitch += yoffset;
 
     if (constrainPitch) {
-       if (Pitch > 89.0f) Pitch = 89.0f;
-       if (Pitch < -89.0f) Pitch = -89.0f;
+        if (Pitch > 89.0f) Pitch = 89.0f;
+        if (Pitch < -89.0f) Pitch = -89.0f;
     }
 
     updateCameraVectors();

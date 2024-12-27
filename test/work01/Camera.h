@@ -1,11 +1,12 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 
+#include <glad/glad.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 // 相机移动方向枚举
-enum class Camera_Movement {
+enum Camera_Movement {
     FORWARD,
     BACKWARD,
     LEFT,
@@ -33,16 +34,14 @@ public:
         glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f),
         float yaw = YAW, float pitch = PITCH);
 
-    // 获取视图矩阵.视图矩阵的作用是将所有物体的坐标从世界坐标系转换到相机坐标系。
+    // 获取视图矩阵
     glm::mat4 GetViewMatrix();
-
-    glm::mat4 GetProjectionMatrix();
 
     // 处理键盘输入
     void ProcessKeyboard(Camera_Movement direction, float deltaTime);
 
     // 处理鼠标移动输入
-    void ProcessMouseMovement(float xoffset, float yoffset, bool constrainPitch = true);
+    void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true);
 
     // 处理鼠标滚轮输入
     void ProcessMouseScroll(float yoffset);

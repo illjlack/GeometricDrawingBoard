@@ -1,8 +1,7 @@
-#ifndef CAMERA_H
-#define CAMERA_H
+#pragma once
 
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
+#include <QVector3D>
+#include <QMatrix4x4>
 
 // 相机移动方向枚举
 enum class Camera_Movement {
@@ -23,20 +22,13 @@ const float ZOOM = 45.0f;
 class Camera
 {
 public:
-    // 相机属性
-    glm::vec3 Position, Front, Up, Right, WorldUp;
-    float Yaw, Pitch;
-    float MovementSpeed, MouseSensitivity, Zoom;
-
     // 构造函数
-    Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f),
-        glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f),
+    Camera(QVector3D position = QVector3D(0.0f, 0.0f, 5.0f),
+        QVector3D up = QVector3D(0.0f, 1.0f, 0.0f),
         float yaw = YAW, float pitch = PITCH);
 
-    // 获取视图矩阵.视图矩阵的作用是将所有物体的坐标从世界坐标系转换到相机坐标系。
-    glm::mat4 GetViewMatrix();
-
-    glm::mat4 GetProjectionMatrix();
+    // 获取视图矩阵，将世界坐标系转换到相机坐标系
+    QMatrix4x4 GetViewMatrix();
 
     // 处理键盘输入
     void ProcessKeyboard(Camera_Movement direction, float deltaTime);
@@ -50,6 +42,9 @@ public:
 private:
     // 更新相机方向向量
     void updateCameraVectors();
-};
 
-#endif
+    // 相机属性
+    QVector3D Position, Front, Up, Right, WorldUp;
+    float Yaw, Pitch;
+    float MovementSpeed, MouseSensitivity, Zoom;
+};

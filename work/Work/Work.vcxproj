@@ -11,7 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{C447BE01-08F2-4B98-9268-3155081E74DA}</ProjectGuid>
+    <ProjectGuid>{CD5D8D30-B49E-4AD6-9E52-BB336E7B9088}</ProjectGuid>
     <Keyword>QtVS_v304</Keyword>
     <WindowsTargetPlatformVersion Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">10.0</WindowsTargetPlatformVersion>
     <WindowsTargetPlatformVersion Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">10.0</WindowsTargetPlatformVersion>
@@ -63,12 +63,6 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
   </PropertyGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <Link>
-      <AdditionalDependencies>qtmaind.lib;Qt5Cored.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-    </Link>
-  </ItemDefinitionGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgEnableManifest>true</VcpkgEnableManifest>
   </PropertyGroup>
@@ -101,12 +95,14 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <QtRcc Include="Work.qrc" />
+    <QtUic Include="Work.ui" />
+    <QtMoc Include="Work.h" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Object.cpp" />
     <ClCompile Include="OpenGLWidget.cpp" />
     <ClCompile Include="Point.cpp" />
-    <QtMoc Include="MainWindow.h" />
-    <ClCompile Include="MainWindow.cpp" />
+    <ClCompile Include="Work.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -116,16 +112,6 @@
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Object.h" />
     <ClInclude Include="Point.h" />
-    <ClInclude Include="test.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="fragment_shader.glsl" />
-    <None Include="readme.md" />
-    <None Include="vertex_shader.glsl" />
-  </ItemGroup>
-  <ItemGroup>
-    <Image Include="huiyuanai.png" />
-    <Image Include="muxiang.png" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">

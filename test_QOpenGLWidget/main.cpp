@@ -1,5 +1,6 @@
-#include "MainWindow.h"
+#include "test_QOpenGLWidget.h"
 #include <QtWidgets/QApplication>
+#include <qDebug>
 
 int main(int argc, char *argv[])
 {
@@ -10,7 +11,7 @@ int main(int argc, char *argv[])
 
 
     QApplication a(argc, argv);
-    MainWindow w;
+    test_QOpenGLWidget w;
     w.show();
     return a.exec();
 }

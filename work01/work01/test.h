@@ -88,13 +88,16 @@ public:
         vbo.bind();
         vbo.allocate(vertices, sizeof(vertices));
 
-        // 设置顶点属性
-        shader->bind();
-        shader->setAttributeBuffer(0, GL_FLOAT, 0, 3, 5 * sizeof(GLfloat)); // 位置属性
-        shader->enableAttributeArray(0);
-        shader->setAttributeBuffer(1, GL_FLOAT, 3 * sizeof(GLfloat), 2, 5 * sizeof(GLfloat)); // 纹理坐标属性
-        shader->enableAttributeArray(1);
-        shader->release();
+        // 位置属性(第一个参数就是顶点着色器里的location = 0表示颜色参数，3个分量，数据类型是 float，不需要归一化，步幅值，偏移)
+        functions->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+        functions->glEnableVertexAttribArray(0);
+
+        functions->glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+        functions->glEnableVertexAttribArray(1);
+
+
+        vao.release();
+        vbo.release();
 
         // 初始化纹理
         texture = new QOpenGLTexture(QImage("huiyuanai.png").mirrored());

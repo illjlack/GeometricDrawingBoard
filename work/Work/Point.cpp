@@ -99,6 +99,14 @@ void Point::draw() {
 
     // 设置颜色
     QColor color = getColor();
+    shader->setUniformValue("color", color);
+
+
+    // 计算模型矩阵（平移到 position）
+    QMatrix4x4 modelMatrix;
+    modelMatrix.translate(position);  // 将模型平移到指定位置
+    // 传递模型矩阵到着色器
+    shader->setUniformValue("model", modelMatrix);
 
     // 绑定 VAO 并绘制
     vao.bind();

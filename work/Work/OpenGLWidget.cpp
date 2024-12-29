@@ -56,7 +56,7 @@ void OpenGLWidget::initializeGL()
         out vec3 vertexColor;
         void main()
         {
-            gl_Position = projection * view * vec4(position, 1.0);
+            gl_Position = projection * view * model * vec4(position, 1.0);
         })";
 
     // 片段着色器源代码
@@ -103,6 +103,7 @@ void OpenGLWidget::paintGL()
 
     camera.processInput(deltaTime);
 
+    //camera.setProjectionMode(Camera::ProjectionMode::Orthographic);
     // test
     {
 
@@ -134,17 +135,15 @@ void OpenGLWidget::paintGL()
         // 激活着色器程序
         shaderProgram->bind();
 
-        // 设置投影和视图矩阵
-        QMatrix4x4 projection;
-        projection.perspective(45.0f, float(width()) / float(height()), 0.1f, 100.0f);
-
         updateCameraMovement();
         
-        // 设置 uniform 变量
-        shaderProgram->setUniformValue("projection", projection);
-
         // 设置颜色（根据需要可以改变颜色）
         shaderProgram->setUniformValue("color", QVector3D(1.0f, 1.0f, 1.0f)); 
+        
+        // 计算模型矩阵（平移到 position）
+        QMatrix4x4 modelMatrix;
+        // 传递模型矩阵到着色器
+        shaderProgram->setUniformValue("model", modelMatrix);
 
         // 绘制 XYZ 数轴
         glDrawArrays(GL_LINES, 0, 6);
@@ -191,9 +190,17 @@ void OpenGLWidget::mouseReleaseEvent(QMouseEvent* event)
     camera.mouseReleaseEvent(event);
 }
 
+// 处理滚轮事件
+void OpenGLWidget::wheelEvent(QWheelEvent* event)
+{
+    camera.mouseScrollEvent(event); // 将滚轮事件传递给 Camera 来处理
+}
+
 // 更新相机运动
 void OpenGLWidget::updateCameraMovement()
 {
     QMatrix4x4 view = camera.GetViewMatrix();
     shaderProgram->setUniformValue("view", view);
+    QMatrix4x4 projection = camera.GetProjectionMatrix(width(),height());
+    shaderProgram->setUniformValue("projection", projection);
 }

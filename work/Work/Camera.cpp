@@ -23,6 +23,27 @@ QMatrix4x4 Camera::GetViewMatrix()
     return view;
 }
 
+void Camera::setProjectionMode(ProjectionMode mode)
+{
+    projectionMode = mode;
+}
+
+QMatrix4x4 Camera::GetProjectionMatrix(float width, float height)
+{
+    QMatrix4x4 projection;
+    float aspectRatio = width / height;
+
+    if (projectionMode == ProjectionMode::Perspective) {
+        projection.perspective(Zoom, aspectRatio, 0.1f, 100.0f);  // 透视投影
+    }
+    else if (projectionMode == ProjectionMode::Orthographic) {
+        float orthoSize = Zoom*0.02f;  // 正交投影的大小
+        projection.ortho(-orthoSize * aspectRatio, orthoSize * aspectRatio, -orthoSize, orthoSize, 0.1f, 100.0f);  // 正交投影
+    }
+
+    return projection;
+}
+
 // reset 函数：重置相机参数为默认值
 void Camera::reset()
 {
@@ -182,6 +203,7 @@ void Camera::mouseMoveEvent(QMouseEvent* event)
         float xoffset = event->x() - lastMousePos.x();
         float yoffset = lastMousePos.y() - event->y();  // 反向y轴
         ProcessMouseMovement(xoffset, yoffset);
+        lastMousePos = event->pos(); // 更新上一次鼠标位置
     }
 }
 
@@ -194,5 +216,12 @@ void Camera::mousePressEvent(QMouseEvent* event)
 void Camera::mouseReleaseEvent(QMouseEvent* event)
 {
     isMousePress = false;
+}
+
+void Camera::mouseScrollEvent(QWheelEvent* event)
+{
+    // 滚动的单位是1/8度，转换为常用的增量单位
+    float yoffset = event->angleDelta().y() / 120.0f;
+    ProcessMouseScroll(yoffset);
 }
 

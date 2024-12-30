@@ -42,16 +42,12 @@ void Point::setShape(Shape newShape)
     shape = newShape;
 }
 
-void Point::setShader(QOpenGLShaderProgram* shader)
-{
-    this->shader = shader;
-}
-
 void Point::initialize()
 {
     // 获取 OpenGL 函数
     QOpenGLFunctions* functions = QOpenGLContext::currentContext()->functions();
 
+    shaderProgram->bind();
     // 创建 VAO 和 VBO
     vao.create();  // 创建 VAO
     vbo.create();  // 创建 VBO
@@ -63,10 +59,13 @@ void Point::initialize()
     vbo.bind();  // 绑定 VBO
     if (shape == Shape::Square) {
         GLfloat squareVertices[] = {
-            -0.05f,  0.05f, 0.0f,  // 左上
-             0.05f,  0.05f, 0.0f,  // 右上
-             0.05f, -0.05f, 0.0f,  // 右下
-            -0.05f, -0.05f, 0.0f   // 左下
+            -0.01f,  0.01f, 0.0f,  // 左上
+             0.01f,  0.01f, 0.0f,  // 右上
+            -0.01f, -0.01f, 0.0f,   // 左下
+
+             0.01f,  0.01f, 0.0f,  // 右上
+             0.01f, -0.01f, 0.0f,  // 右下
+            -0.01f, -0.01f, 0.0f,   // 左下
         };
         vbo.allocate(squareVertices, sizeof(squareVertices));
     }
@@ -77,8 +76,8 @@ void Point::initialize()
 
         for (int i = 0; i < segments; ++i) {
             GLfloat angle = i * angleStep;
-            circleVertices[i * 3] = 0.05f * cos(angle) + position.x();
-            circleVertices[i * 3 + 1] = 0.05f * sin(angle) + position.y();
+            circleVertices[i * 3] = 0.01f * cos(angle) + position.x();
+            circleVertices[i * 3 + 1] = 0.01f * sin(angle) + position.y();
             circleVertices[i * 3 + 2] = position.z();
         }
         vbo.allocate(circleVertices, sizeof(circleVertices));
@@ -91,30 +90,38 @@ void Point::initialize()
     // 解绑 VBO 和 VAO
     vbo.release();
     vao.release();
+
+    shaderProgram->release();
 }
 
 
-void Point::draw() {
+void Point::draw() 
+{
+    shaderProgram->bind();
     QOpenGLFunctions* functions = QOpenGLContext::currentContext()->functions();
 
     // 设置颜色
-    QColor color = getColor();
-    shader->setUniformValue("color", color);
-
+    QVector3D vec3Color(color.redF(), color.greenF(), color.blueF());
+    shaderProgram->setUniformValue("color", vec3Color);
 
     // 计算模型矩阵（平移到 position）
     QMatrix4x4 modelMatrix;
     modelMatrix.translate(position);  // 将模型平移到指定位置
     // 传递模型矩阵到着色器
-    shader->setUniformValue("model", modelMatrix);
+    shaderProgram->setUniformValue("model", modelMatrix);
 
     // 绑定 VAO 并绘制
     vao.bind();
+    vbo.bind();
     if (shape == Shape::Square) {
-        functions->glDrawArrays(GL_TRIANGLE_FAN, 0, 4);  // 绘制方形
+        functions->glDrawArrays(GL_TRIANGLE_FAN, 0, 6);  // 绘制方形
     }
     else if (shape == Shape::Circle) {
         functions->glDrawArrays(GL_TRIANGLE_FAN, 0, 100);  // 绘制圆形
     }
     vao.release();
+    vbo.release();
+    shaderProgram->release();
 }
+
+

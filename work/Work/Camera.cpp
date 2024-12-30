@@ -34,11 +34,11 @@ QMatrix4x4 Camera::GetProjectionMatrix(float width, float height)
     float aspectRatio = width / height;
 
     if (projectionMode == ProjectionMode::Perspective) {
-        projection.perspective(Zoom, aspectRatio, 0.1f, 100.0f);  // 透视投影
+        projection.perspective(Zoom, aspectRatio, 0.01f, 100.0f);  // 透视投影
     }
     else if (projectionMode == ProjectionMode::Orthographic) {
         float orthoSize = Zoom*0.02f;  // 正交投影的大小
-        projection.ortho(-orthoSize * aspectRatio, orthoSize * aspectRatio, -orthoSize, orthoSize, 0.1f, 100.0f);  // 正交投影
+        projection.ortho(-orthoSize * aspectRatio, orthoSize * aspectRatio, -orthoSize, orthoSize, 0.01f, 100.0f);  // 正交投影
     }
 
     return projection;

@@ -25,8 +25,6 @@ public:
     Shape getShape() const;
     void setShape(Shape newShape);
 
-    void setShader(QOpenGLShaderProgram* shader) override;
-
 private:
     QOpenGLBuffer vbo;
     QOpenGLVertexArrayObject vao;

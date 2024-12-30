@@ -26,6 +26,8 @@ protected:
     void resizeGL(int w, int h) override;
     void paintGL() override;
 
+    void test();
+
     // 事件处理函数
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
@@ -33,7 +35,7 @@ protected:
     void mousePressEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
-    void updateCameraMovement();
+
 
 private:
     // 着色器程序
@@ -46,8 +48,8 @@ private:
     float deltaTime;                             // 帧间时间
     float lastFrame;                             // 上一帧时间
 
-    QOpenGLVertexArrayObject* vao;
-    QOpenGLBuffer* vertexBuffer;
-
     std::vector<Object*> vec;
+
+    void updateCameraMovement();
+    void processInput();
 };

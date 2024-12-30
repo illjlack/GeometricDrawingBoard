@@ -9,6 +9,8 @@
 OpenGLWidget::OpenGLWidget(QWidget* parent)
     : QOpenGLWidget(parent), shaderProgram(nullptr)
 {
+    setFocusPolicy(Qt::StrongFocus);
+
     QTimer* timer = new QTimer(this);
     connect(timer, &QTimer::timeout, this, [this]() {update(); });
     timer->start(16);  // 大约60FPS
@@ -224,3 +226,14 @@ void OpenGLWidget::wheelEvent(QWheelEvent* event)
     camera.mouseScrollEvent(event); // 将滚轮事件传递给 Camera 来处理
 }
 
+void OpenGLWidget::focusOutEvent(QFocusEvent* event)
+{
+    camera.focusOutEvent();
+}
+
+void OpenGLWidget::setIsOrtho(bool flag)
+{
+    if(flag)camera.setProjectionMode(Camera::ProjectionMode::Orthographic);
+    else camera.setProjectionMode(Camera::ProjectionMode::Perspective);
+}   
+    

@@ -19,6 +19,7 @@ public:
     ~OpenGLWidget() override;
 
     void pushObject(Object* obj);
+    void setIsOrtho(bool flag);
 
 protected:
     // 重写OpenGL生命周期函数
@@ -36,6 +37,8 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
 
+    // 突然失去焦点时,让按键状态清空
+    void focusOutEvent(QFocusEvent* event) override;
 
 private:
     // 着色器程序

@@ -47,7 +47,7 @@ QMatrix4x4 Camera::GetProjectionMatrix(float width, float height)
 // reset 函数：重置相机参数为默认值
 void Camera::reset()
 {
-    Position = QVector3D(0.0f, 0.0f, 3.0f); // 默认位置
+    Position = QVector3D(0.0f, 0.0f, 2.0f); // 默认位置
     WorldUp = QVector3D(0.0f, 1.0f, 0.0f);  // 默认向上方向
     Yaw = YAW;                              // 默认 Yaw 角
     Pitch = PITCH;                          // 默认 Pitch 角
@@ -55,6 +55,13 @@ void Camera::reset()
     MouseSensitivity = SENSITIVITY;         // 默认鼠标灵敏度
     Zoom = ZOOM;                            // 默认缩放
     updateCameraVectors();                  // 更新方向向量
+}
+
+void Camera::clearKeys()
+{
+    for (auto& pair : keys) {
+        pair.second = false;
+    }
 }
 
 
@@ -223,5 +230,10 @@ void Camera::mouseScrollEvent(QWheelEvent* event)
     // 滚动的单位是1/8度，转换为常用的增量单位
     float yoffset = event->angleDelta().y() / 120.0f;
     ProcessMouseScroll(yoffset);
+}
+
+void Camera::focusOutEvent()
+{
+    clearKeys();
 }
 

@@ -61,11 +61,8 @@ void Point::initialize()
         GLfloat squareVertices[] = {
             -0.01f,  0.01f, 0.0f,  // 左上
              0.01f,  0.01f, 0.0f,  // 右上
-            -0.01f, -0.01f, 0.0f,   // 左下
-
-             0.01f,  0.01f, 0.0f,  // 右上
              0.01f, -0.01f, 0.0f,  // 右下
-            -0.01f, -0.01f, 0.0f,   // 左下
+             -0.01f, -0.01f, 0.0f,   // 左下
         };
         vbo.allocate(squareVertices, sizeof(squareVertices));
     }
@@ -114,7 +111,7 @@ void Point::draw()
     vao.bind();
     vbo.bind();
     if (shape == Shape::Square) {
-        functions->glDrawArrays(GL_TRIANGLE_FAN, 0, 6);  // 绘制方形
+        functions->glDrawArrays(GL_TRIANGLE_FAN, 0, 4);  // 绘制方形
     }
     else if (shape == Shape::Circle) {
         functions->glDrawArrays(GL_TRIANGLE_FAN, 0, 100);  // 绘制圆形

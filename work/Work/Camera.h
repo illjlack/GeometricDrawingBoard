@@ -24,7 +24,7 @@ public:
     };
 
     // 构造函数
-    Camera(QVector3D position = QVector3D(0.0f, 0.0f, 1.0f),
+    Camera(QVector3D position = QVector3D(0.0f, 0.0f, 2.0f),
         QVector3D up = QVector3D(0.0f, 1.0f, 0.0f),
         float yaw = YAW, float pitch = PITCH);
 
@@ -43,7 +43,7 @@ public:
     void mousePressEvent(QMouseEvent* event);
     void mouseReleaseEvent(QMouseEvent* event);
     void mouseScrollEvent(QWheelEvent* event);
-
+    void focusOutEvent();
     
 
 private:
@@ -55,6 +55,7 @@ private:
     // 更新相机方向向量
     void updateCameraVectors();
     void reset();
+    void clearKeys();
 
     // 相机属性
     QVector3D Position, Front, Up, Right, WorldUp;

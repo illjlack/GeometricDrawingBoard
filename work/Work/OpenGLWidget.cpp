@@ -208,11 +208,11 @@ namespace My
 
             QVector<QVector3D> v3d1{ {0,0,0} ,{ 0.1,0.1,0.1 } };
 
-            QVector<QVector3D> v3d2{ {-0.1,0.1,0.1} ,{-0.1,-0.1,0.1 },{-0.1,-0.1,-0.1} };
+            QVector<QVector3D> v3d2{ {-0.1,0.1,0.1} ,{-0.1,-0.1,0.1 },{-0.1,-0.1,-0.1},{-0.1,-0.1,-1.1} };
 
             pushObject(new Polyline(v3d1));
 
-            pushObject(new Polyline(v3d2));
+            pushObject(new Spline(v3d2));
         }
     }
 

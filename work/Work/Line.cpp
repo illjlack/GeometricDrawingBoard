@@ -4,6 +4,7 @@
 #include <QOpenGLBuffer>
 #include <QOpenGLVertexArrayObject>
 #include <QOpenGLFunctions>
+#include <myMath.h>
 
 namespace My
 {
@@ -196,13 +197,10 @@ namespace My
         vao.bind();
         vbo.bind();
 
-        QVector<float> vertexData;
-        for (const auto& point : points)
-        {
-            vertexData.append({ point.x(), point.y(), point.z() });
-        }
+        vertexData = calculateBezierCurve(points, 100);
+        
 
-        vbo.allocate(vertexData.data(), vertexData.size() * sizeof(float));
+        vbo.allocate(vertexData.data(), 3*vertexData.size() * sizeof(float));
 
         functions->glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
         functions->glEnableVertexAttribArray(0);
@@ -213,6 +211,22 @@ namespace My
 
     void Spline::draw()
     {
+        QOpenGLFunctions* functions = QOpenGLContext::currentContext()->functions();
+
+        shaderProgram->bind();
+        vao.bind();
+        vbo.bind();
+
+        shaderProgram->setUniformValue("color", QVector4D(color.redF(), color.greenF(), color.blueF(), 1.0f));
+        //shaderProgram->setUniformValue("lineWidth", lineWidth);
+
+
+
+        functions->glDrawArrays(GL_LINE_STRIP, 0, vertexData.size());
+
+        vbo.release();
+        vao.release();
+        shaderProgram->release();
     }
 
     void Spline::drawBufferZone()

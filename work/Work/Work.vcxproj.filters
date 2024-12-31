@@ -61,9 +61,6 @@
     <ClCompile Include="Line.cpp">
       <Filter>Source Files\Object</Filter>
     </ClCompile>
-    <ClCompile Include="math.h">
-      <Filter>Header Files</Filter>
-    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="OpenGLWidget.h">
@@ -84,6 +81,9 @@
       <Filter>Header Files\Object</Filter>
     </ClInclude>
     <ClInclude Include="comm.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="myMath.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

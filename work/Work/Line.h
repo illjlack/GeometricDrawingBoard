@@ -82,13 +82,18 @@ namespace My {
 
     class Spline : public BaseLine {
     public:
-        Spline(const QVector<QVector3D>& points, QColor color, float width, Style style)
+        Spline(const QVector<QVector3D>& points,
+            QColor color = Qt::black,
+            Style style = Style::Solid,
+            float width = 1.0f)
             : BaseLine(points, color, style, width) {}
 
     protected:
         void initialize() override;
         void draw() override;
         virtual void drawBufferZone() override;
+
+        QVector<QVector3D> vertexData;
     };
 
 }

@@ -109,6 +109,7 @@
     <QtUic Include="Work.ui" />
     <QtMoc Include="WorkWindow.h" />
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Line.cpp" />
     <ClCompile Include="Object.cpp" />
     <ClCompile Include="OpenGLWidget.cpp" />
     <ClCompile Include="Point.cpp" />
@@ -121,6 +122,7 @@
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="codec.h" />
+    <ClInclude Include="Line.h" />
     <ClInclude Include="Object.h" />
     <ClInclude Include="Point.h" />
   </ItemGroup>

@@ -5,6 +5,8 @@
 #include <Point.h>
 #include <QThread>
 
+#include "codec.h"
+
 int main(int argc, char *argv[])
 {
     QSurfaceFormat format;

@@ -2,6 +2,8 @@
 
 #include <QTextCodec>
 
-QTextCodec* codec = QTextCodec::codecForName("GBK");
+inline QString L(const char* str) {
+    static QTextCodec* codec = QTextCodec::codecForName("GBK");
+    return codec->toUnicode(str);
+}
 
-#define L(x) (codec->toUnicode(x))

@@ -12,6 +12,7 @@
 #include <QTextEdit>
 #include <QLabel>
 #include <QToolBar>
+
 WorkWindow::WorkWindow(QMainWindow* parent)
     : QMainWindow(parent),
     openGLWidget(new OpenGLWidget(this))  // ´´½¨OpenGL´°¿Ú

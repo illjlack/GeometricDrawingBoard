@@ -25,15 +25,19 @@ public:
     Shape getShape() const;
     void setShape(Shape newShape);
 
+    void initialize() override;
+    void draw() override;
+    void drawBufferZone();
 private:
     QOpenGLBuffer vbo;
     QOpenGLVertexArrayObject vao;
+
+    QOpenGLBuffer vboBufferZone;
+    QOpenGLVertexArrayObject vaoBufferZone;
 
     QVector3D position;  // 点的位置
     QColor color;        // 点的颜色
     Shape shape;         // 点的形状
 
-    void initialize() override;
-
-    void draw() override;
+    QVector<QVector3D> createBufferZone(float d, int segments = 100) const;    
 };

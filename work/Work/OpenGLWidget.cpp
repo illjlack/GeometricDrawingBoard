@@ -1,10 +1,12 @@
 #include "OpenGLWidget.h"
 
 #include <QTimer>
-#include <Point.h>
+#include "Point.h"
+#include "line.h"
 #include <testObject.h>
 
 #include <QThread>
+#include <codec.h>
 
 OpenGLWidget::OpenGLWidget(QWidget* parent)
     : QOpenGLWidget(parent), shaderProgram(nullptr)
@@ -62,16 +64,20 @@ void OpenGLWidget::initializeGL()
         #version 460 core
         out vec4 FragColor;
 
-        uniform vec3 color;
+        uniform vec4 color;
 
         void main()
         {
-            FragColor = vec4(color, 1.0);
+            FragColor = color;
         })";
 
     shaderProgram->addShaderFromSourceCode(QOpenGLShader::Vertex, vertexShaderSource);
     shaderProgram->addShaderFromSourceCode(QOpenGLShader::Fragment, fragmentShaderSource);
     shaderProgram->link();
+
+    GLint* maxLineWidth = new GLint;
+    glGetIntegerv(GL_LINE_WIDTH_RANGE, maxLineWidth);
+    qDebug() << L("最大支持线宽：") << *maxLineWidth;
 }
 
 void OpenGLWidget::resizeGL(int w, int h)
@@ -94,6 +100,12 @@ void OpenGLWidget::paintGL()
     {        
         obj->draw();
     }
+
+    // 透明的缓冲区后绘制
+    for (auto obj : vec)
+    {
+        obj->drawBufferZone();
+    }
 }
  
 void OpenGLWidget::test()
@@ -111,6 +123,7 @@ void OpenGLWidget::test()
         shaderProgram->bind();
         vao.bind();
         vbo.bind();
+
         // 数轴的顶点数据，包含 X、Y、Z 轴的线段
         GLfloat axisVertices[] = {
             // X轴
@@ -144,7 +157,7 @@ void OpenGLWidget::test()
         shaderProgram->bind();
         vao.bind();
         vbo.bind();
-        shaderProgram->setUniformValue("color", QVector3D(1.0f, 1.0f, 1.0f));
+        shaderProgram->setUniformValue("color", QVector4D(1.0f, 1.0f, 1.0f, 1.0f));
         QMatrix4x4 modelMatrix;
         shaderProgram->setUniformValue("model", modelMatrix);
         functions->glDrawArrays(GL_LINES, 0, 6);
@@ -193,6 +206,15 @@ void OpenGLWidget::keyPressEvent(QKeyEvent* event)
         pushObject(new Point({ 0.1,0.1,0.1 }));
         //pushObject(new Point({ 0,0,0 }));
         pushObject(new Point({ 0,0,0 }, Qt::red, Point::Shape::Circle));
+
+
+        QVector<QVector3D> v3d1 { {0,0,0} ,{ 0.1,0.1,0.1 } };
+
+        QVector<QVector3D> v3d2{ {-0.1,0.1,0.1} ,{-0.1,-0.1,0.1 },{-0.1,-0.1,-0.1} };
+
+        pushObject(new Line(v3d1));
+
+        pushObject(new Line(v3d2));
     }
 }
 

@@ -67,6 +67,9 @@
     <Link>
       <AdditionalDependencies>qtmaind.lib;Qt5cored.lib;Qt5Guid.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <ClCompile>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Link>
@@ -110,6 +113,7 @@
     <QtMoc Include="WorkWindow.h" />
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Line.cpp" />
+    <ClCompile Include="math.h" />
     <ClCompile Include="Object.cpp" />
     <ClCompile Include="OpenGLWidget.cpp" />
     <ClCompile Include="Point.cpp" />
@@ -120,8 +124,8 @@
     <QtMoc Include="OpenGLWidget.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="comm.h" />
     <ClInclude Include="Camera.h" />
-    <ClInclude Include="codec.h" />
     <ClInclude Include="Line.h" />
     <ClInclude Include="Object.h" />
     <ClInclude Include="Point.h" />

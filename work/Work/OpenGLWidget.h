@@ -9,50 +9,54 @@
 #include "Camera.h"
 #include "Object.h"
 
-class OpenGLWidget :
-    public QOpenGLWidget, protected QOpenGLFunctions
+namespace My
 {
-    Q_OBJECT
+    class OpenGLWidget :
+        public QOpenGLWidget, protected QOpenGLFunctions
+    {
+        Q_OBJECT
 
-public:
-    OpenGLWidget(QWidget* parent = nullptr);
-    ~OpenGLWidget() override;
+    public:
+        OpenGLWidget(QWidget* parent = nullptr);
+        ~OpenGLWidget() override;
 
-    void pushObject(Object* obj);
-    void setIsOrtho(bool flag);
+        void pushObject(Object* obj);
+        void setIsOrtho(bool flag);
 
-protected:
-    // 重写OpenGL生命周期函数
-    void initializeGL() override;
-    void resizeGL(int w, int h) override;
-    void paintGL() override;
+    protected:
+        // 重写OpenGL生命周期函数
+        void initializeGL() override;
+        void resizeGL(int w, int h) override;
+        void paintGL() override;
 
-    void test();
+        void test();
 
-    // 事件处理函数
-    void keyPressEvent(QKeyEvent* event) override;
-    void keyReleaseEvent(QKeyEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseReleaseEvent(QMouseEvent* event) override;
-    void wheelEvent(QWheelEvent* event) override;
+        // 事件处理函数
+        void keyPressEvent(QKeyEvent* event) override;
+        void keyReleaseEvent(QKeyEvent* event) override;
+        void mouseMoveEvent(QMouseEvent* event) override;
+        void mousePressEvent(QMouseEvent* event) override;
+        void mouseReleaseEvent(QMouseEvent* event) override;
+        void wheelEvent(QWheelEvent* event) override;
 
-    // 突然失去焦点时,让按键状态清空
-    void focusOutEvent(QFocusEvent* event) override;
+        // 突然失去焦点时,让按键状态清空
+        void focusOutEvent(QFocusEvent* event) override;
 
-private:
-    // 着色器程序
-    QOpenGLShaderProgram* shaderProgram;
+    private:
+        // 着色器程序
+        QOpenGLShaderProgram* shaderProgram;
 
-    Camera camera;
+        Camera camera;
 
-    // 控制时间
-    QElapsedTimer frameTimer;
-    float deltaTime;                             // 帧间时间
-    float lastFrame;                             // 上一帧时间
+        // 控制时间
+        QElapsedTimer frameTimer;
+        float deltaTime;                             // 帧间时间
+        float lastFrame;                             // 上一帧时间
 
-    std::vector<Object*> vec;
+        std::vector<Object*> vec;
 
-    void updateCameraMovement();
-    void processInput();
-};
+        void updateCameraMovement();
+        void processInput();
+    };
+
+}

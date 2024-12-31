@@ -1,7 +1,10 @@
 #include "Object.h"
 
 
-void Object::setShader(QOpenGLShaderProgram* shader)
+namespace My
 {
-    this->shaderProgram = shader;
+	void Object::setShader(QOpenGLShaderProgram* shader)
+	{
+		this->shaderProgram = shader;
+	}
 }

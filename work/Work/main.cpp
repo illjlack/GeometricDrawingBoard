@@ -4,8 +4,7 @@
 
 #include <Point.h>
 #include <QThread>
-
-#include "codec.h"
+#include "comm.h"
 
 int main(int argc, char *argv[])
 {
@@ -19,8 +18,12 @@ int main(int argc, char *argv[])
     qDebug() << "=============GLSL version:" << (const char*)glGetString(GL_SHADING_LANGUAGE_VERSION);
 
     QApplication a(argc, argv);
-    WorkWindow w;
+    
+    My::WorkWindow w;
+    
     w.show();
+
+    Log("开始运行");
 
     return a.exec();
 }

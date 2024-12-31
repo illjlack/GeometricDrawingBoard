@@ -2,23 +2,27 @@
 
 #include <QtWidgets/QMainWindow>
 #include <QDockWidget>
-#include "OpenGLWidget.h"  // 包含OpenGLWidget头文件
+#include "OpenGLWidget.h" 
 
-class WorkWindow : public QMainWindow
+namespace My
 {
-    Q_OBJECT
+    class WorkWindow : public QMainWindow
+    {
+        Q_OBJECT
 
-public:
-    WorkWindow(QMainWindow * parent = nullptr);
-    ~WorkWindow();
+    public:
+        WorkWindow(QMainWindow* parent = nullptr);
+        ~WorkWindow();
 
-    std::map<QString, std::map<QString, const char*>> mp;
-private:
-    // OpenGL widget 用于显示 OpenGL 渲染
-    OpenGLWidget* openGLWidget;
+        std::map<QString, std::map<QString, const char*>> mp;
+    private:
+        // OpenGL widget 用于显示 OpenGL 渲染
+        OpenGLWidget* openGLWidget;
 
-    // 侧边栏操作
-    QDockWidget* sideDockWidget;
+        // 侧边栏操作
+        QDockWidget* sideDockWidget;
 
-    void initMap();
-};
+        void initMap();
+    };
+
+}

@@ -197,8 +197,8 @@ namespace My
         vao.bind();
         vbo.bind();
 
-        vertexData = calculateBezierCurve(points, 100);
-        
+        //vertexData = calculateBezierCurve(points, 100);
+        vertexData = calculateBSpline(points, 4, 10000);
 
         vbo.allocate(vertexData.data(), 3*vertexData.size() * sizeof(float));
 
@@ -219,8 +219,6 @@ namespace My
 
         shaderProgram->setUniformValue("color", QVector4D(color.redF(), color.greenF(), color.blueF(), 1.0f));
         //shaderProgram->setUniformValue("lineWidth", lineWidth);
-
-
 
         functions->glDrawArrays(GL_LINE_STRIP, 0, vertexData.size());
 

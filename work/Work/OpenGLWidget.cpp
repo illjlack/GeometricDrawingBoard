@@ -201,18 +201,23 @@ namespace My
         camera.keyPressEvent(event);
         if (event->key() == Qt::Key_T) // test
         {
-            pushObject(new Point({ 0.1,0.1,0.1 }));
+            //pushObject(new Point({ 0.1,0.1,0.1 }));
             //pushObject(new Point({ 0,0,0 }));
-            pushObject(new Point({ 0,0,0 }, Qt::red, Point::Shape::Circle));
+            //pushObject(new Point({ 0,0,0 }, Qt::red, Point::Shape::Circle));
 
 
-            QVector<QVector3D> v3d1{ {0,0,0} ,{ 0.1,0.1,0.1 } };
+            //QVector<QVector3D> v3d1{ {0,0,0} ,{ 0.1,0.1,0.1 } };
+            //pushObject(new Polyline(v3d1));
 
-            QVector<QVector3D> v3d2{ {-0.1,0.1,0.1} ,{-0.1,-0.1,0.1 },{-0.1,-0.1,-0.1},{-0.1,-0.1,-1.1} };
-
-            pushObject(new Polyline(v3d1));
-
+            QVector<QVector3D> v3d2{ {1,1,0.1},{1,-1,0.2},{-1,-1,0.3},{-1,1,0.4},{1,1,0.1},{1,-1,0.5},{-1,-1,0.6},{-1,1,0.7} };
             pushObject(new Spline(v3d2));
+
+            for (auto xx : v3d2)
+            {
+                pushObject(new Point(xx));
+            }
+
+           
         }
     }
 

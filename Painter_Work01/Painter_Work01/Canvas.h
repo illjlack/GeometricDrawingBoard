@@ -5,7 +5,7 @@
 #include <QMouseEvent>
 #include <QPoint>
 #include <vector>
-#include "Shapes.h"
+#include "Geo.h"
 
 class Canvas : public QWidget
 {

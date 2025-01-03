@@ -1,5 +1,6 @@
-#include "Shapes.h"
+#include "Geo.h"
 #include <QPainterPath>
+#include "mathUtil.h"
 
 // =======================================================================================================Shape
 Geo::GeoType Geo::getType()
@@ -223,10 +224,8 @@ void Polyline::draw(QPainter& painter) {
 
     painter.setPen(pen);
 
-    // 绘制折线
-    if (points.size() > 1) {
-        painter.drawPolyline(points);
-    }
+    painter.drawPolyline(points);
+
 }
 
 void Polyline::mousePressEvent(QMouseEvent* event)
@@ -244,4 +243,70 @@ void Polyline::mousePressEvent(QMouseEvent* event)
     }
 }
 
+// ====================================================Spline
+Spline::Spline(const QVector<QPointF>& points,
+    QColor color,
+    Style style,
+    float width) : BaseLine(points, color, style, width)
+{
+    setGeoDrawState(Geo::GeoDrawState::Complete);
+}
 
+Spline::Spline()
+{
+}
+
+void Spline::mousePressEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::RightButton)
+    {
+        setGeoDrawState(Geo::GeoDrawState::Complete);
+    }
+    else
+    {
+        if (getGeoDrawState() == Geo::GeoDrawState::Drawing)
+        {
+            points.push_back(event->pos());
+            curvePoints = mathUtil::calculateBSpline(points, 3, 10*points.size());
+        }
+    }
+}
+
+
+void Spline::draw(QPainter& painter) {
+    // 设置画笔
+    QPen pen;
+    pen.setColor(color);
+    pen.setWidthF(lineWidth);
+
+    // 设置虚线样式
+    if (style == Style::Dashed) {
+        pen.setStyle(Qt::DashLine);
+        pen.setDashOffset(dashPattern);  // 设置虚线段的长度
+    }
+    else {
+        pen.setStyle(Qt::SolidLine);
+    }
+
+    painter.setPen(pen);
+
+    // 如果已经计算出样条曲线的点，则绘制样条曲线
+    if (!curvePoints.isEmpty()) {
+        // 创建 QPainterPath 用于绘制平滑曲线
+        QPainterPath path;
+        path.moveTo(curvePoints[0]);  // 将起点设置为曲线的第一个点
+
+        // 使用 QPainterPath 逐步加入后续点
+        for (int i = 1; i < curvePoints.size(); ++i) {
+            path.lineTo(curvePoints[i]);  // 将后续点连接成一条折线
+        }
+
+        // 使用 QPainterPath 绘制平滑曲线
+        painter.drawPath(path);
+    }
+    else
+    {
+        // 如果没有计算出样条曲线点，则绘制输入的折线
+        painter.drawPolyline(points);
+    }
+}

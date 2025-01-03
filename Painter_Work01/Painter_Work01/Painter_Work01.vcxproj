@@ -101,7 +101,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="mathUtil.cpp" />
-    <ClCompile Include="Shapes.cpp" />
+    <ClCompile Include="Geo.cpp" />
     <QtRcc Include="mainWindow.qrc" />
     <QtMoc Include="mainWindow.h" />
     <ClCompile Include="Canvas.cpp" />
@@ -110,7 +110,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="mathUtil.h" />
-    <ClInclude Include="Shapes.h" />
+    <ClInclude Include="Geo.h" />
     <QtMoc Include="Canvas.h" />
     <ClInclude Include="comm.h" />
   </ItemGroup>

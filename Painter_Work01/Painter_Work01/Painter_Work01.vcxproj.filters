@@ -40,7 +40,7 @@
     <ClCompile Include="Canvas.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Shapes.cpp">
+    <ClCompile Include="Geo.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="mathUtil.cpp">
@@ -51,7 +51,7 @@
     <ClInclude Include="comm.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Shapes.h">
+    <ClInclude Include="Geo.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="mathUtil.h">

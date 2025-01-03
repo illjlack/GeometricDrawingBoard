@@ -80,6 +80,10 @@ Geo* Canvas::createShape()
     {
         geo = new Polyline();
     }
+    else if (Mode::DrawSpline == currentMode)
+    {
+        geo = new Spline();
+    }
 
     return geo;
 }

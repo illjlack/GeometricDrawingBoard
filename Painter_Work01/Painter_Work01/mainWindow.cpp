@@ -63,13 +63,13 @@ void mainWindow::createToolBar()
 
     // 添加工具栏按钮
     QAction* drawPointAction = toolBar->addAction(L("绘制点"));
-    QAction* drawLineAction = toolBar->addAction(L("绘制线"));
-    QAction* drawAreaAction = toolBar->addAction(L("绘制面"));
+    QAction* drawPolyLineAction = toolBar->addAction(L("绘制折线"));
+    QAction* drawSplineAction = toolBar->addAction(L("绘制条样线"));
 
 
     connect(drawPointAction, &QAction::triggered, this, [=]() {canvas->setDrawMode(Canvas::DrawMode::DrawPoint); });
-    connect(drawLineAction, &QAction::triggered, this, [=]() {canvas->setDrawMode(Canvas::DrawMode::DrawPolyline); });
-    //connect(drawAreaAction, &QAction::triggered, this, [=]() {canvas->setDrawMode(Canvas::DrawMode::DrawPolygon); });
+    connect(drawPolyLineAction, &QAction::triggered, this, [=]() {canvas->setDrawMode(Canvas::DrawMode::DrawPolyline); });
+    connect(drawSplineAction, &QAction::triggered, this, [=]() {canvas->setDrawMode(Canvas::DrawMode::DrawSpline); });
     addToolBar(toolBar);
 }
 

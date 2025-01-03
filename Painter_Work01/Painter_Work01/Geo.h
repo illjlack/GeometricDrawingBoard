@@ -133,8 +133,20 @@ public:
 
     void mousePressEvent(QMouseEvent* event) override;
 
+protected:
+    void draw(QPainter& painter) override;
+};
 
+class Spline : public BaseLine {
+public:
+    Spline(const QVector<QPointF>& points,
+        QColor color = Qt::black,
+        Style style = Style::Solid,
+        float width = 1.0f);
+    Spline();
+    void mousePressEvent(QMouseEvent* event) override;
 
 protected:
+    QVector<QPointF> curvePoints;
     void draw(QPainter& painter) override;
 };

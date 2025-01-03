@@ -51,7 +51,6 @@ protected:
     void mouseMoveEvent(QMouseEvent* event) override;    // 鼠标移动事件
     void mouseReleaseEvent(QMouseEvent* event) override; // 鼠标释放事件
     void wheelEvent(QWheelEvent* event) override;
-    
 
 private:
     DrawMode currentMode;           // 当前绘制模式

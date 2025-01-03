@@ -11,7 +11,7 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{5B6FB9A8-6A27-4BAD-BBE7-D4D0FF48D419}</ProjectGuid>
+    <ProjectGuid>{F4EB33F8-F01B-46F8-9640-0663A12A0B30}</ProjectGuid>
     <Keyword>QtVS_v304</Keyword>
     <WindowsTargetPlatformVersion Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">10.0</WindowsTargetPlatformVersion>
     <WindowsTargetPlatformVersion Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">10.0</WindowsTargetPlatformVersion>
@@ -63,9 +63,6 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
   </PropertyGroup>
-  <PropertyGroup Label="Vcpkg">
-    <VcpkgEnableManifest>true</VcpkgEnableManifest>
-  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'" Label="Configuration">
     <ClCompile>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
@@ -95,12 +92,15 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <QtRcc Include="test_QOpenGLWidget.qrc" />
-    <QtUic Include="test_QOpenGLWidget.ui" />
-    <QtMoc Include="test_QOpenGLWidget.h" />
-    <ClCompile Include="test_cube.h" />
-    <ClCompile Include="test_QOpenGLWidget.cpp" />
+    <QtRcc Include="mainWindow.qrc" />
+    <QtMoc Include="mainWindow.h" />
+    <ClCompile Include="Canvas.cpp" />
+    <ClCompile Include="mainWindow.cpp" />
     <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <QtMoc Include="Canvas.h" />
+    <ClInclude Include="comm.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">

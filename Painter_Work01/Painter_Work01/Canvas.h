@@ -18,9 +18,12 @@ public:
     // 绘制模式
     enum DrawMode {
         None,       
-        DrawPoint,  
-        DrawLine,   
-        DrawPolygon 
+        DrawPoint,
+        DrawPolyline,              // 折线
+        DrawSpline,                // 样条线
+        DrawArcThreePoints,        // 三点圆弧
+        DrawArcTwoPoints,          // 两点圆弧
+        DrawStreamline             // 流线
     };
 
     // 绘制状态
@@ -36,17 +39,24 @@ public:
     bool saveToFile(const QString& fileName);
     bool exportToShp(const QString& fileName);
 
-    void pushShape(Shape* shape);
+    void pushShape(Geo* shape);
+
+    Geo* createShape();
 
 protected:
-    void paintEvent(QPaintEvent* event) override;        // 重绘事件
+    void paintEvent(QPaintEvent* event) override;        // 
+    void keyPressEvent(QKeyEvent* event) override;
+    void keyReleaseEvent(QKeyEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;   // 鼠标按下事件
     void mouseMoveEvent(QMouseEvent* event) override;    // 鼠标移动事件
     void mouseReleaseEvent(QMouseEvent* event) override; // 鼠标释放事件
+    void wheelEvent(QWheelEvent* event) override;
+    
 
 private:
     DrawMode currentMode;           // 当前绘制模式
     DrawState currentState;         // 当前绘制状态
 
-    std::vector<Shape*> vec;
+    Geo* currentDrawGeo = nullptr;
+    std::vector<Geo*> vec;
 };

@@ -3,10 +3,12 @@
 #include <QPointF>
 #include <QColor>
 #include <QVector>
+#include <QKeyEvent>
 
-class Shape {
+
+class Geo {
 public:
-    enum class ShapeType {
+    enum class GeoType {
         Undefined = 0,         // 未定义
 
         Point,                 // 点
@@ -18,24 +20,44 @@ public:
         Streamline             // 流线
     };
 
-    virtual ~Shape() = default;
+    enum class  GeoDrawState
+    {
+        Complete,   // 空闲状态
+        Drawing     // 正在绘制
+    };
+
+    virtual ~Geo() = default;
     virtual void draw(QPainter& painter) = 0; // 绘制方法
 
-    Shape::ShapeType getType();
+    GeoType getType();
+    GeoDrawState getGeoDrawState();
+    
+    // 接受鼠标和键盘事件来进行绘制
+    virtual void keyPressEvent(QKeyEvent* event);
+    virtual void keyReleaseEvent(QKeyEvent* event);
+    virtual void mouseMoveEvent(QMouseEvent* event);
+    virtual void mousePressEvent(QMouseEvent* event);
+    virtual void mouseReleaseEvent(QMouseEvent* event);
+    virtual void wheelEvent(QWheelEvent* event);
+
+protected:
+    void setGeoType(Geo::GeoType newType);
+    void setGeoDrawState(GeoDrawState newState);
 
 private:
-    ShapeType type = ShapeType::Undefined;
-    
+    GeoType geoType = GeoType::Undefined;
+    GeoDrawState geoDrawState = GeoDrawState::Drawing;
 };
 
 
-class Point : public Shape {
+class Point : public Geo {
 public:
     enum class Shape {
         Square,
         Circle
     };
 
+    Point();
     Point(const QPointF& position, QColor color = Qt::white, Shape shape = Shape::Square);
     ~Point();
 
@@ -50,20 +72,21 @@ public:
 
     void draw(QPainter& painter) override;
 
+    void mousePressEvent(QMouseEvent* event) override;
 private:
     QPointF position;  // 点的位置
     QColor color;      // 点的颜色
-    Shape shape;       // 点的形状
+    Shape shape = Shape::Square;       // 点的形状
 };
 
 
-class BaseLine : public Shape {
+class BaseLine : public Geo {
 public:
     enum class Style {
         Solid,     // 实线
         Dashed     // 虚线
     };
-
+    BaseLine();
     BaseLine(const QVector<QPointF>& points,
         QColor color = Qt::black,
         Style style = Style::Solid,
@@ -92,21 +115,25 @@ public:
     float getDashPattern() const;
 
 protected:
-    QVector<QPointF> points;  // 点集
-    QColor color;             // 颜色
-    Style style;              // 样式
-    float lineWidth;          // 线宽
-    float dashPattern;        // 虚线段长
+    QVector<QPointF> points;    // 点集
+    QColor color = Qt::red;     // 颜色
+    Style style = Style::Solid; // 样式
+    float lineWidth = 1.0f;       // 线宽
+    float dashPattern = 1.0f;     // 虚线段长
 };
 
 
 class Polyline : public BaseLine {
 public:
+    Polyline();
     Polyline(const QVector<QPointF>& points,
         QColor color = Qt::black,
         Style style = Style::Solid,
-        float width = 1.0f)
-        : BaseLine(points, color, style, width) {}
+        float width = 1.0f);
+
+    void mousePressEvent(QMouseEvent* event) override;
+
+
 
 protected:
     void draw(QPainter& painter) override;

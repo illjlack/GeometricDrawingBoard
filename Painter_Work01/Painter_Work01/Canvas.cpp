@@ -62,9 +62,26 @@ bool Canvas::exportToShp(const QString& fileName)
     return false;
 }
 
-void Canvas::pushShape(Shape* shape)
+void Canvas::pushShape(Geo* geo)
 {
-    vec.push_back(shape);
+    vec.push_back(geo);
+}
+
+Geo* Canvas::createShape()
+{
+    using Mode = Canvas::DrawMode;
+    Geo* geo = nullptr;
+
+    if (Mode::DrawPoint == currentMode)
+    {
+        geo = new Point();
+    }
+    else if (Mode::DrawPolyline == currentMode)
+    {
+        geo = new Polyline();
+    }
+
+    return geo;
 }
 
 void Canvas::paintEvent(QPaintEvent* event)
@@ -77,6 +94,14 @@ void Canvas::paintEvent(QPaintEvent* event)
     {
         shape->draw(painter);
     }
+}
+
+void Canvas::keyPressEvent(QKeyEvent* event)
+{
+}
+
+void Canvas::keyReleaseEvent(QKeyEvent* event)
+{
 }
 
 
@@ -105,9 +130,15 @@ void Canvas::mousePressEvent(QMouseEvent* event)
     //    update();
     //}
 
-    QPointF clickPos = event->pos();
-    Point *point = new Point(clickPos, Qt::black, Point::Shape::Circle);
-    pushShape(point);
+    if (Canvas::DrawMode::None != currentMode)
+    {
+        if (!currentDrawGeo || currentDrawGeo->getGeoDrawState() == Geo::GeoDrawState::Complete)
+        {
+            currentDrawGeo = createShape();
+            pushShape(currentDrawGeo);
+        }
+        currentDrawGeo->mousePressEvent(event);
+    }
     update();
 }
 
@@ -130,4 +161,8 @@ void Canvas::mouseReleaseEvent(QMouseEvent* event)
     //    }
     //}
     //update();
+}
+
+void Canvas::wheelEvent(QWheelEvent* event)
+{
 }

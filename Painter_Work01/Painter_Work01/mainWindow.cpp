@@ -4,6 +4,9 @@
 #include <QStatusBar>
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QVBoxLayout>
+#include <QLabel>
+#include <QDockWidget>
 #include "comm.h"
 
 
@@ -13,10 +16,11 @@ mainWindow::mainWindow(QWidget* parent)
      //设置中心控件为 Canvas
      setCentralWidget(canvas);
 
-    // 创建菜单栏、工具栏和状态栏
+    // 创建菜单栏、工具栏、侧边栏和状态栏
     createMenuBar();
     createToolBar();
     createStatusBar();
+    createSideBar();
 
     // 设置窗口标题和大小
     setWindowTitle(L("几何图形绘制与缓冲区分析"));
@@ -62,11 +66,27 @@ void mainWindow::createToolBar()
     QAction* drawLineAction = toolBar->addAction(L("绘制线"));
     QAction* drawAreaAction = toolBar->addAction(L("绘制面"));
 
-    //connect(drawPointAction, &QAction::triggered, canvas, &Canvas::setDrawPointMode);
-    //connect(drawLineAction, &QAction::triggered, canvas, &Canvas::setDrawLineMode);
-    //connect(drawAreaAction, &QAction::triggered, canvas, &Canvas::setDrawAreaMode);
 
+    connect(drawPointAction, &QAction::triggered, this, [=]() {canvas->setDrawMode(Canvas::DrawMode::DrawPoint); });
+    connect(drawLineAction, &QAction::triggered, this, [=]() {canvas->setDrawMode(Canvas::DrawMode::DrawPolyline); });
+    //connect(drawAreaAction, &QAction::triggered, this, [=]() {canvas->setDrawMode(Canvas::DrawMode::DrawPolygon); });
     addToolBar(toolBar);
+}
+
+void mainWindow::createSideBar() {
+    sideBarWidget = new QWidget(this);
+    sideBar = new QDockWidget(L("设置"), this);
+    sideBar->setWidget(sideBarWidget);
+    sideBar->setVisible(true); // 默认显示
+
+    pointSettings = new PointSettings();
+    //lineSettings = new LineSettings();
+
+    // 默认显示点设置
+    sideBar->setWidget(pointSettings);
+    pointSettings->reset();
+
+    addDockWidget(Qt::RightDockWidgetArea, sideBar);
 }
 
 void mainWindow::createStatusBar()
@@ -118,4 +138,44 @@ void mainWindow::exportToShp()
 void mainWindow::showAbout()
 {
     QMessageBox::about(this, L("关于"), L("几何图形绘制与缓冲区分析软件\n\n版本 1.0"));
+}
+
+
+
+// ===================================================================================================================== PointSettings
+DrawingSettings::DrawingSettings(QWidget* parent):QWidget(parent)
+{
+}
+
+
+PointSettings::PointSettings(QWidget* parent)
+    : DrawingSettings(parent), currentColor(Qt::black) {
+    QVBoxLayout* layout = new QVBoxLayout(this);
+
+    QLabel* sizeLabel = new QLabel(L("绘制大小"), this);
+    layout->addWidget(sizeLabel);
+
+    sizeSlider = new QSlider(Qt::Horizontal, this);
+    sizeSlider->setRange(1, 20);
+    layout->addWidget(sizeSlider);
+
+    QLabel* colorLabel = new QLabel(L("选择颜色"), this);
+    layout->addWidget(colorLabel);
+
+    colorButton = new QPushButton(L("选择颜色"), this);
+    layout->addWidget(colorButton);
+
+    connect(colorButton, &QPushButton::clicked, this, &PointSettings::onColorButtonClicked);
+}
+
+void PointSettings::reset() {
+    sizeSlider->setValue(1); // 重置大小
+    colorButton->setStyleSheet("background-color: " + defaultColor.name());
+}
+
+void PointSettings::onColorButtonClicked() {
+    currentColor = QColorDialog::getColor(currentColor, this, L("选择颜色"));
+    if (currentColor.isValid()) {
+        colorButton->setStyleSheet("background-color: " + currentColor.name());
+    }
 }

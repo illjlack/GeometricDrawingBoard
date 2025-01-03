@@ -5,6 +5,7 @@
 #include <QMouseEvent>
 #include <QPoint>
 #include <vector>
+#include "Shapes.h"
 
 class Canvas : public QWidget
 {
@@ -35,6 +36,8 @@ public:
     bool saveToFile(const QString& fileName);
     bool exportToShp(const QString& fileName);
 
+    void pushShape(Shape* shape);
+
 protected:
     void paintEvent(QPaintEvent* event) override;        // 重绘事件
     void mousePressEvent(QMouseEvent* event) override;   // 鼠标按下事件
@@ -44,9 +47,6 @@ protected:
 private:
     DrawMode currentMode;           // 当前绘制模式
     DrawState currentState;         // 当前绘制状态
-    std::vector<QPoint> points;     // 已绘制的点
-    std::vector<std::vector<QPoint>> lines;    // 已绘制的线段
-    std::vector<std::vector<QPoint>> polygons; // 已绘制的多边形
 
-    QPoint tempStartPoint; // 当前线条或多边形的起点
+    std::vector<Shape*> vec;
 };

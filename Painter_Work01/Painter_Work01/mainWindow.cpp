@@ -7,11 +7,11 @@
 #include "comm.h"
 
 
-mainWindow::mainWindow(QWidget *parent)
-    : QMainWindow(parent)
+mainWindow::mainWindow(QWidget* parent)
+    : QMainWindow(parent), canvas(new Canvas(this))
 {
-    // 设置中心控件为 Canvas
-    // setCentralWidget(canvas);
+     //设置中心控件为 Canvas
+     setCentralWidget(canvas);
 
     // 创建菜单栏、工具栏和状态栏
     createMenuBar();

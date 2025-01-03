@@ -35,23 +35,23 @@ bool Canvas::loadFromFile(const QString& fileName)
 
 bool Canvas::saveToFile(const QString& fileName)
 {
-    QFile file(fileName);
-    if (!file.open(QIODevice::WriteOnly)) {
-        return false;
-    }
+    //QFile file(fileName);
+    //if (!file.open(QIODevice::WriteOnly)) {
+    //    return false;
+    //}
 
-    QJsonDocument doc;
-    QJsonArray pointArray;
-    for (const QPoint& point : points) {
-        QJsonArray pointData;
-        pointData.append(point.x());
-        pointData.append(point.y());
-        pointArray.append(pointData);
-    }
-    // todo
-    doc.setArray(pointArray);
-    file.write(doc.toJson());
-    file.close();
+    //QJsonDocument doc;
+    //QJsonArray pointArray;
+    //for (const QPoint& point : points) {
+    //    QJsonArray pointData;
+    //    pointData.append(point.x());
+    //    pointData.append(point.y());
+    //    pointArray.append(pointData);
+    //}
+    //// todo
+    //doc.setArray(pointArray);
+    //file.write(doc.toJson());
+    //file.close();
     return true;
 }
 
@@ -62,32 +62,21 @@ bool Canvas::exportToShp(const QString& fileName)
     return false;
 }
 
+void Canvas::pushShape(Shape* shape)
+{
+    vec.push_back(shape);
+}
+
 void Canvas::paintEvent(QPaintEvent* event)
 {
-    //QPainter painter(this);
-    //painter.setRenderHint(QPainter::Antialiasing); // 启用抗锯齿
-
-    //// 绘制点
-    //painter.setPen(Qt::black);
-    //for (const QPoint& point : points) {
-    //    painter.drawEllipse(point, 5, 5);
-    //}
-
-    //// 绘制线
-    //painter.setPen(QPen(Qt::blue, 2));
-    //for (const auto& line : lines) {
-    //    for (size_t i = 1; i < line.size(); ++i) {
-    //        painter.drawLine(line[i - 1], line[i]);
-    //    }
-    //}
-
-    //// 绘制多边形
-    //painter.setPen(QPen(Qt::green, 2));
-    //for (const auto& polygon : polygons) {
-    //    if (polygon.size() > 2) {
-    //        painter.drawPolygon(polygon.data(), polygon.size());
-    //    }
-    //}
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing); // 启用抗锯齿
+    painter.fillRect(this->rect(), Qt::white); // 绘制白色背景
+    
+    for (auto shape : vec)
+    {
+        shape->draw(painter);
+    }
 }
 
 
@@ -100,6 +89,26 @@ void Canvas::mousePressEvent(QMouseEvent* event)
     //    tempStartPoint = event->pos();
     //}
     //update();
+    
+        // 获取点击位置
+    //QPointF clickPos = event->pos();
+
+    //// 判断当前绘制模式
+    //if (currentMode == DrawPoint) {
+    //    // 创建一个点对象，传入点击的位置，颜色和形状可以根据需要调整
+    //    Point newPoint(clickPos, Qt::black, Point::Shape::Circle);
+
+    //    // 将新创建的点添加到点集合中
+    //    points.push_back(newPoint);
+
+    //    // 更新画布进行重绘
+    //    update();
+    //}
+
+    QPointF clickPos = event->pos();
+    Point *point = new Point(clickPos, Qt::black, Point::Shape::Circle);
+    pushShape(point);
+    update();
 }
 
 void Canvas::mouseMoveEvent(QMouseEvent* event)

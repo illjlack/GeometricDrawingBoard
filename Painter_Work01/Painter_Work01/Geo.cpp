@@ -13,6 +13,11 @@ Geo::GeoDrawState Geo::getGeoDrawState()
     return geoDrawState;
 }
 
+bool Geo::getIsInvalid()
+{
+    return isInvalid;
+}
+
 
 
 void Geo::keyPressEvent(QKeyEvent* event)
@@ -47,6 +52,11 @@ void Geo::setGeoType(Geo::GeoType newType)
 void Geo::setGeoDrawState(GeoDrawState newState)
 {
     geoDrawState = newState;
+}
+
+void Geo::setIsInvalid(bool flag)
+{
+    isInvalid = true;
 }
 
 // =======================================================================================================Point
@@ -190,6 +200,11 @@ float BaseLine::getDashPattern() const {
     return dashPattern;
 }
 
+void BaseLine::pushPoint(QPointF& point)
+{
+    points.push_back(point);
+}
+
 // =======================================================================================================Polyline
 // 构造函数
 Polyline::Polyline(const QVector<QPointF>& points,
@@ -238,7 +253,8 @@ void Polyline::mousePressEvent(QMouseEvent* event)
     {
         if (getGeoDrawState() == Geo::GeoDrawState::Drawing)
         {
-            points.push_back(event->pos());
+            QPointF point = event->pos();
+            pushPoint(point);
         }
     }
 }
@@ -266,7 +282,8 @@ void Spline::mousePressEvent(QMouseEvent* event)
     {
         if (getGeoDrawState() == Geo::GeoDrawState::Drawing)
         {
-            points.push_back(event->pos());
+            QPointF point = event->pos();
+            pushPoint(point);
             curvePoints = mathUtil::calculateBSpline(points, 3, 10*points.size());
         }
     }
@@ -310,3 +327,119 @@ void Spline::draw(QPainter& painter) {
         painter.drawPolyline(points);
     }
 }
+// ===================================================================== Polygon
+Polygon::Polygon(const QVector<QPointF>& points, const QColor& fillColor, const QColor& borderColor, BaseLine::Style borderStyle, float borderWidth)
+{
+}
+
+Polygon::Polygon()
+{
+}
+
+Polygon::~Polygon()
+{
+}
+
+void Polygon::setFillColor(const QColor& color)
+{
+    fillColor = color;
+}
+
+QColor Polygon::getFillColor() const
+{
+    return fillColor;
+}
+
+void Polygon::setBorderColor(const QColor& color)
+{
+    borderColor = color;
+}
+
+QColor Polygon::getBorderColor() const
+{
+    return  borderColor;
+}
+
+void Polygon::setBorderStyle(BaseLine::Style style)
+{
+    borderStyle = style;
+}
+
+BaseLine::Style Polygon::getBorderStyle() const
+{
+    return  borderStyle;
+}
+
+void Polygon::setBorderWidth(float width)
+{
+    borderWidth = width;
+}
+
+float Polygon::getBorderWidth() const
+{
+    return borderWidth;
+}
+
+void Polygon::draw(QPainter& painter)
+{
+    if (!edges) {
+        return; // 如果没有边界数据，直接返回
+    }
+    QPen pen(Qt::black, 2);
+    painter.setPen(pen);
+
+    edges->draw(painter);
+
+    if (getGeoDrawState() == GeoDrawState::Complete) {
+        QBrush brush(Qt::blue); // 填充为蓝色
+        painter.setBrush(brush);
+
+        QPainterPath path;
+        QVector<QPointF> points = edges->getPoints();
+        if (!points.isEmpty()) {
+            path.moveTo(points[0]);
+            for (int i = 1; i < points.size(); ++i) {
+                path.lineTo(points[i]);
+            }
+            path.closeSubpath(); // 闭合路径
+            painter.drawPath(path);
+        }
+    }
+}
+
+void Polygon::mousePressEvent(QMouseEvent* event)
+{
+    if (getGeoDrawState() == Geo::GeoDrawState::Complete)
+    {
+        return;
+    }
+
+    if (event->button() == Qt::RightButton)
+    {
+        setGeoDrawState(Geo::GeoDrawState::Complete);
+
+        if (!edges)
+        {
+            setIsInvalid(true); // 作废
+            return;
+        }
+        QPointF* firstPoint = edges->points.begin();
+        if (!firstPoint)
+        {
+            setIsInvalid(true); // 作废
+            return;
+        }
+        edges->pushPoint(*firstPoint);
+        edges->setGeoDrawState(Geo::GeoDrawState::Complete);
+        setGeoDrawState(Geo::GeoDrawState::Complete);
+    }
+    else
+    {
+        if (!edges)
+        {
+            edges = new Polyline();
+        }
+        edges->mousePressEvent(event);
+    }
+}
+

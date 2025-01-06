@@ -23,7 +23,8 @@ public:
         DrawSpline,                // 样条线
         DrawArcThreePoints,        // 三点圆弧
         DrawArcTwoPoints,          // 两点圆弧
-        DrawStreamline             // 流线
+        DrawStreamline,             // 流线
+        DrawPolygon
     };
 
     // 绘制状态

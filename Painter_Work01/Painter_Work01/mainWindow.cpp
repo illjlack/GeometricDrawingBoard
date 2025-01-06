@@ -65,11 +65,12 @@ void mainWindow::createToolBar()
     QAction* drawPointAction = toolBar->addAction(L("绘制点"));
     QAction* drawPolyLineAction = toolBar->addAction(L("绘制折线"));
     QAction* drawSplineAction = toolBar->addAction(L("绘制条样线"));
-
+    QAction* drawPolygonAction = toolBar->addAction(L("绘制简单面"));
 
     connect(drawPointAction, &QAction::triggered, this, [=]() {canvas->setDrawMode(Canvas::DrawMode::DrawPoint); });
     connect(drawPolyLineAction, &QAction::triggered, this, [=]() {canvas->setDrawMode(Canvas::DrawMode::DrawPolyline); });
     connect(drawSplineAction, &QAction::triggered, this, [=]() {canvas->setDrawMode(Canvas::DrawMode::DrawSpline); });
+    connect(drawPolygonAction, &QAction::triggered, this, [=]() {canvas->setDrawMode(Canvas::DrawMode::DrawPolygon); });
     addToolBar(toolBar);
 }
 

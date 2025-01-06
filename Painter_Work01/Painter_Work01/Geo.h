@@ -31,6 +31,7 @@ public:
 
     GeoType getType();
     GeoDrawState getGeoDrawState();
+    bool getIsInvalid();
     
     // 接受鼠标和键盘事件来进行绘制
     virtual void keyPressEvent(QKeyEvent* event);
@@ -43,10 +44,13 @@ public:
 protected:
     void setGeoType(Geo::GeoType newType);
     void setGeoDrawState(GeoDrawState newState);
+    void setIsInvalid(bool flag);
 
 private:
     GeoType geoType = GeoType::Undefined;
     GeoDrawState geoDrawState = GeoDrawState::Drawing;
+
+    bool isInvalid = false; // 无效
 };
 
 
@@ -114,7 +118,12 @@ public:
     void setDashPattern(float pattern);
     float getDashPattern() const;
 
+    void pushPoint(QPointF& point);
+
+
 protected:
+    // 设置 Polygon 类为友元类
+    friend class Polygon;
     QVector<QPointF> points;    // 点集
     QColor color = Qt::red;     // 颜色
     Style style = Style::Solid; // 样式
@@ -149,4 +158,41 @@ public:
 protected:
     QVector<QPointF> curvePoints;
     void draw(QPainter& painter) override;
+};
+
+
+
+// ================================================ Polygon
+class Polygon : public Geo {
+public:
+    Polygon(const QVector<QPointF>& points,
+        const QColor& fillColor = Qt::white,
+        const QColor& borderColor = Qt::black,
+        BaseLine::Style borderStyle = BaseLine::Style::Solid,
+        float borderWidth = 1.0f);
+    Polygon();
+    ~Polygon();
+
+    void setFillColor(const QColor& color);
+    QColor getFillColor() const;
+
+    void setBorderColor(const QColor& color);
+    QColor getBorderColor() const;
+
+    void setBorderStyle(BaseLine::Style style);
+    BaseLine::Style getBorderStyle() const;
+
+    void setBorderWidth(float width);
+    float getBorderWidth() const;
+
+    void draw(QPainter& painter) override;
+
+    void mousePressEvent(QMouseEvent* event) override;
+
+private:
+    BaseLine* edges = nullptr;
+    QColor fillColor;               // 面内填充颜色
+    QColor borderColor;             // 边框颜色
+    float borderWidth;              // 边框宽度
+    BaseLine::Style borderStyle;    // 边框线形
 };

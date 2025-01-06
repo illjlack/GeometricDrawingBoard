@@ -84,6 +84,10 @@ Geo* Canvas::createShape()
     {
         geo = new Spline();
     }
+    else if (Mode::DrawPolygon == currentMode)
+    {
+        geo = new Polygon();
+    }
 
     return geo;
 }

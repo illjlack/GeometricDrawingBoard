@@ -100,6 +100,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="DrawSettings.cpp" />
     <ClCompile Include="mathUtil.cpp" />
     <ClCompile Include="Geo.cpp" />
     <QtRcc Include="mainWindow.qrc" />
@@ -109,6 +110,7 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="DrawSettings.h" />
     <ClInclude Include="mathUtil.h" />
     <ClInclude Include="Geo.h" />
     <QtMoc Include="Canvas.h" />

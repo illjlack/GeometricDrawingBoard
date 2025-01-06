@@ -5,27 +5,10 @@
 #include <QVector>
 #include <QKeyEvent>
 
+#include "DrawSettings.h"
 
 class Geo {
 public:
-    enum class GeoType {
-        Undefined = 0,         // 未定义
-
-        Point,                 // 点
-        
-        Polyline,              // 折线
-        Spline,                // 样条线
-        ArcThreePoints,        // 三点圆弧
-        ArcTwoPoints,          // 两点圆弧
-        Streamline             // 流线
-    };
-
-    enum class  GeoDrawState
-    {
-        Complete,   // 空闲状态
-        Drawing     // 正在绘制
-    };
-
     virtual ~Geo() = default;
     virtual void draw(QPainter& painter) = 0; // 绘制方法
 
@@ -42,7 +25,7 @@ public:
     virtual void wheelEvent(QWheelEvent* event);
 
 protected:
-    void setGeoType(Geo::GeoType newType);
+    void setGeoType(GeoType newType);
     void setGeoDrawState(GeoDrawState newState);
     void setIsInvalid(bool flag);
 
@@ -86,14 +69,10 @@ private:
 
 class BaseLine : public Geo {
 public:
-    enum class Style {
-        Solid,     // 实线
-        Dashed     // 虚线
-    };
     BaseLine();
     BaseLine(const QVector<QPointF>& points,
         QColor color = Qt::black,
-        Style style = Style::Solid,
+        LineStyle LineStyle = LineStyle::Solid,
         float width = 1.0f,
         float dashPattern = 1.0f);
     virtual ~BaseLine();
@@ -106,11 +85,11 @@ public:
     void setColor(QColor color);
     QColor getColor() const;
 
-    // 设置样式
-    void setStyle(Style style);
-    Style getStyle() const;
+    // 设置线形
+    void setLineStyle(LineStyle lineStyle);
+    LineStyle getLineStyle() const;
 
-    // 设置线宽
+    // 设置线型
     void setLineWidth(float width);
     float getLineWidth() const;
 
@@ -126,7 +105,7 @@ protected:
     friend class Polygon;
     QVector<QPointF> points;    // 点集
     QColor color = Qt::red;     // 颜色
-    Style style = Style::Solid; // 样式
+    LineStyle lineStyle = LineStyle::Solid; // 样式
     float lineWidth = 1.0f;       // 线宽
     float dashPattern = 1.0f;     // 虚线段长
 };
@@ -137,7 +116,7 @@ public:
     Polyline();
     Polyline(const QVector<QPointF>& points,
         QColor color = Qt::black,
-        Style style = Style::Solid,
+        LineStyle LineStyle = LineStyle::Solid,
         float width = 1.0f);
 
     void mousePressEvent(QMouseEvent* event) override;
@@ -150,7 +129,7 @@ class Spline : public BaseLine {
 public:
     Spline(const QVector<QPointF>& points,
         QColor color = Qt::black,
-        Style style = Style::Solid,
+        LineStyle LineStyle = LineStyle::Solid,
         float width = 1.0f);
     Spline();
     void mousePressEvent(QMouseEvent* event) override;
@@ -168,7 +147,7 @@ public:
     Polygon(const QVector<QPointF>& points,
         const QColor& fillColor = Qt::white,
         const QColor& borderColor = Qt::black,
-        BaseLine::Style borderStyle = BaseLine::Style::Solid,
+        LineStyle borderStyle = LineStyle::Solid,
         float borderWidth = 1.0f);
     Polygon();
     ~Polygon();
@@ -179,8 +158,8 @@ public:
     void setBorderColor(const QColor& color);
     QColor getBorderColor() const;
 
-    void setBorderStyle(BaseLine::Style style);
-    BaseLine::Style getBorderStyle() const;
+    void setBorderStyle(LineStyle LineStyle);
+    LineStyle getBorderStyle() const;
 
     void setBorderWidth(float width);
     float getBorderWidth() const;
@@ -194,5 +173,5 @@ private:
     QColor fillColor;               // 面内填充颜色
     QColor borderColor;             // 边框颜色
     float borderWidth;              // 边框宽度
-    BaseLine::Style borderStyle;    // 边框线形
+    LineStyle borderStyle;    // 边框线形
 };

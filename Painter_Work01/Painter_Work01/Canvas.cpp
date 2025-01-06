@@ -3,20 +3,15 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QMessageBox>
+#include "comm.h"
 
 Canvas::Canvas(QWidget* parent)
-    : QWidget(parent), currentMode(None)
+    : QWidget(parent)
 {
     setMouseTracking(true); // 启用鼠标跟踪
 }
 
 Canvas::~Canvas() {}
-
-void Canvas::setDrawMode(DrawMode mode)
-{
-    currentMode = mode;
-    update(); // 更新画布
-}
 
 bool Canvas::loadFromFile(const QString& fileName)
 {
@@ -69,26 +64,25 @@ void Canvas::pushShape(Geo* geo)
 
 Geo* Canvas::createShape()
 {
-    using Mode = Canvas::DrawMode;
     Geo* geo = nullptr;
-
-    if (Mode::DrawPoint == currentMode)
+    switch (getSettingInt(Key_DrawMode))
     {
+    case DrawMode::DrawPoint:
         geo = new Point();
-    }
-    else if (Mode::DrawPolyline == currentMode)
-    {
+        break;
+    case DrawMode::DrawPolyline:
         geo = new Polyline();
-    }
-    else if (Mode::DrawSpline == currentMode)
-    {
+        break;
+    case DrawMode::DrawSpline:
         geo = new Spline();
-    }
-    else if (Mode::DrawPolygon == currentMode)
-    {
+        break;
+    case DrawMode::DrawPolygon:
         geo = new Polygon();
+        break;
+    default:
+        throw std::runtime_error("null DrawMode!!!!");
+        break;
     }
-
     return geo;
 }
 
@@ -138,9 +132,9 @@ void Canvas::mousePressEvent(QMouseEvent* event)
     //    update();
     //}
 
-    if (Canvas::DrawMode::None != currentMode)
+    if (DrawMode::None != getSettingInt(Key_DrawMode))
     {
-        if (!currentDrawGeo || currentDrawGeo->getGeoDrawState() == Geo::GeoDrawState::Complete)
+        if (!currentDrawGeo || currentDrawGeo->getGeoDrawState() == GeoDrawState::Complete)
         {
             currentDrawGeo = createShape();
             pushShape(currentDrawGeo);

@@ -8,7 +8,7 @@
 #include <QLabel>
 #include <QDockWidget>
 #include "comm.h"
-
+#include "DrawSettings.h"
 
 mainWindow::mainWindow(QWidget* parent)
     : QMainWindow(parent), canvas(new Canvas(this))
@@ -63,14 +63,13 @@ void mainWindow::createToolBar()
 
     // 添加工具栏按钮
     QAction* drawPointAction = toolBar->addAction(L("绘制点"));
-    QAction* drawPolyLineAction = toolBar->addAction(L("绘制折线"));
+    QAction* drawPolylineAction = toolBar->addAction(L("绘制折线"));
     QAction* drawSplineAction = toolBar->addAction(L("绘制条样线"));
     QAction* drawPolygonAction = toolBar->addAction(L("绘制简单面"));
-
-    connect(drawPointAction, &QAction::triggered, this, [=]() {canvas->setDrawMode(Canvas::DrawMode::DrawPoint); });
-    connect(drawPolyLineAction, &QAction::triggered, this, [=]() {canvas->setDrawMode(Canvas::DrawMode::DrawPolyline); });
-    connect(drawSplineAction, &QAction::triggered, this, [=]() {canvas->setDrawMode(Canvas::DrawMode::DrawSpline); });
-    connect(drawPolygonAction, &QAction::triggered, this, [=]() {canvas->setDrawMode(Canvas::DrawMode::DrawPolygon); });
+    connect(drawPointAction, &QAction::triggered, this, [] {setSetting(Key_DrawMode, DrawMode::DrawPoint); });
+    connect(drawPolylineAction, &QAction::triggered, this, [] {setSetting(Key_DrawMode, DrawMode::DrawPolyline); });
+    connect(drawSplineAction, &QAction::triggered, this, [] {setSetting(Key_DrawMode, DrawMode::DrawSpline); });
+    connect(drawPolygonAction, &QAction::triggered, this, [] {setSetting(Key_DrawMode, DrawMode::DrawPolygon); });
     addToolBar(toolBar);
 }
 

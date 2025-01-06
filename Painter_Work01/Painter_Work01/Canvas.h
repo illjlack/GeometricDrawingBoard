@@ -15,26 +15,6 @@ public:
     explicit Canvas(QWidget* parent = nullptr);
     ~Canvas();
 
-    // 绘制模式
-    enum DrawMode {
-        None,       
-        DrawPoint,
-        DrawPolyline,              // 折线
-        DrawSpline,                // 样条线
-        DrawArcThreePoints,        // 三点圆弧
-        DrawArcTwoPoints,          // 两点圆弧
-        DrawStreamline,             // 流线
-        DrawPolygon
-    };
-
-    // 绘制状态
-    enum DrawState {
-        Idle,       // 空闲状态
-        Drawing     // 正在绘制
-    };
-
-    void setDrawMode(DrawMode mode); // 设置绘制模式
-
     // 文件操作接口
     bool loadFromFile(const QString& fileName);
     bool saveToFile(const QString& fileName);
@@ -54,8 +34,6 @@ protected:
     void wheelEvent(QWheelEvent* event) override;
 
 private:
-    DrawMode currentMode;           // 当前绘制模式
-    DrawState currentState;         // 当前绘制状态
 
     Geo* currentDrawGeo = nullptr;
     std::vector<Geo*> vec;

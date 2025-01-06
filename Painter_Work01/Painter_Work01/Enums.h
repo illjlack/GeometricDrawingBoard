@@ -9,11 +9,21 @@ enum DrawSettingKey
 {
     BeginDrawSettingKey = 0,
 
-    Key_DrawMode,   //选择绘制的类型（点,折线...）
-    Key_LineWidth,
-    Key_LineColor,
-    Key_FillColor,
-    Key_Opacity,
+    Key_DrawMode,   // 选择绘制的类型（点,折线...）
+
+    Key_PointShape, // 点的形状
+    Key_PointColor, // 点的颜色
+
+    Key_LineStyle,          // 线的样式
+    Key_LineWidth,          // 线宽
+    Key_LineColor,          // 线的颜色
+    Key_LineDashPattern,    // 虚线段长
+
+    Key_PgFillColor,          // 面填充颜色
+    Key_PgLineWidth,          // 面的边框宽
+    Key_PgLineColor,          // 边框颜色
+    Key_PgLineStyle,          // 线的样式
+    Key_PgLineDashPattern,    // 边框虚线段长
 
     EndDrawSettingKey
 };
@@ -70,3 +80,11 @@ enum LineStyle {
     EndStyle
 };
 
+enum PointShape {
+    BeginPointShape = EndStyle,
+
+    Square,     // 方形
+    Circle,     // 圆形
+
+    EndPointShape
+};

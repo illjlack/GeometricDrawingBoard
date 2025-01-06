@@ -65,7 +65,7 @@ void Canvas::pushShape(Geo* geo)
 Geo* Canvas::createShape()
 {
     Geo* geo = nullptr;
-    switch (getSettingInt(Key_DrawMode))
+    switch (getSetting<DrawMode>(Key_DrawMode))
     {
     case DrawMode::DrawPoint:
         geo = new Point();
@@ -132,7 +132,7 @@ void Canvas::mousePressEvent(QMouseEvent* event)
     //    update();
     //}
 
-    if (DrawMode::None != getSettingInt(Key_DrawMode))
+    if (DrawMode::None != getSetting<DrawMode>(Key_DrawMode))
     {
         if (!currentDrawGeo || currentDrawGeo->getGeoDrawState() == GeoDrawState::Complete)
         {

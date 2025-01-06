@@ -59,11 +59,11 @@ void Geo::setIsInvalid(bool flag)
 
 // =======================================================================================================Point
 
-Point::Point():color(Qt::red)
+Point::Point()
 {
 }
 
-Point::Point(const QPointF& position, QColor color, Shape shape)
+Point::Point(const QPointF& position, QColor color, PointShape shape)
     : position(position), color(color), shape(shape)
 {
     setGeoType(GeoType::TypePoint);
@@ -94,12 +94,12 @@ void Point::setColor(const QColor& newColor)
     color = newColor;
 }
 
-Point::Shape Point::getShape() const
+PointShape Point::getShape() const
 {
     return shape;
 }
 
-void Point::setShape(Shape newShape)
+void Point::setShape(PointShape newShape)
 {
     shape = newShape;
 }
@@ -113,14 +113,16 @@ void Point::draw(QPainter& painter)
     // 创建一个 QPainterPath
     QPainterPath path;
 
-    if (shape == Shape::Square) {
+    if (shape == PointShape::Square) {
         path.addRect(position.x() - 5, position.y() - 5, 10, 10);  // 绘制一个 10x10 的矩形
     }
-    else if (shape == Shape::Circle) {
+    else if (shape == PointShape::Circle) {
         path.addEllipse(position, 5.0, 5.0);  // 绘制半径为 5 的圆
     }
 
     painter.drawPath(path);
+
+    painter.setBrush(Qt::NoBrush);
 }
 
 void Point::mousePressEvent(QMouseEvent* event)
@@ -138,24 +140,17 @@ BaseLine::BaseLine()
 {
 }
 
-BaseLine::BaseLine(const QVector<QPointF>& points,
-    QColor color,
-    LineStyle lineStyle,
-    float width,
-    float dashPattern)
-    : points(points), color(color), lineStyle(lineStyle), lineWidth(width), dashPattern(dashPattern) {}
-
 // 析构函数
 BaseLine::~BaseLine() {}
 
 // 设置点集
 void BaseLine::setPoints(const QVector<QPointF>& points) {
-    this->points = points;
+    this->controlPoint = points;
 }
 
 // 获取点集
 QVector<QPointF> BaseLine::getPoints() const {
-    return points;
+    return controlPoint;
 }
 
 // 设置颜色
@@ -201,24 +196,16 @@ float BaseLine::getDashPattern() const {
 
 void BaseLine::pushPoint(QPointF& point)
 {
-    points.push_back(point);
+    controlPoint.push_back(point);
 }
 
 // =======================================================================================================Polyline
-// 构造函数
-Polyline::Polyline(const QVector<QPointF>& points,
-    QColor color,
-    LineStyle lineStyle,
-    float width)
-    : BaseLine(points, color, lineStyle, width)
-{
-    setGeoDrawState(GeoDrawState::Complete);
-}
-
 Polyline::Polyline()
 {
 }
-
+Polyline::~Polyline()
+{
+}
 
 // 绘制方法
 void Polyline::draw(QPainter& painter) {
@@ -238,7 +225,7 @@ void Polyline::draw(QPainter& painter) {
 
     painter.setPen(pen);
 
-    painter.drawPolyline(points);
+    painter.drawPolyline(controlPoint);
 
 }
 
@@ -259,15 +246,11 @@ void Polyline::mousePressEvent(QMouseEvent* event)
 }
 
 // ====================================================Spline
-Spline::Spline(const QVector<QPointF>& points,
-    QColor color,
-    LineStyle lineStyle,
-    float width) : BaseLine(points, color, lineStyle, width)
+Spline::Spline()
 {
-    setGeoDrawState(GeoDrawState::Complete);
 }
 
-Spline::Spline()
+Spline::~Spline()
 {
 }
 
@@ -283,7 +266,7 @@ void Spline::mousePressEvent(QMouseEvent* event)
         {
             QPointF point = event->pos();
             pushPoint(point);
-            curvePoints = mathUtil::calculateBSpline(points, 3, 10*points.size());
+            curvePoints = mathUtil::calculateBSpline(controlPoint, 3, 10*controlPoint.size());
         }
     }
 }
@@ -323,14 +306,10 @@ void Spline::draw(QPainter& painter) {
     else
     {
         // 如果没有计算出样条曲线点，则绘制输入的折线
-        painter.drawPolyline(points);
+        painter.drawPolyline(controlPoint);
     }
 }
 // ===================================================================== Polygon
-Polygon::Polygon(const QVector<QPointF>& points, const QColor& fillColor, const QColor& borderColor, LineStyle borderStyle, float borderWidth)
-{
-}
-
 Polygon::Polygon()
 {
 }
@@ -351,32 +330,32 @@ QColor Polygon::getFillColor() const
 
 void Polygon::setBorderColor(const QColor& color)
 {
-    borderColor = color;
+    lineColor = color;
 }
 
 QColor Polygon::getBorderColor() const
 {
-    return  borderColor;
+    return  lineColor;
 }
 
 void Polygon::setBorderStyle(LineStyle style)
 {
-    borderStyle = style;
+    lineStyle = style;
 }
 
 LineStyle Polygon::getBorderStyle() const
 {
-    return  borderStyle;
+    return  lineStyle;
 }
 
 void Polygon::setBorderWidth(float width)
 {
-    borderWidth = width;
+    lineWidth = width;
 }
 
 float Polygon::getBorderWidth() const
 {
-    return borderWidth;
+    return lineWidth;
 }
 
 void Polygon::draw(QPainter& painter)
@@ -405,7 +384,7 @@ void Polygon::draw(QPainter& painter)
             painter.drawPath(path);
         }
 
-        painter.setBrush(Qt::NoBrush);
+        painter.setBrush(Qt::NoBrush); //恢复无填充
     }
 
 
@@ -427,13 +406,14 @@ void Polygon::mousePressEvent(QMouseEvent* event)
             setIsInvalid(true); // 作废
             return;
         }
-        QPointF* firstPoint = edges->points.begin();
+        QPointF* firstPoint = edges->controlPoint.begin();
         if (!firstPoint)
         {
             setIsInvalid(true); // 作废
             return;
         }
-        edges->pushPoint(*firstPoint);
+        // 直接path.closeSubpath();闭合路径
+        // edges->pushPoint(*firstPoint);
         edges->setGeoDrawState(GeoDrawState::Complete);
         setGeoDrawState(GeoDrawState::Complete);
     }

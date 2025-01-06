@@ -7,11 +7,13 @@
 #include <QColor>
 #include "Enums.h"
 
+// 枚举类型（int），颜色，粗细
 using SettingValue = std::variant<int, QRgb, float>;
 
-class DrawSettings {
+// 全局
+class GlobalDrawSettings {
 public:
-    static DrawSettings& getInstance();
+    static GlobalDrawSettings& getInstance();
 
     void setSetting(DrawSettingKey key, const SettingValue& value);
 
@@ -20,27 +22,32 @@ public:
     void reset();
 
 private:
-    DrawSettings();
+    GlobalDrawSettings();
 
     std::unordered_map<DrawSettingKey, SettingValue> settings;
 };
 
+// 对选中组件的设置
+class GroupDrawSettings
+{
+    GroupDrawSettings();
+};
+
 inline void setSetting(DrawSettingKey key, const SettingValue& value)
 {
-    DrawSettings::getInstance().setSetting(key, value);
+    GlobalDrawSettings::getInstance().setSetting(key, value);
 }
 
-inline int getSettingInt(DrawSettingKey key)
-{
-   return std::get<int>(DrawSettings::getInstance().getSetting(key));
+template<class T>
+T getSetting(DrawSettingKey key) {
+    // 如果 T 是枚举类型，检查其底层类型是否为 int
+    if constexpr (std::is_enum_v<T>) {
+        static_assert(std::is_same_v<std::underlying_type_t<T>, int>, "Enum underlying type must be int.");
+        return static_cast<T>(std::get<int>(GlobalDrawSettings::getInstance().getSetting(key)));
+    }
+    // 如果 T 是非枚举类型，直接获取
+    else {
+        return std::get<T>(GlobalDrawSettings::getInstance().getSetting(key));
+    }
 }
 
-inline QRgb getSettingQRgb(DrawSettingKey key)
-{
-    return std::get<QRgb>(DrawSettings::getInstance().getSetting(key));
-}
-
-inline float getSettingFloat(DrawSettingKey key)
-{
-    return std::get<float>(DrawSettings::getInstance().getSetting(key));
-}

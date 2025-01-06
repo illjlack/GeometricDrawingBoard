@@ -1,20 +1,20 @@
 #include "DrawSettings.h"
 #include <QColor>
 
-DrawSettings& DrawSettings::getInstance() {
-    static DrawSettings instance;
+GlobalDrawSettings& GlobalDrawSettings::getInstance() {
+    static GlobalDrawSettings instance;
     return instance;
 }
 
-DrawSettings::DrawSettings() {
+GlobalDrawSettings::GlobalDrawSettings() {
     reset();
 }
 
-void DrawSettings::setSetting(DrawSettingKey key, const SettingValue& value) {
+void GlobalDrawSettings::setSetting(DrawSettingKey key, const SettingValue& value) {
     settings[key] = value;
 }
 
-SettingValue DrawSettings::getSetting(DrawSettingKey key) const {
+SettingValue GlobalDrawSettings::getSetting(DrawSettingKey key) const {
     auto it = settings.find(key);
     if (it != settings.end()) {
         return it->second;
@@ -22,12 +22,25 @@ SettingValue DrawSettings::getSetting(DrawSettingKey key) const {
     throw std::runtime_error("Setting not found and no default value available.");
 }
 
-void DrawSettings::reset() {
+void GlobalDrawSettings::reset() {
     // 初始化一些默认设置
-    settings[DrawSettingKey::Key_DrawMode] = DrawMode::None;
+    settings[Key_DrawMode] = DrawMode::None;
 
-    settings[DrawSettingKey::Key_LineWidth] = 1;
-    settings[DrawSettingKey::Key_LineColor] = QColor(Qt::black).rgba();
-    //settings[DrawSettingKey::FillColor] = "white";
-    settings[DrawSettingKey::Key_Opacity] = 1.0f;
+    settings[Key_PointShape] = PointShape::Circle;
+    settings[Key_PointColor] = QColor(Qt::black).rgba();
+
+    settings[Key_LineStyle] = LineStyle::Solid;
+    settings[Key_LineWidth] = 1.0f;
+    settings[Key_LineColor] = QColor(Qt::black).rgba();
+    settings[Key_LineDashPattern] = 5.0f;
+
+    settings[Key_PgFillColor] = QColor(Qt::blue).rgba();
+    settings[Key_PgLineWidth] = 1.0f;
+    settings[Key_PgLineColor] = QColor(Qt::black).rgba();
+    settings[Key_PgLineStyle] = LineStyle::Solid;
+    settings[Key_PgLineDashPattern] = 5.0f;
 }
+
+
+
+

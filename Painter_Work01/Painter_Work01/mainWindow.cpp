@@ -63,13 +63,28 @@ void mainWindow::createToolBar()
 
     // 添加工具栏按钮
     QAction* drawPointAction = toolBar->addAction(L("绘制点"));
+    drawPointAction->setCheckable(true); // 设置为可选中
     QAction* drawPolylineAction = toolBar->addAction(L("绘制折线"));
+    drawPolylineAction->setCheckable(true);
     QAction* drawSplineAction = toolBar->addAction(L("绘制条样线"));
+    drawSplineAction->setCheckable(true);
     QAction* drawPolygonAction = toolBar->addAction(L("绘制简单面"));
-    connect(drawPointAction, &QAction::triggered, this, [] {setSetting(Key_DrawMode, DrawMode::DrawPoint); });
-    connect(drawPolylineAction, &QAction::triggered, this, [] {setSetting(Key_DrawMode, DrawMode::DrawPolyline); });
-    connect(drawSplineAction, &QAction::triggered, this, [] {setSetting(Key_DrawMode, DrawMode::DrawSpline); });
-    connect(drawPolygonAction, &QAction::triggered, this, [] {setSetting(Key_DrawMode, DrawMode::DrawPolygon); });
+    drawPolygonAction->setCheckable(true);
+
+    // 将按钮分组，保证只能选中一个按钮
+    QActionGroup* actionGroup = new QActionGroup(this);
+    actionGroup->addAction(drawPointAction);
+    actionGroup->addAction(drawPolylineAction);
+    actionGroup->addAction(drawSplineAction);
+    actionGroup->addAction(drawPolygonAction);
+    actionGroup->setExclusive(true); // 设置为互斥
+
+
+    connect(drawPointAction, &QAction::triggered, this, [] { setSetting(Key_DrawMode, DrawMode::DrawPoint); });
+    connect(drawPolylineAction, &QAction::triggered, this, [] { setSetting(Key_DrawMode, DrawMode::DrawPolyline); });
+    connect(drawSplineAction, &QAction::triggered, this, [] { setSetting(Key_DrawMode, DrawMode::DrawSpline); });
+    connect(drawPolygonAction, &QAction::triggered, this, [] { setSetting(Key_DrawMode, DrawMode::DrawPolygon); });
+
     addToolBar(toolBar);
 }
 

@@ -2,21 +2,86 @@
 #include <QPainterPath>
 #include "mathUtil.h"
 
+Geo* createGeo(DrawMode mode)
+{
+    Geo* geo = nullptr;
+    switch (mode)
+    {
+    case DrawMode::DrawPoint:
+        geo = new Point();
+        break;
+    case DrawMode::DrawPolyline:
+        geo = new Polyline();
+        break;
+    case DrawMode::DrawSpline:
+        geo = new Spline();
+        break;
+    case DrawMode::DrawPolygon:
+        geo = new Polygon();
+        break;
+    default:
+        throw std::runtime_error("null DrawMode!!!!");
+        break;
+    }
+    return geo;
+}
+
+
 // =======================================================================================================Shape
-GeoType Geo::getType()
+GeoType Geo::getGeoType()
 {
-	return geoType;
+    return geoType;
 }
 
-GeoDrawState Geo::getGeoDrawState()
+void Geo::completeDrawing()
 {
-    return geoDrawState;
+    setStateComplete();
+    setStateNotSelected();
 }
 
-bool Geo::getIsInvalid()
+bool Geo::isStateDrawing()
 {
-    return isInvalid;
+    return !(geoState & GeoStateComplete);
 }
+
+bool Geo::isStateComplete()
+{
+    return geoState & GeoStateComplete;
+}
+
+bool Geo::isStateInvalid()
+{
+    return geoState & GeoStateInvalid;
+}
+
+bool Geo::isStateSelected()
+{
+    return geoState & GeoStateSelected;
+}
+
+void Geo::setStateInvalid()
+{
+
+    geoState |=  GeoStateInvalid;
+}
+
+void Geo::setStateComplete()
+{
+    geoState |= GeoStateComplete;
+}
+
+void Geo::setStateSelected()
+{
+    geoState |= GeoStateSelected;
+}
+
+void Geo::setStateNotSelected()
+{
+    geoState &= ~GeoStateSelected;
+}
+
+
+
 
 void Geo::keyPressEvent(QKeyEvent* event)
 {
@@ -47,27 +112,31 @@ void Geo::setGeoType(GeoType newType)
     geoType = newType;
 }
 
-void Geo::setGeoDrawState(GeoDrawState newState)
-{
-    geoDrawState = newState;
-}
+// =======================================================================================================ControlPoint
+ControlPoint::ControlPoint(QPointF& point): QPointF(point) {}
 
-void Geo::setIsInvalid(bool flag)
+void ControlPoint::draw(QPainter& painter)
 {
-    isInvalid = true;
+    // 设置画笔和画刷
+    painter.setPen(QPen(Qt::lightGray, 2));
+    painter.setBrush(Qt::NoBrush);
+
+    // 绘制控制点
+    painter.drawRect(x() - 6, y() - 6, 12, 12);
+
+    painter.setBrush(QBrush(Qt::red));
+    painter.setPen(Qt::NoPen);
+    painter.drawRect(x() - 5, y() - 5, 10, 10);
+
+    painter.setBrush(Qt::NoBrush);
 }
 
 // =======================================================================================================Point
 
 Point::Point()
 {
-}
-
-Point::Point(const QPointF& position, QColor color, PointShape shape)
-    : position(position), color(color), shape(shape)
-{
     setGeoType(GeoType::TypePoint);
-    setGeoDrawState(GeoDrawState::Complete);
+    setStateSelected(); // 还在绘制中，是当前选中
 }
 
 Point::~Point() 
@@ -106,138 +175,251 @@ void Point::setShape(PointShape newShape)
 
 void Point::draw(QPainter& painter)
 {
-    // 设置画笔颜色和无边框
-    painter.setBrush(QBrush(color));
-    painter.setPen(Qt::NoPen);
-
-    // 创建一个 QPainterPath
+    if (isStateInvalid())
+    {
+        return;
+    }
     QPainterPath path;
 
-    if (shape == PointShape::Square) {
-        path.addRect(position.x() - 5, position.y() - 5, 10, 10);  // 绘制一个 10x10 的矩形
-    }
-    else if (shape == PointShape::Circle) {
-        path.addEllipse(position, 5.0, 5.0);  // 绘制半径为 5 的圆
-    }
 
-    painter.drawPath(path);
+    if (isStateDrawing())
+    {
+        if (shape == PointShape::Square) {
+            path.addRect(tempPoint.x() - 5, tempPoint.y() - 5, 10, 10);
+        }
+        else if (shape == PointShape::Circle) {
+            path.addEllipse(tempPoint, 5.0, 5.0);
+        }
+        painter.setBrush(QBrush(color));
+        painter.setPen(Qt::NoPen);
+        painter.drawPath(path);
+        if (isStateSelected())
+        {
+            painter.setBrush(Qt::NoBrush);
+            painter.setPen(QPen(Qt::lightGray, 2));
 
+            if (shape == PointShape::Square) {
+                painter.drawRect(position.x() - 6, position.y() - 6, 12, 12);
+            }
+            else if (shape == PointShape::Circle) {
+                painter.drawEllipse(position, 6.0, 6.0);
+            }
+        }
+    }
+    else
+    {
+        if (shape == PointShape::Square) {
+            path.addRect(position.x() - 5, position.y() - 5, 10, 10);
+        }
+        else if (shape == PointShape::Circle) {
+            path.addEllipse(position, 5.0, 5.0);
+        }
+        painter.setBrush(QBrush(color));
+        painter.setPen(Qt::NoPen);
+        painter.drawPath(path);
+
+        if (isStateSelected())
+        {
+            painter.setBrush(Qt::NoBrush);
+            painter.setPen(QPen(Qt::lightGray, 2));
+
+            if (shape == PointShape::Square) {
+                painter.drawRect(position.x() - 6, position.y() - 6, 12, 12);
+            }
+            else if (shape == PointShape::Circle) {
+                painter.drawEllipse(position, 6.0, 6.0);
+            }
+        }
+    }
     painter.setBrush(Qt::NoBrush);
 }
 
+
 void Point::mousePressEvent(QMouseEvent* event)
 {
-    if (getGeoDrawState() == GeoDrawState::Drawing)
+    if (event->button() == Qt::RightButton)
     {
-        position = event->pos();
-        setGeoDrawState(GeoDrawState::Complete);
+        completeDrawing();
+    }
+    else
+    {
+        if (isStateDrawing())
+        {
+            position = event->pos();
+            completeDrawing();
+        }
     }
 }
 
+void Point::mouseMoveEvent(QMouseEvent* event)
+{
+    if (!isStateComplete())
+    {
+        tempPoint = event->pos();
+    }
+}
+
+void Point::completeDrawing()
+{
+    if (position.isNull())
+    {
+        setStateInvalid();
+    }
+    Geo::completeDrawing();
+}
+
 // =======================================================================================================BaseLine
-// 构造函数
 BaseLine::BaseLine()
 {
 }
 
-// 析构函数
-BaseLine::~BaseLine() {}
-
-// 设置点集
-void BaseLine::setPoints(const QVector<QPointF>& points) {
-    this->controlPoint = points;
+BaseLine::~BaseLine() 
+{
 }
 
-// 获取点集
-QVector<QPointF> BaseLine::getPoints() const {
-    return controlPoint;
-}
-
-// 设置颜色
 void BaseLine::setColor(QColor color) {
     this->color = color;
 }
 
-// 获取颜色
 QColor BaseLine::getColor() const {
     return color;
 }
-
 
 void BaseLine::setLineStyle(LineStyle lineStyle)
 {
     this->lineStyle = lineStyle;
 }
 
-// 获取线型
 LineStyle BaseLine::getLineStyle() const {
     return lineStyle;
 }
 
-// 设置线宽
 void BaseLine::setLineWidth(float width) {
     this->lineWidth = width;
 }
 
-// 获取线宽
 float BaseLine::getLineWidth() const {
     return lineWidth;
 }
 
-// 设置虚线段长
 void BaseLine::setDashPattern(float pattern) {
     this->dashPattern = pattern;
 }
 
-// 获取虚线段长
 float BaseLine::getDashPattern() const {
     return dashPattern;
 }
 
 void BaseLine::pushPoint(QPointF& point)
 {
-    controlPoint.push_back(point);
+    controlPoints.push_back(ControlPoint(point));
+}
+
+void BaseLine::mouseMoveEvent(QMouseEvent* event)
+{
+    if (isStateDrawing())
+    {
+        tempControlPoint = event->pos();
+    }
+}
+
+void BaseLine::completeDrawing()
+{
+    // 检查是否合法
+    if (controlPoints.size() < 2)
+    {
+        setStateInvalid();
+    }
+    Geo::completeDrawing();
+}
+
+QVector<QPointF> BaseLine::getPoints()
+{
+    return QVector<QPointF>(controlPoints.begin(), controlPoints.end());
 }
 
 // =======================================================================================================Polyline
 Polyline::Polyline()
 {
+    setGeoType(GeoType::TypePolyline);
+    setStateSelected(); // 还在绘制中，是当前选中
 }
+
 Polyline::~Polyline()
 {
 }
 
 // 绘制方法
-void Polyline::draw(QPainter& painter) {
-    // 设置画笔
+void Polyline::draw(QPainter& painter) 
+{
+    if (isStateInvalid())
+    {
+        return;
+    }
     QPen pen;
-    pen.setColor(color);
+    pen.setColor(color); 
     pen.setWidthF(lineWidth);
 
-    // 设置虚线样式
-    if (lineStyle == LineStyle::Dashed) {
+    if (lineStyle == LineStyle::Dashed) 
+    {
         pen.setStyle(Qt::DashLine);
-        pen.setDashOffset(dashPattern);  // 设置虚线段的长度
+        pen.setDashOffset(dashPattern);
     }
-    else {
+    else 
+    {
         pen.setStyle(Qt::SolidLine);
     }
-
     painter.setPen(pen);
 
-    painter.drawPolyline(controlPoint);
+    QPainterPath path;
 
+    if (!controlPoints.isEmpty()) 
+    {
+        path.moveTo(controlPoints.first());
+        for (int i = 1; i < controlPoints.size(); ++i) 
+        {
+            path.lineTo(controlPoints[i]);
+        }
+    }
+
+    if (isStateDrawing())
+    {
+        if (controlPoints.isEmpty())
+        {
+            path.moveTo(tempControlPoint);
+        }
+        else
+        {
+            path.lineTo(tempControlPoint);
+        }
+    }
+
+    painter.drawPath(path);
+
+    // 如果被选中,画控制点
+    if (isStateSelected())
+    {
+        for (auto& point : controlPoints)
+        {
+            point.draw(painter);
+        }
+        if (isStateDrawing())
+        {
+            tempControlPoint.draw(painter);
+        }
+    }
 }
+
 
 void Polyline::mousePressEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::RightButton)
     {
-        setGeoDrawState(GeoDrawState::Complete);
+        completeDrawing();
     }
     else
     {
-        if (getGeoDrawState() == GeoDrawState::Drawing)
+        if (isStateDrawing())
         {
             QPointF point = event->pos();
             pushPoint(point);
@@ -248,6 +430,8 @@ void Polyline::mousePressEvent(QMouseEvent* event)
 // ====================================================Spline
 Spline::Spline()
 {
+    setGeoType(GeoType::TypeSpline);
+    setStateSelected(); // 还在绘制中，是当前选中
 }
 
 Spline::~Spline()
@@ -258,22 +442,31 @@ void Spline::mousePressEvent(QMouseEvent* event)
 {
     if (event->button() == Qt::RightButton)
     {
-        setGeoDrawState(GeoDrawState::Complete);
+        completeDrawing();
     }
     else
     {
-        if (getGeoDrawState() == GeoDrawState::Drawing)
+        if (isStateDrawing())
         {
             QPointF point = event->pos();
             pushPoint(point);
-            curvePoints = mathUtil::calculateBSpline(controlPoint, 3, 10*controlPoint.size());
+            curvePoints = mathUtil::calculateBSpline(controlPoints, 3, 20*controlPoints.size());
         }
     }
 }
 
+QVector<QPointF> Spline::getPoints()
+{
+    return curvePoints;
+}
 
-void Spline::draw(QPainter& painter) {
-    // 设置画笔
+void Spline::draw(QPainter& painter) 
+{
+    if (isStateInvalid())
+    {
+        return;
+    }
+
     QPen pen;
     pen.setColor(color);
     pen.setWidthF(lineWidth);
@@ -281,7 +474,7 @@ void Spline::draw(QPainter& painter) {
     // 设置虚线样式
     if (lineStyle == LineStyle::Dashed) {
         pen.setStyle(Qt::DashLine);
-        pen.setDashOffset(dashPattern);  // 设置虚线段的长度
+        pen.setDashOffset(dashPattern);
     }
     else {
         pen.setStyle(Qt::SolidLine);
@@ -289,29 +482,40 @@ void Spline::draw(QPainter& painter) {
 
     painter.setPen(pen);
 
-    // 如果已经计算出样条曲线的点，则绘制样条曲线
     if (!curvePoints.isEmpty()) {
-        // 创建 QPainterPath 用于绘制平滑曲线
         QPainterPath path;
-        path.moveTo(curvePoints[0]);  // 将起点设置为曲线的第一个点
+        path.moveTo(curvePoints[0]);
 
-        // 使用 QPainterPath 逐步加入后续点
         for (int i = 1; i < curvePoints.size(); ++i) {
-            path.lineTo(curvePoints[i]);  // 将后续点连接成一条折线
+            path.lineTo(curvePoints[i]);
         }
 
-        // 使用 QPainterPath 绘制平滑曲线
         painter.drawPath(path);
     }
-    else
+
+    // 如果被选中,画控制点
+    if (isStateSelected())
     {
-        // 如果没有计算出样条曲线点，则绘制输入的折线
-        painter.drawPolyline(controlPoint);
+        for (auto& point : controlPoints)
+        {
+            point.draw(painter);
+        }
+        if (isStateDrawing())
+        {
+            tempControlPoint.draw(painter);
+        }
     }
 }
 // ===================================================================== Polygon
 Polygon::Polygon()
 {
+    setGeoType(GeoType::TypePolygon);
+    setStateSelected(); // 还在绘制中，是当前选中
+
+    edges = static_cast<BaseLine*>(createGeo(getSetting<DrawMode>(Key_PgLineMode)));
+    edges->setColor(lineColor);
+    edges->setLineWidth(lineWidth);
+    edges->setLineStyle(lineStyle);
 }
 
 Polygon::~Polygon()
@@ -360,70 +564,80 @@ float Polygon::getBorderWidth() const
 
 void Polygon::draw(QPainter& painter)
 {
-    if (!edges) {
-        return; // 如果没有边界数据，直接返回
-    }
-    QPen pen(Qt::black, 2);
-    painter.setPen(pen);
-
-    edges->draw(painter);
-
-    if (getGeoDrawState() == GeoDrawState::Complete) {
-        QBrush brush(Qt::blue); // 填充为蓝色
-        
-        painter.setBrush(brush);
-
-        QPainterPath path;
-        QVector<QPointF> points = edges->getPoints();
-        if (!points.isEmpty()) {
-            path.moveTo(points[0]);
-            for (int i = 1; i < points.size(); ++i) {
-                path.lineTo(points[i]);
-            }
-            path.closeSubpath(); // 闭合路径
-            painter.drawPath(path);
-        }
-
-        painter.setBrush(Qt::NoBrush); //恢复无填充
-    }
-
-
-}
-
-void Polygon::mousePressEvent(QMouseEvent* event)
-{
-    if (getGeoDrawState() == GeoDrawState::Complete)
+    if (!edges || isStateInvalid())
     {
         return;
     }
+    edges->draw(painter);
 
+    QBrush brush(fillColor);
+    painter.setBrush(brush);
+    QPainterPath path;
+
+    const QVector<QPointF>& points = edges->getPoints();
+
+    if (isStateComplete() && points.size())
+    {
+        path.moveTo(points[0]);
+        for (int i = 1; i < points.size(); ++i)
+        {
+            path.lineTo(points[i]);
+        }
+        path.closeSubpath(); // 闭合路径
+    }
+
+    if (isStateDrawing() && points.size())
+    {
+        QPointF& tempPoint = edges->tempControlPoint;
+        path.moveTo(points[0]);
+        for (int i = 1; i < points.size(); ++i)
+        {
+            path.lineTo(points[i]);
+        }
+        path.lineTo(tempPoint); // 临时点也加入路径
+        path.closeSubpath(); // 闭合路径
+    }
+
+    painter.drawPath(path);
+    painter.setBrush(Qt::NoBrush); // 恢复无填充     
+}
+
+
+void Polygon::mousePressEvent(QMouseEvent* event)
+{
+    if (isStateComplete())
+    {
+        return;
+    }
     if (event->button() == Qt::RightButton)
     {
-        setGeoDrawState(GeoDrawState::Complete);
-
-        if (!edges)
-        {
-            setIsInvalid(true); // 作废
-            return;
-        }
-        QPointF* firstPoint = edges->controlPoint.begin();
-        if (!firstPoint)
-        {
-            setIsInvalid(true); // 作废
-            return;
-        }
-        // 直接path.closeSubpath();闭合路径
-        // edges->pushPoint(*firstPoint);
-        edges->setGeoDrawState(GeoDrawState::Complete);
-        setGeoDrawState(GeoDrawState::Complete);
+        completeDrawing();
     }
     else
     {
-        if (!edges)
-        {
-            edges = new Polyline();
-        }
         edges->mousePressEvent(event);
     }
 }
+
+void Polygon::mouseMoveEvent(QMouseEvent* event)
+{
+    edges->mouseMoveEvent(event);
+}
+
+void Polygon::completeDrawing()
+{
+    // 检查是否合法
+    if (edges->isStateInvalid()||edges->controlPoints.size() < 3)
+    {
+        setStateInvalid();
+    }
+
+    // 把起始点也放入图形，来计算曲线(但,终点和起点放一起也很奇怪)
+    // todo
+
+    edges->completeDrawing();
+    Geo::completeDrawing();
+}
+
+ 
 

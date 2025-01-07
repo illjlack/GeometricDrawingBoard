@@ -69,10 +69,17 @@ namespace mathUtil
         return left + right;
     }
 
-    // 计算B样条曲线上的点, p是B样条的阶数
-    QVector<QPointF> calculateBSpline(const QVector<QPointF>& controlPoints, int p, int numPoints)
+    // 计算B样条曲线上的点, p是B样条的阶数 
+    // 阶数 2 (二次 B样条)：最少需要 2 + 1 = 3 个控制点。
+    // 阶数 3 ：需要 4 个
+    QVector<QPointF> calculateBSpline(const QVector<ControlPoint>& controlPoints, int p, int numPoints)
     {
         QVector<QPointF> curvePoints;
+        if (controlPoints.size() < p + 1)
+        {
+            return curvePoints; // 控制点不足
+        }
+    
         int n = controlPoints.size() - 1;  // 控制点的数量
         int m = n + p + 1;  // 节点矢量的长度
 

@@ -80,10 +80,10 @@ void mainWindow::createToolBar()
     actionGroup->setExclusive(true); // ÉèÖÃÎª»¥³â
 
 
-    connect(drawPointAction, &QAction::triggered, this, [] { setSetting(Key_DrawMode, DrawMode::DrawPoint); });
-    connect(drawPolylineAction, &QAction::triggered, this, [] { setSetting(Key_DrawMode, DrawMode::DrawPolyline); });
-    connect(drawSplineAction, &QAction::triggered, this, [] { setSetting(Key_DrawMode, DrawMode::DrawSpline); });
-    connect(drawPolygonAction, &QAction::triggered, this, [] { setSetting(Key_DrawMode, DrawMode::DrawPolygon); });
+    connect(drawPointAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawPoint); });
+    connect(drawPolylineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawPolyline); });
+    connect(drawSplineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawSpline); });
+    connect(drawPolygonAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawPolygon); });
 
     addToolBar(toolBar);
 }

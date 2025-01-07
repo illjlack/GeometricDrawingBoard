@@ -7,11 +7,15 @@
 
 #include "DrawSettings.h"
 
-// ================================================ Geo
+class Geo;
+Geo* createGeo(DrawMode mode);
+
+// ================================================================================================ Geo
 class Geo {
 public:
     virtual ~Geo() = default;
     virtual void draw(QPainter& painter) = 0; // 绘制方法
+    virtual void completeDrawing();
 
     // 接受鼠标和键盘事件来进行绘制
     virtual void keyPressEvent(QKeyEvent* event);
@@ -21,28 +25,41 @@ public:
     virtual void mouseReleaseEvent(QMouseEvent* event);
     virtual void wheelEvent(QWheelEvent* event);
 
-    GeoType getType();
-    GeoDrawState getGeoDrawState();
-    bool getIsInvalid();
+    
+    GeoType getGeoType();
 
+    bool isStateDrawing();
+    bool isStateComplete();
+    bool isStateInvalid();
+    bool isStateSelected();
+
+    void setStateInvalid();
+    void setStateComplete();
+    void setStateSelected();
+    void setStateNotSelected();
 protected:
-    void setGeoType(GeoType newType);
-    void setGeoDrawState(GeoDrawState newState);
-    void setIsInvalid(bool flag);
+    void setGeoType(GeoType newType);   // 构造函数中,确定类型
 
 private:
+    int geoState = 0;
     GeoType geoType = GeoType::Undefined;
-    GeoDrawState geoDrawState = GeoDrawState::Drawing;
-
-    bool isInvalid = false;
-    bool isSelected = false;
 };
 
-// ================================================ Point
+// ================================================================================================ ControlPoint
+
+class ControlPoint : public QPointF
+{
+public:
+    using QPointF::QPointF; // 继承 QPointF 的所有构造函数
+    ControlPoint(QPointF& point);
+    void draw(QPainter& painter);
+};
+
+
+// ================================================================================================ Point
 class Point : public Geo {
 public:
     Point();
-    Point(const QPointF& position, QColor color, PointShape shape);
     ~Point();
 
     QPointF getPosition() const;
@@ -57,21 +74,20 @@ public:
     void draw(QPainter& painter) override;
 
     void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void completeDrawing() override;
 private:
     QPointF position;                                                   // 点的位置
+    QPointF tempPoint;
     QColor color = getSetting<QRgb>(Key_PointColor);                    // 点的颜色
     PointShape shape = getSetting<PointShape>(Key_PointShape);          // 点的形状
 };
 
-// ================================================ BaseLine
+// ================================================================================================ BaseLine
 class BaseLine : public Geo {
 public:
     BaseLine();
     virtual ~BaseLine();
-
-    // 设置点集
-    void setPoints(const QVector<QPointF>& points);
-    QVector<QPointF> getPoints() const;
 
     // 设置颜色
     void setColor(QColor color);
@@ -91,11 +107,16 @@ public:
 
     void pushPoint(QPointF& point);
 
+    void mouseMoveEvent(QMouseEvent* event) override;
+
+    void completeDrawing() override;
+
+    virtual QVector<QPointF> getPoints();
 
 protected:
-    // 设置 Polygon 类为友元类(图的边是线)
     friend class Polygon;
-    QVector<QPointF> controlPoint;                                      // 控制点
+    QVector<ControlPoint> controlPoints;                                // 控制点
+    ControlPoint tempControlPoint;                                      // 暂时的控制点（追踪鼠标移动）
 
     float lineWidth = getSetting<float>(Key_LineWidth);                 // 线宽
     float dashPattern = getSetting<float>(Key_LineDashPattern);         // 虚线段长
@@ -103,7 +124,7 @@ protected:
     LineStyle lineStyle = getSetting<LineStyle>(Key_LineStyle);         // 样式
 };
 
-// ================================================ Polyline
+// ================================================================================================ Polyline
 class Polyline : public BaseLine {
 public:
     Polyline();
@@ -114,19 +135,20 @@ protected:
     void draw(QPainter& painter) override;
 };
 
-// ================================================ Spline
+// ================================================================================================ Spline
 class Spline : public BaseLine {
 public:
     Spline();
     ~Spline();
     void mousePressEvent(QMouseEvent* event) override;
 
+    QVector<QPointF> getPoints() override;
 protected:
     QVector<QPointF> curvePoints;
     void draw(QPainter& painter) override;
 };
 
-// ================================================ Polygon
+// ================================================================================================ Polygon
 class Polygon : public Geo {
 public:
     Polygon();
@@ -148,10 +170,15 @@ public:
 
     void mousePressEvent(QMouseEvent* event) override;
 
+    void mouseMoveEvent(QMouseEvent* event) override;
+
+    void completeDrawing() override;
+
 private:
     BaseLine* edges = nullptr;
+
+    float lineWidth = getSetting<float>(Key_PgLineWidth);                  // 边框宽度
     QColor fillColor = getSetting<QRgb>(Key_PgFillColor);                  // 面内填充颜色
     QColor lineColor = getSetting<QRgb>(Key_PgLineColor);                  // 边框颜色
-    float lineWidth = getSetting<float>(Key_PgLineWidth);                  // 边框宽度
     LineStyle lineStyle = getSetting<LineStyle>(Key_PgLineStyle);          // 边框线形
 };

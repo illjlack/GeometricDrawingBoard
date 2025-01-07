@@ -22,6 +22,7 @@ enum DrawSettingKey
     Key_PgFillColor,          // 面填充颜色
     Key_PgLineWidth,          // 面的边框宽
     Key_PgLineColor,          // 边框颜色
+    Key_PgLineMode,           // 边框类型
     Key_PgLineStyle,          // 线的样式
     Key_PgLineDashPattern,    // 边框虚线段长
 
@@ -50,29 +51,31 @@ enum GeoType
 {
     BeginGeoType = EndDrawMode,
 
-    Undefined,             // 未定义
-    TypePoint,                 // 点
-    TypePolyline,              // 折线
-    TypeSpline,                // 样条线
-    TypeArcThreePoints,        // 三点圆弧
-    TypeArcTwoPoints,          // 两点圆弧
+    Undefined,                  // 未定义
+    TypePoint,                  // 点
+    TypePolyline,               // 折线
+    TypeSpline,                 // 样条线
+    TypeArcThreePoints,         // 三点圆弧
+    TypeArcTwoPoints,           // 两点圆弧
     TypeStreamline,             // 流线
+    TypePolygon,                // 简单面
 
     EndGeoType
 };
 
-enum GeoDrawState
+enum GeoState
 {
-    BeginGeoDrawState = EndGeoType,
+    BeginGeoState = EndGeoType,
 
-    Complete,   // 完成绘制
-    Drawing,     // 正在绘制
+    GeoStateComplete = 1 << 0,       // 完成绘制（不加入零时控制点，跟踪鼠标）
+    GeoStateInvalid  = 1 << 2,       // 作废
+    GeoStateSelected = 1 << 3,       // 选中（显示控制点）
 
-    EndGeoDrawState
+    EndGeoState = BeginGeoState + 1
 };
 
 enum LineStyle {
-    BeginStyle = EndGeoDrawState,
+    BeginStyle = EndGeoState,
 
     Solid,     // 实线
     Dashed,     // 虚线

@@ -21,13 +21,13 @@ public:
     bool exportToShp(const QString& fileName);
 
     void pushShape(Geo* shape);
-
-    Geo* createShape();
+    void CompleteDrawing();
 
 protected:
     void paintEvent(QPaintEvent* event) override;        // 
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
+
     void mousePressEvent(QMouseEvent* event) override;   // 鼠标按下事件
     void mouseMoveEvent(QMouseEvent* event) override;    // 鼠标移动事件
     void mouseReleaseEvent(QMouseEvent* event) override; // 鼠标释放事件

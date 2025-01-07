@@ -2,6 +2,7 @@
 
 #include <QPointF>
 #include <QVector>
+#include <Geo.h>
 
 namespace mathUtil
 {
@@ -18,6 +19,6 @@ namespace mathUtil
     double coxDeBoor(const QVector<double>& knots, int i, int p, double t);
 
     // 计算B样条曲线上的点, p是B样条的阶数
-    QVector<QPointF> calculateBSpline(const QVector<QPointF>& controlPoints, int p, int numPoints);
+    QVector<QPointF> calculateBSpline(const QVector<ControlPoint>& controlPoints, int p, int numPoints);
 };
 

@@ -43,10 +43,10 @@
     <ClCompile Include="Geo.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="mathUtil.cpp">
+    <ClCompile Include="DrawSettings.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DrawSettings.cpp">
+    <ClCompile Include="GeoMathUtil.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -57,13 +57,13 @@
     <ClInclude Include="Geo.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="mathUtil.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="DrawSettings.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Enums.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="GeoMathUtil.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

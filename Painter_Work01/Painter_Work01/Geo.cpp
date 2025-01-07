@@ -1,6 +1,5 @@
 #include "Geo.h"
 #include <QPainterPath>
-#include "mathUtil.h"
 
 Geo* createGeo(DrawMode mode)
 {
@@ -428,7 +427,7 @@ void Polyline::mousePressEvent(QMouseEvent* event)
 }
 
 // ====================================================Spline
-Spline::Spline()
+Spline::Spline():geoSplineCurve(getSetting<int>(Key_SplineOrder), getSetting<int>(Key_SplineNodeCount))
 {
     setGeoType(GeoType::TypeSpline);
     setStateSelected(); // 还在绘制中，是当前选中
@@ -450,14 +449,14 @@ void Spline::mousePressEvent(QMouseEvent* event)
         {
             QPointF point = event->pos();
             pushPoint(point);
-            curvePoints = mathUtil::calculateBSpline(controlPoints, 3, 20*controlPoints.size());
+            geoSplineCurve.addControlPoint(point);
         }
     }
 }
 
 QVector<QPointF> Spline::getPoints()
 {
-    return curvePoints;
+    return geoSplineCurve.getCurvePoints();
 }
 
 void Spline::draw(QPainter& painter) 
@@ -481,6 +480,8 @@ void Spline::draw(QPainter& painter)
     }
 
     painter.setPen(pen);
+
+    const QVector<QPointF>& curvePoints = geoSplineCurve.getCurvePoints();
 
     if (!curvePoints.isEmpty()) {
         QPainterPath path;
@@ -506,6 +507,7 @@ void Spline::draw(QPainter& painter)
         }
     }
 }
+
 // ===================================================================== Polygon
 Polygon::Polygon()
 {

@@ -39,6 +39,9 @@ void GlobalDrawSettings::reset() {
     settings[Key_PgLineColor] = QColor(Qt::black).rgba();
     settings[Key_PgLineStyle] = LineStyle::Solid;
     settings[Key_PgLineDashPattern] = 5.0f;
+
+    settings[Key_SplineOrder] = 3;
+    settings[Key_SplineNodeCount] = 1000;
 }
 
 

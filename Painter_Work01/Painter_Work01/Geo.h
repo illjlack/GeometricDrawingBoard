@@ -6,6 +6,7 @@
 #include <QKeyEvent>
 
 #include "DrawSettings.h"
+#include "GeoMathUtil.h"
 
 class Geo;
 Geo* createGeo(DrawMode mode);
@@ -143,10 +144,30 @@ public:
     void mousePressEvent(QMouseEvent* event) override;
 
     QVector<QPointF> getPoints() override;
+
+    GeoSplineCurve geoSplineCurve;
+
 protected:
-    QVector<QPointF> curvePoints;
     void draw(QPainter& painter) override;
 };
+
+// ================================================================================================ Arc3Points
+//class Arc3Points : public BaseLine {
+//public:
+//    Arc3Points();
+//    ~Arc3Points();
+//
+//    void mousePressEvent(QMouseEvent* event) override;
+//    QVector<QPointF> getPoints() override;
+//
+//protected:
+//    void draw(QPainter& painter) override;
+//
+//private:
+//    
+//    void calculate(); // 计算圆弧上的点
+//};
+
 
 // ================================================================================================ Polygon
 class Polygon : public Geo {

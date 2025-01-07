@@ -19,6 +19,9 @@ enum DrawSettingKey
     Key_LineColor,          // 线的颜色
     Key_LineDashPattern,    // 虚线段长
 
+    Key_SplineOrder,          // 样条阶数
+    Key_SplineNodeCount,      // 样条节点个数
+
     Key_PgFillColor,          // 面填充颜色
     Key_PgLineWidth,          // 面的边框宽
     Key_PgLineColor,          // 边框颜色

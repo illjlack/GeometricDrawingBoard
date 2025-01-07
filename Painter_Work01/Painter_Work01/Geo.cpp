@@ -1,6 +1,9 @@
 #include "Geo.h"
 #include <QPainterPath>
 
+#define M_PI 3.14159265358979323846
+
+
 Geo* createGeo(DrawMode mode)
 {
     Geo* geo = nullptr;
@@ -17,6 +20,9 @@ Geo* createGeo(DrawMode mode)
         break;
     case DrawMode::DrawPolygon:
         geo = new Polygon();
+        break;
+    case DrawMode::DrawArcThreePoints:
+        geo = new Arc3Points();
         break;
     default:
         throw std::runtime_error("null DrawMode!!!!");
@@ -508,6 +514,168 @@ void Spline::draw(QPainter& painter)
     }
 }
 
+void Spline::completeDrawing()
+{
+    // 检查是否合法
+    if (geoSplineCurve.getDegree() + 1 > geoSplineCurve.getNumControlPoints())
+    {
+        setStateInvalid();
+    }
+    BaseLine::completeDrawing();
+}
+
+// ===================================================================== Arc3Points
+
+Arc3Points::Arc3Points()
+{
+    setGeoType(GeoType::TypeArcThreePoints);
+    setStateSelected(); // 还在绘制中，是当前选中
+}
+
+Arc3Points::~Arc3Points()
+{
+}
+
+void Arc3Points::mousePressEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::RightButton)
+    {
+        completeDrawing();
+    }
+    else
+    {
+        if (isStateDrawing())
+        {
+            QPointF point = event->pos();
+            pushPoint(point);
+            if (controlPoints.size() == 3)
+            {
+                completeDrawing();
+            }
+        }
+    }
+}
+
+void Arc3Points::completeDrawing()
+{
+    // 检查是否合法
+    if (controlPoints.size() < 3)
+    {
+        setStateInvalid();
+    }
+    BaseLine::completeDrawing();
+}
+
+QVector<QPointF> Arc3Points::getPoints()
+{
+    return QVector<QPointF>(controlPoints.begin(), controlPoints.end());
+}
+
+void Arc3Points::mouseMoveEvent(QMouseEvent* event)
+{
+    if (isStateDrawing())
+    {
+        tempControlPoint = event->pos();
+    }
+}
+
+void Arc3Points::draw(QPainter& painter)
+{
+    if (isStateInvalid())
+    {
+        return;
+    }
+
+    QPen pen;
+    pen.setColor(color);
+    pen.setWidthF(lineWidth);
+
+    // 设置虚线样式
+    if (lineStyle == LineStyle::Dashed) {
+        pen.setStyle(Qt::DashLine);
+        pen.setDashOffset(dashPattern);
+    }
+    else {
+        pen.setStyle(Qt::SolidLine);
+    }
+
+    painter.setPen(pen);
+
+    // 如果已有三个点，计算圆心和半径
+    if (controlPoints.size() == 3) {
+        QPointF center;
+        float radius;
+
+        if (calculateCircle(controlPoints[0], controlPoints[1], controlPoints[2], center, radius)) {
+            // 计算圆心和半径成功，绘制圆弧
+
+
+            QPainterPath path;
+            // 计算起始角度和结束角度
+            double startAngle = std::atan2(controlPoints[0].y() - center.y(), controlPoints[0].x() - center.x()) * 180.0 / M_PI;
+            double endAngle = std::atan2(controlPoints[2].y() - center.y(), controlPoints[2].x() - center.x()) * 180.0 / M_PI;
+
+            // 确保角度从小的开始绘制
+            double angleDiff = endAngle - startAngle;
+            if (angleDiff < 0) {
+                angleDiff += 360;  // 处理负角度的情况，确保是顺时针
+            }
+
+            path.moveTo(controlPoints[0]);  // 设置圆弧的起始点
+
+            // 绘制从 startAngle 到 endAngle 的圆弧
+            QRectF rect(center.x() - radius, center.y() - radius, 2 * radius, 2 * radius);
+            path.arcTo(rect, startAngle, angleDiff);  // 从 startAngle 到 endAngle
+
+
+            painter.drawPath(path);
+        }
+    }
+
+    if (isStateDrawing() && controlPoints.size() == 2)
+    {
+        QPointF center;
+        float radius;
+
+        if (calculateCircle(controlPoints[0], controlPoints[1], tempControlPoint, center, radius)) {
+            // 计算圆心和半径成功，绘制圆弧
+            QPainterPath path;
+
+            // 计算起始角度和结束角度
+            double startAngle = std::atan2(controlPoints[0].y() - center.y(), controlPoints[0].x() - center.x()) * 180.0 / M_PI;
+            double endAngle = std::atan2(tempControlPoint.y() - center.y(), tempControlPoint.x() - center.x()) * 180.0 / M_PI;
+
+            // 确保角度从小的开始绘制
+            double angleDiff = endAngle - startAngle;
+            if (angleDiff < 0) {
+                angleDiff += 360;  // 处理负角度的情况，确保是顺时针
+            }
+
+            path.moveTo(controlPoints[0]);  // 设置圆弧的起始点
+
+            // 绘制从 startAngle 到 endAngle 的圆弧
+            QRectF rect(center.x() - radius, center.y() - radius, 2 * radius, 2 * radius);
+            path.arcTo(rect, startAngle, angleDiff);  // 从 startAngle 到 endAngle
+
+            painter.drawPath(path);
+        }
+    }
+
+    // 如果被选中,画控制点
+    if (isStateSelected())
+    {
+        for (auto& point : controlPoints)
+        {
+            point.draw(painter);
+        }
+        if (isStateDrawing())
+        {
+            tempControlPoint.draw(painter);
+        }
+    }
+}
+
+
 // ===================================================================== Polygon
 Polygon::Polygon()
 {
@@ -640,6 +808,4 @@ void Polygon::completeDrawing()
     edges->completeDrawing();
     Geo::completeDrawing();
 }
-
- 
 

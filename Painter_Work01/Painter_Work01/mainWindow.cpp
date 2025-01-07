@@ -70,6 +70,8 @@ void mainWindow::createToolBar()
     drawSplineAction->setCheckable(true);
     QAction* drawPolygonAction = toolBar->addAction(L("绘制简单面"));
     drawPolygonAction->setCheckable(true);
+    QAction* drawArc3PointsAction = toolBar->addAction(L("绘制三点圆弧"));  // 新增三点圆弧按钮
+    drawArc3PointsAction->setCheckable(true);  // 设置为可选中
 
     // 将按钮分组，保证只能选中一个按钮
     QActionGroup* actionGroup = new QActionGroup(this);
@@ -77,16 +79,19 @@ void mainWindow::createToolBar()
     actionGroup->addAction(drawPolylineAction);
     actionGroup->addAction(drawSplineAction);
     actionGroup->addAction(drawPolygonAction);
+    actionGroup->addAction(drawArc3PointsAction);  // 将新按钮添加到分组
     actionGroup->setExclusive(true); // 设置为互斥
 
-
+    // 连接信号和槽
     connect(drawPointAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawPoint); });
     connect(drawPolylineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawPolyline); });
     connect(drawSplineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawSpline); });
     connect(drawPolygonAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawPolygon); });
+    connect(drawArc3PointsAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawArcThreePoints); }); // 连接三点圆弧按钮
 
     addToolBar(toolBar);
 }
+
 
 void mainWindow::createSideBar() {
     sideBarWidget = new QWidget(this);

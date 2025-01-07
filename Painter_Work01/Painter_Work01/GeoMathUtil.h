@@ -21,6 +21,10 @@ public:
     void removeControlPoint(int index);
     QVector<QPointF> getCurvePoints() const;
     QVector<QPointF> getControlPoints() const;
+
+    int getDegree();
+    int getNumControlPoints();
+
     void setDegree(int p);
     void setNumCurvePoints(int numPoints);
 
@@ -34,3 +38,10 @@ private:
     QVector<QPointF> controlPoints;
     QVector<QPointF> curvePoints;
 };
+
+// ========================================================================三点画圆
+// 计算三点确定的圆的圆心和半径
+bool calculateCircle(const QPointF& p1, const QPointF& p2, const QPointF& p3, QPointF& center, float& radius);
+
+// 计算两个点确定的圆的圆心和半径
+bool calculateCircle(const QPointF& p1, const QPointF& p2, QPointF& center, float& radius);

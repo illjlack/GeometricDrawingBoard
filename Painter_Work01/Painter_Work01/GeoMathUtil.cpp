@@ -83,6 +83,16 @@ QVector<QPointF> GeoSplineCurve::getControlPoints() const {
     return controlPoints;
 }
 
+int GeoSplineCurve::getDegree()
+{
+    return degree;
+}
+
+int GeoSplineCurve::getNumControlPoints()
+{
+    return controlPoints.size();
+}
+
 // 设置样条曲线的次数
 void GeoSplineCurve::setDegree(int p) {
     degree = std::max(1, p); // 保证次数至少为1
@@ -160,4 +170,53 @@ double GeoSplineCurve::coxDeBoor(const QVector<double>& knots, int i, int p, dou
     }
 
     return left + right;
+}
+
+
+// ========================================================================================Circle
+bool calculateCircle(const QPointF& p1, const QPointF& p2, const QPointF& p3, QPointF& center, float& radius) {
+    // 计算两条边的中垂线方程
+    double x1 = p1.x(), y1 = p1.y();
+    double x2 = p2.x(), y2 = p2.y();
+    double x3 = p3.x(), y3 = p3.y();
+
+    double a1 = x2 - x1, b1 = y2 - y1;
+    double a2 = x3 - x2, b2 = y3 - y2;
+
+    double mid1_x = (x1 + x2) / 2.0, mid1_y = (y1 + y2) / 2.0;
+    double mid2_x = (x2 + x3) / 2.0, mid2_y = (y2 + y3) / 2.0;
+
+    // 中垂线的斜率
+    double slope1 = -a1 / b1;
+    double slope2 = -a2 / b2;
+
+    // 解方程得到圆心
+    double c1 = mid1_y - slope1 * mid1_x;
+    double c2 = mid2_y - slope2 * mid2_x;
+
+    // 计算交点
+    if (fabs(slope1 - slope2) == 0.0f) {  // 应该不会等于0吧
+        return false; //三点共线，无法确定唯一圆
+    }
+
+    double center_x = (c2 - c1) / (slope1 - slope2);
+    double center_y = slope1 * center_x + c1;
+
+    center = QPointF(center_x, center_y);
+    // 计算半径
+    radius = std::sqrt(std::pow(center.x() - x1, 2) + std::pow(center.y() - y1, 2));
+    return true;
+}
+
+bool calculateCircle(const QPointF& p1, const QPointF& p2, QPointF& center, float& radius) {
+    // 计算两个点的中点作为圆心
+    double center_x = (p1.x() + p2.x()) / 2.0;
+    double center_y = (p1.y() + p2.y()) / 2.0;
+
+    center = QPointF(center_x, center_y);
+
+    // 计算半径为两点之间的距离
+    radius = std::sqrt(std::pow(p2.x() - p1.x(), 2) + std::pow(p2.y() - p1.y(), 2)) / 2.0;
+
+    return true;
 }

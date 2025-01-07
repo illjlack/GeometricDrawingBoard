@@ -146,27 +146,25 @@ public:
     QVector<QPointF> getPoints() override;
 
     GeoSplineCurve geoSplineCurve;
-
+    void completeDrawing() override;
 protected:
     void draw(QPainter& painter) override;
 };
 
 // ================================================================================================ Arc3Points
-//class Arc3Points : public BaseLine {
-//public:
-//    Arc3Points();
-//    ~Arc3Points();
-//
-//    void mousePressEvent(QMouseEvent* event) override;
-//    QVector<QPointF> getPoints() override;
-//
-//protected:
-//    void draw(QPainter& painter) override;
-//
-//private:
-//    
-//    void calculate(); // 计算圆弧上的点
-//};
+class Arc3Points : public BaseLine {
+public:
+    Arc3Points();
+    ~Arc3Points();
+
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    QVector<QPointF> getPoints() override;
+    void completeDrawing() override;
+
+protected:
+    void draw(QPainter& painter) override;
+};
 
 
 // ================================================================================================ Polygon

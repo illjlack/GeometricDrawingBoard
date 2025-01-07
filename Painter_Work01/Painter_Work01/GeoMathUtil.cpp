@@ -174,7 +174,13 @@ double GeoSplineCurve::coxDeBoor(const QVector<double>& knots, int i, int p, dou
 
 
 // ========================================================================================Circle
-bool calculateCircle(const QPointF& p1, const QPointF& p2, const QPointF& p3, QPointF& center, float& radius) {
+bool calculateCircle(const QPointF& p1, const QPointF& p2, const QPointF& p3, QPointF& center, double& radius) 
+{
+    if (p1 == p2 || p2 == p3 || p3 == p1) // 因为像素坐标，可能相等
+    {
+        return false;
+    }
+    
     // 计算两条边的中垂线方程
     double x1 = p1.x(), y1 = p1.y();
     double x2 = p2.x(), y2 = p2.y();
@@ -186,16 +192,30 @@ bool calculateCircle(const QPointF& p1, const QPointF& p2, const QPointF& p3, QP
     double mid1_x = (x1 + x2) / 2.0, mid1_y = (y1 + y2) / 2.0;
     double mid2_x = (x2 + x3) / 2.0, mid2_y = (y2 + y3) / 2.0;
 
-    // 中垂线的斜率
-    double slope1 = -a1 / b1;
-    double slope2 = -a2 / b2;
+    double slope1, slope2;
+    double c1, c2;
 
-    // 解方程得到圆心
-    double c1 = mid1_y - slope1 * mid1_x;
-    double c2 = mid2_y - slope2 * mid2_x;
+    // 处理竖直线情况
+    if (b1 == 0) {  // p1 到 p2 竖直线
+        slope1 = std::numeric_limits<double>::infinity();  // 无穷大
+        c1 = mid1_x;  // 中垂线为 x = mid1_x
+    }
+    else {
+        slope1 = -a1 / b1;
+        c1 = mid1_y - slope1 * mid1_x;
+    }
+
+    if (b2 == 0) {  // p2 到 p3 竖直线
+        slope2 = std::numeric_limits<double>::infinity();  // 无穷大
+        c2 = mid2_x;  // 中垂线为 x = mid2_x
+    }
+    else {
+        slope2 = -a2 / b2;
+        c2 = mid2_y - slope2 * mid2_x;
+    }
 
     // 计算交点
-    if (fabs(slope1 - slope2) == 0.0f) {  // 应该不会等于0吧
+    if (slope1 - slope2 == 0.0f) { // 可能是相等的 
         return false; //三点共线，无法确定唯一圆
     }
 
@@ -208,7 +228,7 @@ bool calculateCircle(const QPointF& p1, const QPointF& p2, const QPointF& p3, QP
     return true;
 }
 
-bool calculateCircle(const QPointF& p1, const QPointF& p2, QPointF& center, float& radius) {
+bool calculateCircle(const QPointF& p1, const QPointF& p2, QPointF& center, double& radius) {
     // 计算两个点的中点作为圆心
     double center_x = (p1.x() + p2.x()) / 2.0;
     double center_y = (p1.y() + p2.y()) / 2.0;

@@ -1,5 +1,6 @@
 #include "Geo.h"
 #include <QPainterPath>
+#include <qDebug>
 
 #define M_PI 3.14159265358979323846
 
@@ -559,7 +560,8 @@ void Arc3Points::mousePressEvent(QMouseEvent* event)
 void Arc3Points::completeDrawing()
 {
     // 检查是否合法
-    if (controlPoints.size() < 3)
+    if (controlPoints.size() < 3 || controlPoints[0] == controlPoints[1] || 
+        controlPoints[0] == controlPoints[2] || controlPoints[1] == controlPoints[2])
     {
         setStateInvalid();
     }
@@ -581,8 +583,7 @@ void Arc3Points::mouseMoveEvent(QMouseEvent* event)
 
 void Arc3Points::draw(QPainter& painter)
 {
-    if (isStateInvalid())
-    {
+    if (isStateInvalid()) {
         return;
     }
 
@@ -590,7 +591,6 @@ void Arc3Points::draw(QPainter& painter)
     pen.setColor(color);
     pen.setWidthF(lineWidth);
 
-    // 设置虚线样式
     if (lineStyle == LineStyle::Dashed) {
         pen.setStyle(Qt::DashLine);
         pen.setDashOffset(dashPattern);
@@ -601,79 +601,69 @@ void Arc3Points::draw(QPainter& painter)
 
     painter.setPen(pen);
 
-    // 如果已有三个点，计算圆心和半径
     if (controlPoints.size() == 3) {
-        QPointF center;
-        float radius;
-
-        if (calculateCircle(controlPoints[0], controlPoints[1], controlPoints[2], center, radius)) {
-            // 计算圆心和半径成功，绘制圆弧
-
-
-            QPainterPath path;
-            // 计算起始角度和结束角度
-            double startAngle = std::atan2(controlPoints[0].y() - center.y(), controlPoints[0].x() - center.x()) * 180.0 / M_PI;
-            double endAngle = std::atan2(controlPoints[2].y() - center.y(), controlPoints[2].x() - center.x()) * 180.0 / M_PI;
-
-            // 确保角度从小的开始绘制
-            double angleDiff = endAngle - startAngle;
-            if (angleDiff < 0) {
-                angleDiff += 360;  // 处理负角度的情况，确保是顺时针
-            }
-
-            path.moveTo(controlPoints[0]);  // 设置圆弧的起始点
-
-            // 绘制从 startAngle 到 endAngle 的圆弧
-            QRectF rect(center.x() - radius, center.y() - radius, 2 * radius, 2 * radius);
-            path.arcTo(rect, startAngle, angleDiff);  // 从 startAngle 到 endAngle
-
-
-            painter.drawPath(path);
-        }
+        drawArc(painter, controlPoints[0], controlPoints[1], controlPoints[2]);
     }
 
-    if (isStateDrawing() && controlPoints.size() == 2)
-    {
-        QPointF center;
-        float radius;
-
-        if (calculateCircle(controlPoints[0], controlPoints[1], tempControlPoint, center, radius)) {
-            // 计算圆心和半径成功，绘制圆弧
-            QPainterPath path;
-
-            // 计算起始角度和结束角度
-            double startAngle = std::atan2(controlPoints[0].y() - center.y(), controlPoints[0].x() - center.x()) * 180.0 / M_PI;
-            double endAngle = std::atan2(tempControlPoint.y() - center.y(), tempControlPoint.x() - center.x()) * 180.0 / M_PI;
-
-            // 确保角度从小的开始绘制
-            double angleDiff = endAngle - startAngle;
-            if (angleDiff < 0) {
-                angleDiff += 360;  // 处理负角度的情况，确保是顺时针
-            }
-
-            path.moveTo(controlPoints[0]);  // 设置圆弧的起始点
-
-            // 绘制从 startAngle 到 endAngle 的圆弧
-            QRectF rect(center.x() - radius, center.y() - radius, 2 * radius, 2 * radius);
-            path.arcTo(rect, startAngle, angleDiff);  // 从 startAngle 到 endAngle
-
-            painter.drawPath(path);
-        }
+    if (isStateDrawing() && controlPoints.size() == 2) {
+        drawArc(painter, controlPoints[0], controlPoints[1], tempControlPoint);
     }
 
-    // 如果被选中,画控制点
-    if (isStateSelected())
-    {
-        for (auto& point : controlPoints)
-        {
+    if (isStateSelected()) {
+        for (auto& point : controlPoints) {
             point.draw(painter);
         }
-        if (isStateDrawing())
-        {
+        if (isStateDrawing()) {
             tempControlPoint.draw(painter);
         }
     }
 }
+
+void Arc3Points::drawArc(QPainter& painter, const QPointF& point1, const QPointF& point2, const QPointF& point3)
+{
+    QPointF center;
+    double radius;
+
+    if (calculateCircle(point1, point2, point3, center, radius)) {
+        QPainterPath path;
+
+        double startAngle = - std::atan2(point1.y() - center.y(), point1.x() - center.x()) * 180.0 / M_PI;
+        double endAngle = - std::atan2(point3.y() - center.y(), point3.x() - center.x()) * 180.0 / M_PI;
+        double middleAngle = -std::atan2(point2.y() - center.y(), point2.x() - center.x()) * 180.0 / M_PI;
+ 
+        // 转换为[0,360]的坐标(都是逆时针方向)
+        auto normalizeAngle = [](double angle) {
+            while (angle < 0) {
+                angle += 360;
+            }
+            while (angle >360) {
+                angle -= 360;
+            }
+            return angle;
+        };
+
+        double angleDiffEnd = normalizeAngle(endAngle - startAngle);
+        double angleDiffMid = normalizeAngle(middleAngle - startAngle);
+
+        double angleDiff;
+        if (angleDiffEnd > angleDiffMid) // 同方向且第二个点在中间
+        {
+            angleDiff = angleDiffEnd;
+        }
+        else // 从另一个方向经过第二个点
+        {
+            angleDiff = angleDiffEnd - 360;
+        }
+        
+        QRectF rect(center.x() - radius, center.y() - radius, 2 * radius, 2 * radius);
+
+        path.moveTo(point1);
+
+        path.arcTo(rect, startAngle, angleDiff);
+        painter.drawPath(path);
+    }
+}
+
 
 
 // ===================================================================== Polygon

@@ -164,6 +164,7 @@ public:
 
 protected:
     void draw(QPainter& painter) override;
+    void drawArc(QPainter& painter, const QPointF& point1, const QPointF& point2, const QPointF& point3);
 };
 
 

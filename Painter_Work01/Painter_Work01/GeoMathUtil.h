@@ -41,7 +41,7 @@ private:
 
 // ========================================================================三点画圆
 // 计算三点确定的圆的圆心和半径
-bool calculateCircle(const QPointF& p1, const QPointF& p2, const QPointF& p3, QPointF& center, float& radius);
+bool calculateCircle(const QPointF& p1, const QPointF& p2, const QPointF& p3, QPointF& center, double& radius);
 
 // 计算两个点确定的圆的圆心和半径
-bool calculateCircle(const QPointF& p1, const QPointF& p2, QPointF& center, float& radius);
+bool calculateCircle(const QPointF& p1, const QPointF& p2, QPointF& center, double& radius);

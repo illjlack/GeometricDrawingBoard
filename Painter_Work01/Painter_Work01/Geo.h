@@ -144,3 +144,29 @@ protected:
     LineStyle lineStyle;           // 边框线形
     float lineDashPattern;         // 虚线段长
 };
+
+// ================================================================================================ DoubleLine
+class DoubleLine : public Geo {
+public:
+    DoubleLine();
+    void initialize() override;
+
+    // 图形构造事件
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void completeDrawing() override;
+
+    void draw(QPainter& painter) override;
+protected:
+
+    bool isDrawing;                       // 在绘制
+    QVector<QVector<QPointF>> pointss;    // 二维点集
+    QVector<Component> component;
+
+    NodeLineStyle nodeLineStyle;   // 节点线型
+    float lineWidth;               // 边框宽度
+    QColor fillColor;              // 面内填充颜色
+    QColor lineColor;              // 边框颜色
+    LineStyle lineStyle;           // 边框线形
+    float lineDashPattern;         // 虚线段长
+};

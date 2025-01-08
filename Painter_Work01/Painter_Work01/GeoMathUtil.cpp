@@ -108,10 +108,11 @@ bool calculateCloseLinePoints(NodeLineStyle lineStyle, const QVector<QPointF>& c
     }
 }
 
-bool calculateLinePoints(const QVector<Component>& components, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps)
+int calculateLinePoints(const QVector<Component>& components, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps)
 {
     linePointss.clear();  // 清空结果数组
     int startIdx = 0;
+    int result = 0; // 多少条线绘制完成
     for (const Component& component : components) {
         QVector<QPointF> linePoints;
         QVector<QPointF> controlSegment;
@@ -127,20 +128,17 @@ bool calculateLinePoints(const QVector<Component>& components, const QVector<QPo
         }
         startIdx += component.len;
 
-        bool result = calculateLinePoints(component.nodeLineStyle, controlSegment, linePoints, steps);
-        if (!result) {
-            //return false;
-        }
+        result += calculateLinePoints(component.nodeLineStyle, controlSegment, linePoints, steps);
         linePointss.push_back(linePoints); 
     }
-    return true;
+    return result;
 }
 
-bool calculateCloseLinePoints(const QVector<Component>& components, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps)
+int calculateCloseLinePoints(const QVector<Component>& components, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps)
 {
     linePointss.clear();  // 清空结果数组
     int startIdx = 0;
-    bool result = false;
+    int result = 0; // 多少条线绘制完成
     for (const Component& component : components) {
         QVector<QPointF> linePoints;
         QVector<QPointF> controlSegment;
@@ -155,12 +153,10 @@ bool calculateCloseLinePoints(const QVector<Component>& components, const QVecto
             controlSegment.push_back(controlPoints[i]);
         }
         startIdx += component.len;
-        if (calculateCloseLinePoints(component.nodeLineStyle, controlSegment, linePoints, steps)) {
-            result = true;
-        }
+
+        result += calculateLinePoints(component.nodeLineStyle, controlSegment, linePoints, steps);
         linePointss.push_back(linePoints);
     }
-    // 有一个分图成功就画
     return result;
 }
 

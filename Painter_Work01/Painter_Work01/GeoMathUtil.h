@@ -5,6 +5,9 @@
 #define M_PI 3.14159265358979323846
 #include "Enums.h"
 
+
+
+
 // 根据节点类型和控制点计算线上的点
 // 根据给定的节点类型（例如折线、样条线、三点圆弧等）和控制点，
 // 计算并返回指定数量的线段上的点。
@@ -13,8 +16,20 @@
 // steps: 步数，决定计算多少个中间点
 // linePoints: 输出参数，保存计算得到的线段上的点
 // 返回值：如果成功计算则返回 true，失败则返回 false
-bool calculateLinePoints(NodeLineStyle lineStyle, const QVector<QPointF>& controlPoints, int steps, QVector<QPointF>& linePoints);
+bool calculateLinePoints(NodeLineStyle nodeLineStyle, const QVector<QPointF>& controlPoints, QVector<QPointF>& linePoints, int steps = 200);
+bool calculateCloseLinePoints(NodeLineStyle lineStyle, const QVector<QPointF>& controlPoints, QVector<QPointF>& linePoints, int steps = 200);
 
+
+// 多个线一起算
+struct Component
+{
+	int len;
+	NodeLineStyle nodeLineStyle;
+};
+
+bool calculateLinePoints(const QVector<Component>& component, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps = 200);
+
+bool calculateCloseLinePoints(const QVector<Component>& component, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps = 200);
 
 // ======================================================================= 样条
 
@@ -61,19 +76,22 @@ bool calculateBSplineCurve(const QVector<QPointF>& controlPoints, int degree, in
 
 // ======================================================================== 三点画圆
 
+bool calculateThreeArcPointsFromControlPoints(const QVector<QPointF>& controlPoints, int steps, QVector<QPointF>& arcPoints);
+bool calculateArcPointsFromControlPoints(const QVector<QPointF>& controlPoints, int steps, QVector<QPointF>& arcPoints);
 // 根据三点计算弧线上的点
 // point1, point2, point3: 圆上的三点，用于确定圆的圆心和半径
 // steps: 步数，决定计算多少个点
 // arcPoints: 输出参数，保存计算得到的弧线上的点
 // 返回值：如果计算成功则返回 true，失败则返回 false
-bool calculateArcPointsFromControlPoints(const QPointF& point1, const QPointF& point2, const QPointF& point3, int steps, QVector<QPointF>& arcPoints);
+bool calculateArcPointsFromThreePoints(const QPointF& point1, const QPointF& point2, const QPointF& point3, int steps, QVector<QPointF>& arcPoints);
 
-// 根据两点计算弧线上的点
+// 根据点计算圆上的点
 // point1, point2: 圆上的两个已知点，用于确定圆的圆心和半径
 // steps: 步数，决定计算多少个点
-// arcPoints: 输出参数，保存计算得到的弧线上的点
+// arcPoints: 输出参数，保存计算得到的圆上的点
 // 返回值：如果计算成功则返回 true，失败则返回 false
-bool calculateArcPointsFromControlPoints(const QPointF& point1, const QPointF& point2, int steps, QVector<QPointF>& arcPoints);
+bool calculateCirclePointsFromControlPoints(const QPointF& point1, const QPointF& point2, int steps, QVector<QPointF>& arcPoints);
+bool calculateCirclePointsFromControlPoints(const QPointF& point1, const QPointF& point2, const QPointF& point3, int steps, QVector<QPointF>& arcPoints);
 
 
 // 计算通过三点确定的圆的圆心和半径

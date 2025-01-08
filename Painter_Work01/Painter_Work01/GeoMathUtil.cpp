@@ -3,12 +3,16 @@
 #include <QPointF>
 #include <cmath>
 
-bool calculateLinePoints(NodeLineStyle lineStyle, const QVector<QPointF>& controlPoints, int steps, QVector<QPointF>& linePoints)
+bool calculateLinePoints(NodeLineStyle lineStyle, const QVector<QPointF>& controlPoints, QVector<QPointF>& linePoints, int steps)
 {
  linePoints.clear();
 
  switch (lineStyle) {
  case NodeLineStyle::StylePolyline:
+     if (controlPoints.size() < 2)
+     {
+         return false;
+     }
      linePoints = controlPoints;
      return true;
 
@@ -16,11 +20,18 @@ bool calculateLinePoints(NodeLineStyle lineStyle, const QVector<QPointF>& contro
      return calculateBSplineCurve(controlPoints, 3, steps, linePoints);
 
  case NodeLineStyle::StyleThreePointArc:
-     if (controlPoints.size() != 3)
+     if (controlPoints.size() < 3)
      {
          return false;
      }
-     return calculateArcPointsFromControlPoints(controlPoints[0], controlPoints[1], controlPoints[2], steps, linePoints);
+     return calculateThreeArcPointsFromControlPoints(controlPoints, steps, linePoints);
+
+ case NodeLineStyle::StyleArc:
+     if (controlPoints.size() < 3)
+     {
+         return false;
+     }
+     return calculateArcPointsFromControlPoints(controlPoints, steps, linePoints);
 
  case NodeLineStyle::StyleStreamline:
      return false;
@@ -29,6 +40,130 @@ bool calculateLinePoints(NodeLineStyle lineStyle, const QVector<QPointF>& contro
      return false;
  }
 }
+
+// 做一下闭合
+bool calculateCloseLinePoints(NodeLineStyle lineStyle, const QVector<QPointF>& controlPoints, QVector<QPointF>& linePoints, int steps)
+{
+    linePoints.clear();
+    QVector<QPointF>  newControlPoints;
+    switch (lineStyle) {
+    case NodeLineStyle::StylePolyline:
+        if (controlPoints.size() < 3)
+        {
+            return false;
+        }
+        newControlPoints = controlPoints;
+        newControlPoints.push_back(newControlPoints[0]);
+        linePoints = newControlPoints;
+        return true;
+
+    case NodeLineStyle::StyleSpline:
+        if (controlPoints.size() < 4)
+        {
+            return false;
+        }
+        newControlPoints = controlPoints;
+        newControlPoints.push_back(newControlPoints[0]);
+        newControlPoints.push_back(newControlPoints[1]);
+        newControlPoints.push_back(newControlPoints[2]);
+        return calculateBSplineCurve(newControlPoints, 3, steps, linePoints);
+
+    case NodeLineStyle::StyleThreePointArc:
+        if (controlPoints.size() < 3)
+        {
+            return false;
+        }
+        
+        if ((controlPoints.size() - 1) & 1) // 少一个与第一个控制点一起画一个圆
+        {
+            newControlPoints = controlPoints;
+            newControlPoints.push_back(controlPoints[0]);
+            return calculateThreeArcPointsFromControlPoints(newControlPoints, steps, linePoints);
+        }
+        else
+        {
+            if (calculateThreeArcPointsFromControlPoints(controlPoints, steps, linePoints))
+            {
+                linePoints.push_back(linePoints[0]); // 直接连上第一个点
+                return true;
+            }
+            return false;
+        }
+
+    case NodeLineStyle::StyleArc:
+        if (controlPoints.size() < 3)
+        {
+            return false;
+        }
+        newControlPoints = controlPoints;
+        newControlPoints.push_back(controlPoints[0]);
+        return calculateArcPointsFromControlPoints(newControlPoints, steps, linePoints);
+
+
+    case NodeLineStyle::StyleStreamline:
+        return false;
+
+    default:
+        return false;
+    }
+}
+
+bool calculateLinePoints(const QVector<Component>& components, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps)
+{
+    linePointss.clear();  // 清空结果数组
+    int startIdx = 0;
+    for (const Component& component : components) {
+        QVector<QPointF> linePoints;
+        QVector<QPointF> controlSegment;
+
+        if (startIdx + component.len > controlPoints.size())
+        {
+            return false;
+        }
+
+        for (int i = startIdx; i < startIdx + component.len; i++)
+        {
+            controlSegment.push_back(controlPoints[i]);
+        }
+        startIdx += component.len;
+
+        bool result = calculateLinePoints(component.nodeLineStyle, controlSegment, linePoints, steps);
+        if (!result) {
+            //return false;
+        }
+        linePointss.push_back(linePoints); 
+    }
+    return true;
+}
+
+bool calculateCloseLinePoints(const QVector<Component>& components, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps)
+{
+    linePointss.clear();  // 清空结果数组
+    int startIdx = 0;
+    bool result = false;
+    for (const Component& component : components) {
+        QVector<QPointF> linePoints;
+        QVector<QPointF> controlSegment;
+
+        if (startIdx + component.len > controlPoints.size())
+        {
+            return false;
+        }
+
+        for (int i = startIdx; i < startIdx + component.len; i++)
+        {
+            controlSegment.push_back(controlPoints[i]);
+        }
+        startIdx += component.len;
+        if (calculateCloseLinePoints(component.nodeLineStyle, controlSegment, linePoints, steps)) {
+            result = true;
+        }
+        linePointss.push_back(linePoints);
+    }
+    // 有一个分图成功就画
+    return result;
+}
+
 
 
 // =================================================================================================贝塞尔曲线
@@ -150,7 +285,7 @@ double coxDeBoor(const QVector<double>& knots, int i, int p, double t) {
 }
 
 
-// ========================================================================================Circle
+// ========================================================================================Arc和Circle
 bool calculateCircle(const QPointF& p1, const QPointF& p2, const QPointF& p3, QPointF& center, double& radius) 
 {
     if (p1 == p2 || p2 == p3 || p3 == p1) // 因为像素坐标，可能相等
@@ -232,7 +367,8 @@ double normalizeAngle(double angle)
 
 bool calculateArcPoints(const QPointF& center, double radius, double startAngle, double angleDiff, int steps, QVector<QPointF>& points)
 {
-    points.clear();
+    // 都追加
+    //points.clear();
 
     if (steps <= 0 || radius <= 0) {
         return false;
@@ -252,12 +388,13 @@ bool calculateArcPoints(const QPointF& center, double radius, double startAngle,
     return true;
 }
 
-bool calculateArcPointsFromControlPoints(const QPointF& point1, const QPointF& point2, const QPointF& point3, int steps, QVector<QPointF>& arcPoints)
+bool calculateArcPointsFromThreePoints(const QPointF& point1, const QPointF& point2, const QPointF& point3, int steps, QVector<QPointF>& arcPoints)
 {
     QPointF center;
     double radius;
 
-    arcPoints.clear();
+    // 追加
+    // arcPoints.clear();
 
     if (!calculateCircle(point1, point2, point3, center, radius)) {
         return false;
@@ -288,12 +425,71 @@ bool calculateArcPointsFromControlPoints(const QPointF& point1, const QPointF& p
     return calculateArcPoints(center, radius, startAngle, angleDiff, steps, arcPoints);
 }
 
-bool calculateArcPointsFromControlPoints(const QPointF& point1, const QPointF& point2, int steps, QVector<QPointF>& arcPoints)
+// 计算三点圆弧
+bool calculateThreeArcPointsFromControlPoints(const QVector<QPointF>& controlPoints, int steps, QVector<QPointF>& arcPoints)
+{
+    arcPoints.clear();
+    // 有成功就画
+    bool result = false;
+    for (int i = 0; i+2 < controlPoints.size(); i += 2)
+    {
+        if (calculateArcPointsFromThreePoints(controlPoints[i], controlPoints[i + 1], controlPoints[i + 2], steps, arcPoints))
+        {
+            result = true;
+        }
+    }
+    return result;
+}
+
+// 计算圆弧
+bool calculateArcPointsFromControlPoints(const QVector<QPointF>& controlPoints, int steps, QVector<QPointF>& arcPoints)
+{
+    arcPoints.clear();
+
+    if (!calculateArcPointsFromThreePoints(controlPoints[0], controlPoints[1], controlPoints[2], steps, arcPoints))
+    {
+        return false;
+    }
+    bool result = false;
+    for (int i = 3; i + 1 < controlPoints.size(); i++)
+    {
+        // 圆弧
+        if (calculateArcPointsFromThreePoints(arcPoints[arcPoints.size() - 2], controlPoints[i], controlPoints[i + 1], steps, arcPoints))
+        {
+            result = true;
+        }
+    }
+    return result;
+}
+
+
+bool calculateCirclePointsFromControlPoints(const QPointF& point1, const QPointF& point2, const QPointF& point3, int steps, QVector<QPointF>& arcPoints)
 {
     QPointF center;
     double radius;
 
-    arcPoints.clear();
+    // 追加
+    // arcPoints.clear();
+
+    if (!calculateCircle(point1, point2, point3, center, radius)) {
+        return false;
+    }
+
+    // 计算起始、结束、和中间点的角度，弧度制直接计算
+    double startAngle = std::atan2(point1.y() - center.y(), point1.x() - center.x());
+
+    return calculateArcPoints(center, radius, startAngle, 2 * M_PI, steps, arcPoints);
+}
+
+
+
+bool calculateCirclePointsFromControlPoints(const QPointF& point1, const QPointF& point2, int steps, QVector<QPointF>& arcPoints)
+{
+    QPointF center;
+    double radius;
+
+    // 追加
+    // arcPoints.clear();
 
     if (!calculateCircle(point1, point2,center, radius)) {
         return false;

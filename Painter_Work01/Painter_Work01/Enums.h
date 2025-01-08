@@ -18,6 +18,7 @@ enum DrawSettingKey
     Key_LineWidth,          // 线宽
     Key_LineColor,          // 线的颜色
     Key_LineDashPattern,    // 虚线段长
+    Key_NodeLineStyle,      // 节点线形
 
     Key_SplineOrder,          // 样条阶数
     Key_SplineNodeCount,      // 样条节点个数
@@ -28,6 +29,7 @@ enum DrawSettingKey
     Key_PgLineMode,           // 边框类型
     Key_PgLineStyle,          // 线的样式
     Key_PgLineDashPattern,    // 边框虚线段长
+    Key_PgNodeLineStyle,      // 边框节点线形
 
     EndDrawSettingKey
 };
@@ -48,6 +50,13 @@ enum DrawMode
     DrawPolygon,                // 简单面
     DrawComplexPolygon,         // 复杂面
 
+    DrawSimpleLine,     // 简单线
+    DrawDoubleLine,     // 双线
+    DrawParallelLine,   // 平行线
+    DrawTwoPointCircle, // 两点画圆
+    DrawSimpleArea,     // 简单面
+    DrawComplexArea,     // 复杂面
+
     EndDrawMode
 };
 
@@ -55,10 +64,12 @@ enum NodeLineStyle
 {
     BeginNodeLineStyle = EndDrawMode,
 
-    StylePolyline,       // 折线
-    StyleSpline,         // 样条线
-    StyleThreePointArc,  // 三点圆弧
-    StyleStreamline,     // 流线
+    NoStyle,                //未定义
+    StylePolyline,          // 折线
+    StyleSpline,            // 样条线
+    StyleThreePointArc,     // 三点圆弧
+    StyleArc,               // 圆弧
+    StyleStreamline,        // 流线
     
     EndNodeLineStyle,
 };
@@ -77,6 +88,13 @@ enum GeoType
     TypePolygon,                // 简单面
     TypeComplexPolygon,         // 复杂面
 
+    TypeSimpleLine,     // 简单线
+    TypeDoubleLine,     // 双线
+    TypeParallelLine,   // 平行线
+    TypeTwoPointCircle, // 两点画圆
+    TypeSimpleArea,     // 简单面
+    TypeComplexArea,     // 复杂面
+
     EndGeoType
 };
 
@@ -84,7 +102,8 @@ enum GeoState
 {
     BeginGeoState = EndGeoType,
 
-    GeoStateComplete = 1 << 0,       // 完成绘制（不加入零时控制点，跟踪鼠标）
+    GeoStateInitialized = 1 << 0,
+    GeoStateComplete = 1 << 1,       // 完成绘制（不加入零时控制点，跟踪鼠标）
     GeoStateInvalid  = 1 << 2,       // 作废
     GeoStateSelected = 1 << 3,       // 选中（显示控制点）
 

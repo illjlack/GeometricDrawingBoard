@@ -64,40 +64,42 @@ void mainWindow::createToolBar()
     // 添加工具栏按钮
     QAction* drawPointAction = toolBar->addAction(L("绘制点"));
     drawPointAction->setCheckable(true); // 设置为可选中
-    QAction* drawPolylineAction = toolBar->addAction(L("绘制折线"));
-    drawPolylineAction->setCheckable(true);
-    QAction* drawSplineAction = toolBar->addAction(L("绘制条样线"));
-    drawSplineAction->setCheckable(true);
-    QAction* drawArc3PointsAction = toolBar->addAction(L("绘制三点圆弧")); 
-    drawArc3PointsAction->setCheckable(true); 
-    QAction* drawCircle2PointsAction = toolBar->addAction(L("绘制两点圆"));  
-    drawCircle2PointsAction->setCheckable(true);
-    QAction* drawPolygonAction = toolBar->addAction(L("绘制简单面"));
-    drawPolygonAction->setCheckable(true);
-    QAction* drawComplexPolygonAction = toolBar->addAction(L("绘制复杂面"));
-    drawComplexPolygonAction->setCheckable(true);
+    QAction* drawSimpleLineAction = toolBar->addAction(L("绘制简单线"));
+    drawSimpleLineAction->setCheckable(true);
+    QAction* drawDoubleLineAction = toolBar->addAction(L("绘制双线"));
+    drawDoubleLineAction->setCheckable(true);
+    QAction* drawParallelLineAction = toolBar->addAction(L("绘制平行线"));
+    drawParallelLineAction->setCheckable(true);
+    QAction* drawTwoPointCircleAction = toolBar->addAction(L("绘制两点圆"));
+    drawTwoPointCircleAction->setCheckable(true);
+    QAction* drawSimpleAreaAction = toolBar->addAction(L("绘制简单面"));
+    drawSimpleAreaAction->setCheckable(true);
+    QAction* drawComplexAreaAction = toolBar->addAction(L("绘制复杂面"));
+    drawComplexAreaAction->setCheckable(true);
 
     // 将按钮分组，保证只能选中一个按钮
     QActionGroup* actionGroup = new QActionGroup(this);
     actionGroup->addAction(drawPointAction);
-    actionGroup->addAction(drawPolylineAction);
-    actionGroup->addAction(drawSplineAction);
-    actionGroup->addAction(drawArc3PointsAction);
-    actionGroup->addAction(drawCircle2PointsAction);
-    actionGroup->addAction(drawPolygonAction);
-    actionGroup->addAction(drawComplexPolygonAction);
+    actionGroup->addAction(drawSimpleLineAction);
+    actionGroup->addAction(drawDoubleLineAction);
+    actionGroup->addAction(drawParallelLineAction);
+    actionGroup->addAction(drawTwoPointCircleAction);
+    actionGroup->addAction(drawSimpleAreaAction);
+    actionGroup->addAction(drawComplexAreaAction);
     actionGroup->setExclusive(true); // 设置为互斥
 
     // 连接信号和槽
     connect(drawPointAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawPoint); });
-    connect(drawPolylineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawPolyline); });
-    connect(drawSplineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawSpline); });
-    connect(drawArc3PointsAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawArcThreePoints); });
-    connect(drawCircle2PointsAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing();setSetting(Key_DrawMode, DrawMode::DrawArcTwoPoints);});
-    connect(drawPolygonAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawPolygon); });
-    connect(drawComplexPolygonAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawComplexPolygon); });
+    connect(drawSimpleLineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawSimpleLine); });
+    connect(drawDoubleLineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawDoubleLine); });
+    connect(drawParallelLineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawParallelLine); });
+    connect(drawTwoPointCircleAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawTwoPointCircle); });
+    connect(drawSimpleAreaAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawSimpleArea); });
+    connect(drawComplexAreaAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawComplexArea); });
+
     addToolBar(toolBar);
 }
+
 
 
 void mainWindow::createSideBar() {

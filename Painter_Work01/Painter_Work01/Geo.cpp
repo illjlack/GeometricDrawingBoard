@@ -13,23 +13,23 @@ Geo* createGeo(DrawMode mode)
     case DrawMode::DrawPoint:
         geo = new Point();
         break;
-    case DrawMode::DrawPolyline:
-        geo = new Polyline();
+    case DrawMode::DrawSimpleLine:
+        geo = new SimpleLine();
         break;
-    case DrawMode::DrawSpline:
-        geo = new Spline();
+    case DrawMode::DrawDoubleLine:
+
         break;
-    case DrawMode::DrawPolygon:
-        geo = new Polygon();
+    case DrawMode::DrawParallelLine:
+
         break;
-    case DrawMode::DrawArcThreePoints:
-        geo = new Arc3Points();
+    case DrawMode::DrawTwoPointCircle:
+
         break;
-    case DrawMode::DrawArcTwoPoints:
-        geo = new Arc2Points();
+    case DrawMode::DrawSimpleArea:
+        geo = new SimpleArea();
         break;
-    case DrawMode::DrawComplexPolygon:
-        geo = new ComplexPolygon();
+    case DrawMode::DrawComplexArea:
+        geo = new ComplexArea();
         break;
     default:
         throw std::runtime_error("null DrawMode!!!!");
@@ -39,16 +39,56 @@ Geo* createGeo(DrawMode mode)
 }
 
 
-// =======================================================================================================Shape
+// ================================================================================================ Geo
+void Geo::drawControlPoints(QPainter& painter)
+{
+    if (isStateDrawing())controlPoints.push_back(tempControlPoints);
+    for (auto& controlPoint : controlPoints)
+    {
+        // 设置画笔和画刷
+        painter.setPen(QPen(Qt::lightGray, 2));
+        painter.setBrush(Qt::NoBrush);
+        // 绘制控制点
+        painter.drawRect(controlPoint.x() - 6, controlPoint.y() - 6, 12, 12);
+
+        painter.setBrush(QBrush(Qt::red));
+        painter.setPen(Qt::NoPen);
+        painter.drawRect(controlPoint.x() - 5, controlPoint.y() - 5, 10, 10);
+
+        painter.setBrush(Qt::NoBrush);
+    }
+    if (isStateDrawing())controlPoints.pop_back();
+}
+
+void Geo::hitTesting(QPointF point)
+{
+    // 处理点击测试，判断是否点击到目标区域
+    // 比如，可以判断一个点是否在几何图形内，或者是否在控制点附近
+    for (auto& controlPoint : controlPoints)
+    {
+        if (QRectF(controlPoint.x() - 6, controlPoint.y() - 6, 12, 12).contains(point))
+        {
+            // 点中某个控制点，可以响应一些操作
+            setStateSelected();
+            break;
+        }
+    }
+}
+
+
 GeoType Geo::getGeoType()
 {
     return geoType;
+}
+void Geo::setGeoType(GeoType newType)
+{
+    geoType = newType;
 }
 
 void Geo::completeDrawing()
 {
     setStateComplete();
-    setStateNotSelected();
+    setStateNotSelected(); // 一开始是选中状态
 }
 
 bool Geo::isStateDrawing()
@@ -71,10 +111,20 @@ bool Geo::isStateSelected()
     return geoState & GeoStateSelected;
 }
 
+bool Geo::isStateInitialized()
+{
+    return geoState & GeoStateInitialized;
+}
+
+void Geo::setStateInitialized()
+{
+    geoState |= GeoStateInitialized;
+}
+
 void Geo::setStateInvalid()
 {
 
-    geoState |=  GeoStateInvalid;
+    geoState |= GeoStateInvalid;
 }
 
 void Geo::setStateComplete()
@@ -91,9 +141,6 @@ void Geo::setStateNotSelected()
 {
     geoState &= ~GeoStateSelected;
 }
-
-
-
 
 void Geo::keyPressEvent(QKeyEvent* event)
 {
@@ -119,30 +166,6 @@ void Geo::wheelEvent(QWheelEvent* event)
 {
 }
 
-void Geo::setGeoType(GeoType newType)
-{
-    geoType = newType;
-}
-
-// =======================================================================================================ControlPoint
-ControlPoint::ControlPoint(QPointF& point): QPointF(point) {}
-
-void ControlPoint::draw(QPainter& painter)
-{
-    // 设置画笔和画刷
-    painter.setPen(QPen(Qt::lightGray, 2));
-    painter.setBrush(Qt::NoBrush);
-
-    // 绘制控制点
-    painter.drawRect(x() - 6, y() - 6, 12, 12);
-
-    painter.setBrush(QBrush(Qt::red));
-    painter.setPen(Qt::NoPen);
-    painter.drawRect(x() - 5, y() - 5, 10, 10);
-
-    painter.setBrush(Qt::NoBrush);
-}
-
 // =======================================================================================================Point
 
 Point::Point()
@@ -151,115 +174,28 @@ Point::Point()
     setStateSelected(); // 还在绘制中，是当前选中
 }
 
-Point::~Point() 
+void Point::initialize()
 {
+    color = getSetting<QRgb>(Key_PointColor);                // 点的颜色
+    shape = getSetting<PointShape>(Key_PointShape);          // 点的形状
+    setStateInitialized();
 }
-
-QPointF Point::getPosition() const
-{
-    return position;
-}
-
-void Point::setPosition(const QPointF& newPos)
-{
-    position = newPos;
-}
-
-QColor Point::getColor() const
-{
-    return color;
-}
-
-void Point::setColor(const QColor& newColor)
-{
-    color = newColor;
-}
-
-PointShape Point::getShape() const
-{
-    return shape;
-}
-
-void Point::setShape(PointShape newShape)
-{
-    shape = newShape;
-}
-
-void Point::draw(QPainter& painter)
-{
-    if (isStateInvalid())
-    {
-        return;
-    }
-    QPainterPath path;
-
-
-    if (isStateDrawing())
-    {
-        if (shape == PointShape::Square) {
-            path.addRect(tempPoint.x() - 5, tempPoint.y() - 5, 10, 10);
-        }
-        else if (shape == PointShape::Circle) {
-            path.addEllipse(tempPoint, 5.0, 5.0);
-        }
-        painter.setBrush(QBrush(color));
-        painter.setPen(Qt::NoPen);
-        painter.drawPath(path);
-        if (isStateSelected())
-        {
-            painter.setBrush(Qt::NoBrush);
-            painter.setPen(QPen(Qt::lightGray, 2));
-
-            if (shape == PointShape::Square) {
-                painter.drawRect(position.x() - 6, position.y() - 6, 12, 12);
-            }
-            else if (shape == PointShape::Circle) {
-                painter.drawEllipse(position, 6.0, 6.0);
-            }
-        }
-    }
-    else
-    {
-        if (shape == PointShape::Square) {
-            path.addRect(position.x() - 5, position.y() - 5, 10, 10);
-        }
-        else if (shape == PointShape::Circle) {
-            path.addEllipse(position, 5.0, 5.0);
-        }
-        painter.setBrush(QBrush(color));
-        painter.setPen(Qt::NoPen);
-        painter.drawPath(path);
-
-        if (isStateSelected())
-        {
-            painter.setBrush(Qt::NoBrush);
-            painter.setPen(QPen(Qt::lightGray, 2));
-
-            if (shape == PointShape::Square) {
-                painter.drawRect(position.x() - 6, position.y() - 6, 12, 12);
-            }
-            else if (shape == PointShape::Circle) {
-                painter.drawEllipse(position, 6.0, 6.0);
-            }
-        }
-    }
-    painter.setBrush(Qt::NoBrush);
-}
-
 
 void Point::mousePressEvent(QMouseEvent* event)
 {
+    if (!isStateInitialized())initialize();
+    if (isStateComplete())return;
+    //--------------------------------------
+
     if (event->button() == Qt::RightButton)
     {
         completeDrawing();
     }
-    else
+
+    if (event->button() == Qt::LeftButton)
     {
-        if (isStateDrawing())
-        {
-            position = event->pos();
-            completeDrawing();
-        }
+        controlPoints.push_back(event->pos());
+        completeDrawing();
     }
 }
 
@@ -267,818 +203,367 @@ void Point::mouseMoveEvent(QMouseEvent* event)
 {
     if (!isStateComplete())
     {
-        tempPoint = event->pos();
+        tempControlPoints = event->pos();
     }
 }
 
 void Point::completeDrawing()
 {
-    if (position.isNull())
+    if (controlPoints.isEmpty())
     {
         setStateInvalid();
     }
     Geo::completeDrawing();
 }
 
-// =======================================================================================================BaseLine
-BaseLine::BaseLine()
+void Point::draw(QPainter& painter)
 {
-}
-
-BaseLine::~BaseLine() 
-{
-}
-
-void BaseLine::setColor(QColor color) {
-    this->color = color;
-}
-
-QColor BaseLine::getColor() const {
-    return color;
-}
-
-void BaseLine::setLineStyle(LineStyle lineStyle)
-{
-    this->lineStyle = lineStyle;
-}
-
-LineStyle BaseLine::getLineStyle() const {
-    return lineStyle;
-}
-
-void BaseLine::setLineWidth(float width) {
-    this->lineWidth = width;
-}
-
-float BaseLine::getLineWidth() const {
-    return lineWidth;
-}
-
-void BaseLine::setDashPattern(float pattern) {
-    this->dashPattern = pattern;
-}
-
-float BaseLine::getDashPattern() const {
-    return dashPattern;
-}
-
-void BaseLine::pushPoint(QPointF& point)
-{
-    controlPoints.push_back(ControlPoint(point));
-}
-
-void BaseLine::mouseMoveEvent(QMouseEvent* event)
-{
+    if (!isStateInitialized() || isStateInvalid())
+    {
+        return;
+    }
+    QPointF point;
     if (isStateDrawing())
     {
-        tempControlPoint = event->pos();
+        point = tempControlPoints;
     }
-}
-
-void BaseLine::completeDrawing()
-{
-    // 检查是否合法
-    if (controlPoints.size() < 2)
+    else
     {
-        setStateInvalid();
+        point = controlPoints[0];
     }
-    Geo::completeDrawing();
+
+    QPainterPath path;
+    if (shape == PointShape::Square) {
+        path.addRect(point.x() - 5, point.y() - 5, 10, 10);
+    }
+    else if (shape == PointShape::Circle) {
+        path.addEllipse(point, 5.0, 5.0);
+    }
+    painter.setBrush(QBrush(color));
+    painter.setPen(Qt::NoPen);
+    painter.drawPath(path);
+    if (isStateSelected())
+    {
+        painter.setBrush(Qt::NoBrush);
+        painter.setPen(QPen(Qt::lightGray, 2));
+
+        if (shape == PointShape::Square) {
+            painter.drawRect(point.x() - 6, point.y() - 6, 12, 12);
+        }
+        else if (shape == PointShape::Circle) {
+            painter.drawEllipse(point, 6.0, 6.0);
+        }
+    }
+    painter.setBrush(Qt::NoBrush);
+    // 如果被选中,画控制点
+    if (isStateSelected())
+    {
+        drawControlPoints(painter);
+    }
 }
 
-QVector<QPointF> BaseLine::getPoints()
-{
-    return QVector<QPointF>(controlPoints.begin(), controlPoints.end());
-}
+// =======================================================================================================SimpleLine
 
-// =======================================================================================================Polyline
-Polyline::Polyline()
+SimpleLine::SimpleLine()
 {
-    setGeoType(GeoType::TypePolyline);
+    setGeoType(GeoType::TypeSimpleLine);
     setStateSelected(); // 还在绘制中，是当前选中
 }
 
-Polyline::~Polyline()
+void SimpleLine::initialize()
 {
+    lineWidth = getSetting<float>(Key_LineWidth);                   // 线宽
+    dashPattern = getSetting<float>(Key_LineDashPattern);           // 虚线段长
+    color = getSetting<QRgb>(Key_LineColor);                        // 颜色
+    lineStyle = getSetting<LineStyle>(Key_LineStyle);               // 样式
+    nodeLineStyle = getSetting<NodeLineStyle>(Key_NodeLineStyle);   // 节点线形
+    setStateInitialized();
 }
 
-// 绘制方法
-void Polyline::draw(QPainter& painter) 
+void SimpleLine::mousePressEvent(QMouseEvent* event)
 {
-    if (isStateInvalid())
+    if (!isStateInitialized())initialize();
+    if (isStateComplete())return;
+    //--------------------------------------
+    if (event->button() == Qt::RightButton)
+    {
+        completeDrawing();
+    }
+    if (event->button() == Qt::LeftButton)
+    {
+        controlPoints.push_back(event->pos());
+    }
+}
+
+void SimpleLine::mouseMoveEvent(QMouseEvent* event)
+{
+    if (!isStateComplete())
+    {
+        tempControlPoints = event->pos();
+    }
+}
+
+void SimpleLine::completeDrawing()
+{
+    if (!calculateLinePoints(nodeLineStyle, controlPoints, points))
+    {
+        setStateInvalid();
+    }
+    Geo::completeDrawing();
+}
+
+void SimpleLine::draw(QPainter& painter)
+{
+    if (!isStateInitialized() || isStateInvalid())
     {
         return;
     }
     QPen pen;
-    pen.setColor(color); 
+    pen.setColor(color);
     pen.setWidthF(lineWidth);
-
-    if (lineStyle == LineStyle::Dashed) 
+    if (lineStyle == LineStyle::Dashed)
     {
         pen.setStyle(Qt::DashLine);
         pen.setDashOffset(dashPattern);
     }
-    else 
+    else
     {
         pen.setStyle(Qt::SolidLine);
     }
     painter.setPen(pen);
 
-    QPainterPath path;
-
-    if (!controlPoints.isEmpty()) 
+    if (isStateDrawing())controlPoints.push_back(tempControlPoints);
+    if (calculateLinePoints(nodeLineStyle, controlPoints, points))
     {
-        path.moveTo(controlPoints.first());
-        for (int i = 1; i < controlPoints.size(); ++i) 
+        QPainterPath path;
+        path.moveTo(points.first());
+        for (int i = 1; i < points.size(); ++i)
         {
-            path.lineTo(controlPoints[i]);
+            path.lineTo(points[i]);
         }
+        painter.drawPath(path);
     }
-
-    if (isStateDrawing())
-    {
-        if (controlPoints.isEmpty())
-        {
-            path.moveTo(tempControlPoint);
-        }
-        else
-        {
-            path.lineTo(tempControlPoint);
-        }
-    }
-
-    painter.drawPath(path);
+    if (isStateDrawing())controlPoints.pop_back();
 
     // 如果被选中,画控制点
     if (isStateSelected())
     {
-        for (auto& point : controlPoints)
-        {
-            point.draw(painter);
-        }
-        if (isStateDrawing())
-        {
-            tempControlPoint.draw(painter);
-        }
+        drawControlPoints(painter);
     }
 }
 
-
-void Polyline::mousePressEvent(QMouseEvent* event)
+// ===================================================================== SimpleArea
+SimpleArea::SimpleArea()
 {
-    if (event->button() == Qt::RightButton)
-    {
-        completeDrawing();
-    }
-    else
-    {
-        if (isStateDrawing())
-        {
-            QPointF point = event->pos();
-            pushPoint(point);
-        }
-    }
-}
-
-// ====================================================Spline
-// 构造函数
-Spline::Spline() {
-    setGeoType(GeoType::TypeSpline);
-    setStateSelected(); // 设置当前为选中状态，表示正在绘制中
-}
-
-// 析构函数
-Spline::~Spline() {}
-
-void Spline::mousePressEvent(QMouseEvent* event)
-{
-    if (event->button() == Qt::RightButton) // 右键完成绘制
-    {
-        completeDrawing();
-    }
-    else // 左键添加控制点
-    {
-        if (isStateDrawing()) // 如果当前处于绘制状态
-        {
-            QPointF point = event->pos();
-            pushPoint(point); // 存储控制点
-            controlPoints.push_back(point); // 将点添加到控制点列表
-
-            // 计算并更新曲线上的点
-            if (controlPoints.size() >= 2) // 至少两个控制点才能计算线
-            {
-                QVector<QPointF>points(controlPoints.begin(), controlPoints.end());
-                calculateLinePoints(NodeLineStyle::StyleSpline, points,500, linePoints); // 使用样条线
-            }
-        }
-    }
-}
-
-QVector<QPointF> Spline::getPoints()
-{
-    // 返回计算得到的曲线上的点
-    return linePoints;
-}
-
-void Spline::draw(QPainter& painter)
-{
-    if (isStateInvalid()) // 如果当前状态无效，直接返回
-    {
-        return;
-    }
-
-    QPen pen;
-    pen.setColor(color);
-    pen.setWidthF(lineWidth);
-
-    // 设置虚线样式
-    if (lineStyle == LineStyle::Dashed) {
-        pen.setStyle(Qt::DashLine);
-        pen.setDashOffset(dashPattern);
-    }
-    else {
-        pen.setStyle(Qt::SolidLine);
-    }
-
-    painter.setPen(pen);
-
-    // 绘制样条曲线（linePoints存储的是计算出来的曲线点）
-    if (!linePoints.isEmpty()) {
-        QPainterPath path;
-        path.moveTo(linePoints[0]);
-
-        // 绘制从第一个点到最后一个点的连线
-        for (int i = 1; i < linePoints.size(); ++i) {
-            path.lineTo(linePoints[i]);
-        }
-
-        painter.drawPath(path); // 绘制路径
-    }
-
-    // 如果当前对象被选中，绘制控制点
-    if (isStateSelected())
-    {
-        for (auto& point : controlPoints)
-        {
-            point.draw(painter); // 绘制每个控制点
-        }
-
-        // 如果当前正在绘制（鼠标按下并添加了控制点），绘制临时控制点
-        if (isStateDrawing())
-        {
-            tempControlPoint.draw(painter);
-        }
-    }
-}
-
-void Spline::completeDrawing()
-{
-    // 检查控制点数量是否足够，至少需要 2 个控制点才能计算样条曲线
-    if (controlPoints.size() < 2)
-    {
-        setStateInvalid(); // 如果控制点不足，设置为无效状态
-    }
-    BaseLine::completeDrawing(); // 完成绘制
-}
-// ===================================================================== Arc3Points
-
-Arc3Points::Arc3Points()
-{
-    setGeoType(GeoType::TypeArcThreePoints);
+    setGeoType(GeoType::TypeSimpleArea);
     setStateSelected(); // 还在绘制中，是当前选中
 }
 
-Arc3Points::~Arc3Points()
+void SimpleArea::initialize()
 {
+    lineWidth = getSetting<float>(Key_PgLineWidth);                     // 边框宽度
+    fillColor = getSetting<QRgb>(Key_PgFillColor);                      // 面内填充颜色
+    lineColor = getSetting<QRgb>(Key_PgLineColor);                      // 边框颜色
+    lineStyle = getSetting<LineStyle>(Key_PgLineStyle);                 // 边框线形
+    lineDashPattern = getSetting<float>(Key_PgLineDashPattern);         // 虚线段长
+    nodeLineStyle = getSetting<NodeLineStyle>(Key_PgNodeLineStyle);     // 节点线形
+    setStateInitialized();
 }
 
-void Arc3Points::mousePressEvent(QMouseEvent* event)
+void SimpleArea::mousePressEvent(QMouseEvent* event)
 {
+    if (!isStateInitialized())initialize();
+    if (isStateComplete())return;
+    //--------------------------------------
     if (event->button() == Qt::RightButton)
     {
         completeDrawing();
     }
-    else
+    if (event->button() == Qt::LeftButton)
     {
-        if (isStateDrawing())
-        {
-            QPointF point = event->pos();
-            pushPoint(point);
-            if (controlPoints.size() == 3)
-            {
-                completeDrawing();
-            }
-        }
+        controlPoints.push_back(event->pos());
     }
 }
 
-void Arc3Points::completeDrawing()
+void SimpleArea::mouseMoveEvent(QMouseEvent* event)
 {
-    // 检查是否合法
-    if (controlPoints.size() < 3 || controlPoints[0] == controlPoints[1] || 
-        controlPoints[0] == controlPoints[2] || controlPoints[1] == controlPoints[2])
+    if (!isStateComplete())
     {
-        setStateInvalid();
-    }
-    BaseLine::completeDrawing();
-}
-
-QVector<QPointF> Arc3Points::getPoints()
-{
-    return QVector<QPointF>(controlPoints.begin(), controlPoints.end());
-}
-
-void Arc3Points::mouseMoveEvent(QMouseEvent* event)
-{
-    if (isStateDrawing())
-    {
-        tempControlPoint = event->pos();
+        tempControlPoints = event->pos();
     }
 }
 
-void Arc3Points::draw(QPainter& painter)
+void SimpleArea::completeDrawing()
 {
-    if (isStateInvalid()) {
-        return;
-    }
-
-    QPen pen;
-    pen.setColor(color);
-    pen.setWidthF(lineWidth);
-
-    if (lineStyle == LineStyle::Dashed) {
-        pen.setStyle(Qt::DashLine);
-        pen.setDashOffset(dashPattern);
-    }
-    else {
-        pen.setStyle(Qt::SolidLine);
-    }
-
-    painter.setPen(pen);
-
-    QVector<QPointF> arcPoints;
-
-    // 判断控制点数量是否为 3，计算弧线上的点
-    if (controlPoints.size() == 3) {
-        if (calculateArcPointsFromControlPoints(controlPoints[0], controlPoints[1], controlPoints[2],  100, arcPoints)) {
-            // 如果计算成功，使用计算出的点绘制弧线
-            QPainterPath path;
-            path.moveTo(arcPoints[0]);  // 起点
-
-            // 遍历并绘制弧线上的每个点
-            for (const QPointF& point : arcPoints) {
-                path.lineTo(point);
-            }
-
-            painter.drawPath(path);
-        }
-    }
-
-    // 如果处于绘制状态且控制点数量为 2，绘制临时弧线
-    if (isStateDrawing() && controlPoints.size() == 2) {
-        if (calculateArcPointsFromControlPoints(controlPoints[0], controlPoints[1], tempControlPoint, 100, arcPoints)) {
-            // 如果计算成功，使用计算出的点绘制弧线
-            QPainterPath path;
-            path.moveTo(arcPoints[0]);  // 起点
-
-            // 遍历并绘制弧线上的每个点
-            for (const QPointF& point : arcPoints) {
-                path.lineTo(point);
-            }
-            painter.drawPath(path);
-        }
-    }
-
-    // 绘制选中的控制点
-    if (isStateSelected()) {
-        for (auto& point : controlPoints) {
-            point.draw(painter);
-        }
-        if (isStateDrawing()) {
-            tempControlPoint.draw(painter);
-        }
-    }
-}
-
-// ===================================================================== Arc2Points
-Arc2Points::Arc2Points()
-{
-    setGeoType(GeoType::TypeArcTwoPoints);
-    setStateSelected(); // 还在绘制中，是当前选中
-}
-
-Arc2Points::~Arc2Points()
-{
-}
-
-void Arc2Points::mousePressEvent(QMouseEvent* event)
-{
-    if (event->button() == Qt::RightButton)
-    {
-        completeDrawing();
-    }
-    else
-    {
-        if (isStateDrawing())
-        {
-            QPointF point = event->pos();
-            pushPoint(point);
-            if (controlPoints.size() == 2)
-            {
-                completeDrawing();
-            }
-        }
-    }
-}
-
-void Arc2Points::completeDrawing()
-{
-    // 检查是否合法
-    if (controlPoints.size() < 2 || controlPoints[0] == controlPoints[1])
-    {
-        setStateInvalid();
-    }
-    BaseLine::completeDrawing();
-}
-
-QVector<QPointF> Arc2Points::getPoints()
-{
-    return QVector<QPointF>(controlPoints.begin(), controlPoints.end());
-}
-
-void Arc2Points::mouseMoveEvent(QMouseEvent* event)
-{
-    if (isStateDrawing())
-    {
-        tempControlPoint = event->pos();
-    }
-}
-
-void Arc2Points::draw(QPainter& painter)
-{
-    if (isStateInvalid()) {
-        return;
-    }
-
-    QPen pen;
-    pen.setColor(color);
-    pen.setWidthF(lineWidth);
-
-    if (lineStyle == LineStyle::Dashed) {
-        pen.setStyle(Qt::DashLine);
-        pen.setDashOffset(dashPattern);
-    }
-    else {
-        pen.setStyle(Qt::SolidLine);
-    }
-
-    painter.setPen(pen);
-
-    QVector<QPointF> arcPoints;
-    // 判断控制点数量是否为 3，计算弧线上的点
-    if (controlPoints.size() == 2) {
-        if (calculateArcPointsFromControlPoints(controlPoints[0], controlPoints[1], 100, arcPoints)) {
-            // 如果计算成功，使用计算出的点绘制弧线
-            QPainterPath path;
-            path.moveTo(arcPoints[0]);  // 起点
-
-            // 遍历并绘制弧线上的每个点
-            for (const QPointF& point : arcPoints) {
-                path.lineTo(point);
-            }
-
-            painter.drawPath(path);
-        }
-    }
-
-    if (isStateDrawing() && controlPoints.size() == 1) {
-        if (calculateArcPointsFromControlPoints(controlPoints[0], tempControlPoint, 100, arcPoints)) {
-            // 如果计算成功，使用计算出的点绘制弧线
-            QPainterPath path;
-            path.moveTo(arcPoints[0]);  // 起点
-
-            // 遍历并绘制弧线上的每个点
-            for (const QPointF& point : arcPoints) {
-                path.lineTo(point);
-            }
-
-            painter.drawPath(path);
-        }
-    }
-    // 绘制控制点
-    if (isStateSelected()) {
-        for (auto& point : controlPoints) {
-            point.draw(painter);
-        }
-        if (isStateDrawing()) {
-            tempControlPoint.draw(painter);
-        }
-    }
-}
-
-// ===================================================================== Polygon
-Polygon::Polygon()
-{
-    setGeoType(GeoType::TypePolygon);
-    setStateSelected(); // 还在绘制中，是当前选中
-
-    edges = static_cast<BaseLine*>(createGeo(getSetting<DrawMode>(Key_PgLineMode)));
-}
-
-Polygon::~Polygon()
-{
-}
-
-void Polygon::setFillColor(const QColor& color)
-{
-    fillColor = color;
-}
-
-QColor Polygon::getFillColor() const
-{
-    return fillColor;
-}
-
-void Polygon::setBorderColor(const QColor& color)
-{
-    lineColor = color;
-}
-
-QColor Polygon::getBorderColor() const
-{
-    return  lineColor;
-}
-
-void Polygon::setBorderStyle(LineStyle style)
-{
-    lineStyle = style;
-}
-
-LineStyle Polygon::getBorderStyle() const
-{
-    return  lineStyle;
-}
-
-void Polygon::setBorderWidth(float width)
-{
-    lineWidth = width;
-}
-
-float Polygon::getBorderWidth() const
-{
-    return lineWidth;
-}
-
-void Polygon::draw(QPainter& painter)
-{
-    if (!edges || isStateInvalid())
-    {
-        return;
-    }
-
-    QPen pen;
-    pen.setColor(lineColor);
-    pen.setWidthF(lineWidth);
-
-    if (lineStyle == LineStyle::Dashed) {
-        pen.setStyle(Qt::DashLine);
-        pen.setDashOffset(lineDashPattern);
-    }
-    else {
-        pen.setStyle(Qt::SolidLine);
-    }
-    painter.setPen(pen);
-
-    QBrush brush(fillColor);
-    painter.setBrush(brush);
-    QPainterPath path;
-
-    const QVector<QPointF>& points = edges->getPoints();
-
-    if (isStateComplete() && points.size())
-    {
-        path.moveTo(points[0]);
-        for (int i = 1; i < points.size(); ++i)
-        {
-            path.lineTo(points[i]);
-        }
-        path.closeSubpath(); // 闭合路径
-    }
-
-    if (isStateDrawing() && points.size())
-    {
-        QPointF& tempPoint = edges->tempControlPoint;
-        path.moveTo(points[0]);
-        for (int i = 1; i < points.size(); ++i)
-        {
-            path.lineTo(points[i]);
-        }
-        path.lineTo(tempPoint); // 临时点也加入路径
-        path.closeSubpath(); // 闭合路径
-    }
-
-    painter.drawPath(path);
-    painter.setBrush(Qt::NoBrush); // 恢复无填充     
-
-    // 绘制控制点
-    if (isStateSelected()) {
-        for (auto& point : edges->controlPoints) 
-        {
-            point.draw(painter);
-        }
-        if (isStateDrawing()) 
-        {
-            edges->tempControlPoint.draw(painter);
-        }
-    }
-}
-
-
-void Polygon::mousePressEvent(QMouseEvent* event)
-{
-    if (isStateComplete())
-    {
-        return;
-    }
-    if (event->button() == Qt::RightButton)
-    {
-        edges->mousePressEvent(event);
-        completeDrawing();
-    }
-    else
-    {
-        edges->mousePressEvent(event);
-    }
-}
-
-void Polygon::mouseMoveEvent(QMouseEvent* event)
-{
-    edges->mouseMoveEvent(event);
-}
-
-void Polygon::completeDrawing()
-{
-    // 检查是否合法
-    if (edges->isStateInvalid()||edges->controlPoints.size() < 3)
+    if (!calculateCloseLinePoints(nodeLineStyle, controlPoints, points))
     {
         setStateInvalid();
     }
     Geo::completeDrawing();
 }
 
-// ===================================================================== ComplexPolygon
-ComplexPolygon::ComplexPolygon() {
-    setGeoType(GeoType::TypeComplexPolygon);
-    setStateSelected();  // 还在绘制中，是当前选中
-
-    // 这里只为一个边界设置，后续可以支持多个边界的初始化
-    BaseLine* edge = static_cast<BaseLine*>(createGeo(getSetting<DrawMode>(Key_PgLineMode)));
-    edges.append(edge);
-}
-
-ComplexPolygon::~ComplexPolygon() {
-    // 清理所有边界对象
-    qDeleteAll(edges);
-    edges.clear();
-}
-
-void ComplexPolygon::setFillColor(const QColor& color) {
-    fillColor = color;
-}
-
-QColor ComplexPolygon::getFillColor() const {
-    return fillColor;
-}
-
-void ComplexPolygon::setBorderColor(const QColor& color) {
-    lineColor = color;
-}
-
-QColor ComplexPolygon::getBorderColor() const {
-    return lineColor;
-}
-
-void ComplexPolygon::setBorderStyle(LineStyle style) {
-    lineStyle = style;
-}
-
-LineStyle ComplexPolygon::getBorderStyle() const {
-    return lineStyle;
-}
-
-void ComplexPolygon::setBorderWidth(float width) {
-    lineWidth = width;
-}
-
-float ComplexPolygon::getBorderWidth() const {
-    return lineWidth;
-}
-
-void ComplexPolygon::draw(QPainter& painter) {
-    if (edges.isEmpty() || isStateInvalid()) {
+void SimpleArea::draw(QPainter& painter)
+{
+    if (!isStateInitialized() || isStateInvalid())
+    {
         return;
     }
-
     QPen pen;
     pen.setColor(lineColor);
     pen.setWidthF(lineWidth);
-
-    if (lineStyle == LineStyle::Dashed) {
+    if (lineStyle == LineStyle::Dashed)
+    {
         pen.setStyle(Qt::DashLine);
         pen.setDashOffset(lineDashPattern);
     }
-    else {
+    else
+    {
         pen.setStyle(Qt::SolidLine);
     }
     painter.setPen(pen);
 
     QBrush brush(fillColor);
     painter.setBrush(brush);
-    QPainterPath path;
-
-    // 绘制每一个边界
-    for (int i = 0; i < edges.size(); ++i) {
-        const QVector<QPointF>& points = edges[i]->getPoints();
-        if (i == 0) {
-            if (!points.isEmpty()) {
-                path.moveTo(points[0]);
-                for (int j = 1; j < points.size(); ++j) {
-                    path.lineTo(points[j]);
-                }
-            }
-            path.closeSubpath();
-        }
-        else {
-            // 对于后续边界，使用负的绘制方式，表示“孔”
-            if (!points.isEmpty()) {
-                path.moveTo(points[0]);
-                for (int j = 1; j < points.size(); ++j) {
-                    path.lineTo(points[j]);
-                }
-                path.closeSubpath(); // 闭合路径
-            }
-        }
-    }
-    painter.drawPath(path);
-
-    // 绘制控制点
-    if (isStateSelected()) 
+    if (isStateDrawing())controlPoints.push_back(tempControlPoints);
+    if (calculateCloseLinePoints(nodeLineStyle, controlPoints, points))
     {
-        for (auto edge : edges)
+        QPainterPath path;
+        path.moveTo(points.first());
+        for (int i = 1; i < points.size(); ++i)
         {
-            for (auto& point : edge->controlPoints)
-            {
-                point.draw(painter);
-            }
-            if (edge->isStateDrawing())
-            {
-                edge->tempControlPoint.draw(painter);
-            }
+            path.lineTo(points[i]);
         }
+        painter.drawPath(path);
     }
-    painter.setBrush(Qt::NoBrush);  // 恢复无填充
+    painter.setBrush(Qt::NoBrush); // 恢复无填充   
+    if (isStateDrawing())controlPoints.pop_back();
+
+    // 如果被选中,画控制点
+    if (isStateSelected())
+    {
+        drawControlPoints(painter);
+    }
 }
 
-void ComplexPolygon::mousePressEvent(QMouseEvent* event) {
-    if (isStateComplete()) 
+// ===================================================================== ComplexArea
+ComplexArea::ComplexArea()
+{
+    setGeoType(GeoType::TypeComplexArea);
+    setStateSelected(); // 还在绘制中，是当前选中
+}
+
+void ComplexArea::initialize()
+{
+    isDrawing = true;   // 第一个分图准备绘制
+    component.push_back({ 0,NodeLineStyle::NoStyle });      // 新建分图
+
+    lineWidth = getSetting<float>(Key_PgLineWidth);                     // 边框宽度
+    fillColor = getSetting<QRgb>(Key_PgFillColor);                      // 面内填充颜色
+    lineColor = getSetting<QRgb>(Key_PgLineColor);                      // 边框颜色
+    lineStyle = getSetting<LineStyle>(Key_PgLineStyle);                 // 边框线形
+    lineDashPattern = getSetting<float>(Key_PgLineDashPattern);         // 虚线段长
+    nodeLineStyle = getSetting<NodeLineStyle>(Key_PgNodeLineStyle);     // 节点线形
+    setStateInitialized();
+}
+
+void ComplexArea::mousePressEvent(QMouseEvent* event)
+{
+    if (!isStateInitialized())initialize();
+    if (isStateComplete())return;
+    //--------------------------------------
+    if (event->button() == Qt::RightButton)
     {
-        return;
-    }
-    if (event->button() == Qt::RightButton) 
-    {
-        if (edges.last()->isStateComplete())
+        if (isDrawing) // 绘制分图
         {
-            completeDrawing();
+            isDrawing = false;
+            // 新建分图
+            component.push_back({0,NodeLineStyle::NoStyle});
         }
         else
         {
-            edges.last()->mousePressEvent(event);
-            if (edges.last()->isStateInvalid())
-            {
-                delete edges.last();
-                edges.pop_back();
-                if (edges.isEmpty())completeDrawing();
-            }
+            completeDrawing();
         }
     }
-    else {
-        if (edges.last()->isStateComplete())
+    if (event->button() == Qt::LeftButton)
+    {
+        controlPoints.push_back(event->pos());
+        component.last().len++;
+        // 如果节点线形还没定义
+        if (component.last().nodeLineStyle == NodeLineStyle::NoStyle)
         {
-            BaseLine* edge = static_cast<BaseLine*>(createGeo(getSetting<DrawMode>(Key_PgLineMode)));
-            edges.append(edge);
+            component.last().nodeLineStyle = nodeLineStyle;
         }
-        edges.last()->mousePressEvent(event);
     }
 }
 
-void ComplexPolygon::mouseMoveEvent(QMouseEvent* event) {
-    // 继续绘制时，更新当前正在绘制的边界
-    edges.last()->mouseMoveEvent(event);
+void ComplexArea::mouseMoveEvent(QMouseEvent* event)
+{
+    if (!isStateComplete())
+    {
+        tempControlPoints = event->pos();
+    }
 }
 
-void ComplexPolygon::completeDrawing() {
-    if (edges.isEmpty()) 
+void ComplexArea::completeDrawing()
+{
+    if (!calculateCloseLinePoints(component, controlPoints, pointss))
     {
         setStateInvalid();
     }
     Geo::completeDrawing();
 }
+
+void ComplexArea::draw(QPainter& painter)
+{
+    if (!isStateInitialized()||isStateInvalid())
+    {
+        return;
+    }
+    QPen pen;
+    pen.setColor(lineColor);
+    pen.setWidthF(lineWidth);
+    if (lineStyle == LineStyle::Dashed)
+    {
+        pen.setStyle(Qt::DashLine);
+        pen.setDashOffset(lineDashPattern);
+    }
+    else
+    {
+        pen.setStyle(Qt::SolidLine);
+    }
+    painter.setPen(pen);
+
+    QBrush brush(fillColor);
+    painter.setBrush(brush);
+    if (isDrawing)
+    {
+        controlPoints.push_back(tempControlPoints);
+        component.last().len++;
+    }
+    if (calculateCloseLinePoints(component, controlPoints, pointss))
+    {
+        QPainterPath path;
+        for (auto& points : pointss)
+        {
+            if (points.size() < 3)continue; // 这一个分图失效
+            path.moveTo(points.first());
+            for (int i = 1; i < points.size(); ++i)
+            {
+                path.lineTo(points[i]);
+            }
+        }
+        painter.drawPath(path);
+    }
+    painter.setBrush(Qt::NoBrush); // 恢复无填充   
+    if (isDrawing)
+    {
+        controlPoints.pop_back();
+        component.last().len--;
+    }
+    // 如果被选中,画控制点
+    if (isStateSelected())
+    {
+        drawControlPoints(painter);
+    }
+}
+

@@ -15,10 +15,17 @@ Geo* createGeo(DrawMode mode);
 class Geo {
 public:
     virtual ~Geo() = default;
-    virtual void draw(QPainter& painter) = 0; // 绘制方法
-    virtual void completeDrawing();
+    virtual void initialize() = 0;                          // 初始化，在第一次点击（确定第一个控制点）的时候自动调用，来设置属性
+    virtual void draw(QPainter& painter) = 0;           // 绘制方法
+    virtual void drawControlPoints(QPainter& painter);  // 绘制控制点
+    //virtual void drawBuffer(QPainter& painter) = 0;     // 绘制缓冲区
+    virtual void hitTesting(QPointF);                   // 点击测试
+    virtual void completeDrawing(); // 完成构造（完成前接受事件来进行绘制）
 
-    // 接受鼠标和键盘事件来进行绘制
+    GeoType getGeoType(); // 反射类型
+
+
+    // 接受鼠标和键盘事件来进行绘制或修改
     virtual void keyPressEvent(QKeyEvent* event);
     virtual void keyReleaseEvent(QKeyEvent* event);
     virtual void mouseMoveEvent(QMouseEvent* event);
@@ -26,231 +33,114 @@ public:
     virtual void mouseReleaseEvent(QMouseEvent* event);
     virtual void wheelEvent(QWheelEvent* event);
 
-    
-    GeoType getGeoType();
-
+    // 状态的一些修改
     bool isStateDrawing();
     bool isStateComplete();
     bool isStateInvalid();
     bool isStateSelected();
+    bool isStateInitialized();
 
+    void setStateInitialized();
     void setStateInvalid();
     void setStateComplete();
     void setStateSelected();
     void setStateNotSelected();
 protected:
     void setGeoType(GeoType newType);   // 构造函数中,确定类型
-
+    QVector<QPointF> controlPoints;    // 控制点 (每个类可以自己加划分信息)
+    QPointF tempControlPoints;          // 临时控制点, 在绘制中使用
 private:
     int geoState = 0;
     GeoType geoType = GeoType::Undefined;
 };
 
-// ================================================================================================ ControlPoint
-
-class ControlPoint : public QPointF
-{
-public:
-    using QPointF::QPointF; // 继承 QPointF 的所有构造函数
-    ControlPoint(QPointF& point);
-    void draw(QPainter& painter);
-};
-
-
 // ================================================================================================ Point
 class Point : public Geo {
 public:
     Point();
-    ~Point();
+    void initialize() override;
 
-    QPointF getPosition() const;
-    void setPosition(const QPointF& newPos);
-
-    QColor getColor() const;
-    void setColor(const QColor& newColor);
-
-    PointShape getShape() const;
-    void setShape(PointShape newShape);
-
-    void draw(QPainter& painter) override;
-
+    // 图形构造事件
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void completeDrawing() override;
-private:
-    QPointF position;                                                   // 点的位置
-    QPointF tempPoint;
-    QColor color = getSetting<QRgb>(Key_PointColor);                    // 点的颜色
-    PointShape shape = getSetting<PointShape>(Key_PointShape);          // 点的形状
-};
-
-// ================================================================================================ BaseLine
-class BaseLine : public Geo {
-public:
-    BaseLine();
-    virtual ~BaseLine();
-
-    // 设置颜色
-    void setColor(QColor color);
-    QColor getColor() const;
-
-    // 设置线形
-    void setLineStyle(LineStyle lineStyle);
-    LineStyle getLineStyle() const;
-
-    // 设置线型
-    void setLineWidth(float width);
-    float getLineWidth() const;
-
-    // 设置虚线段长
-    void setDashPattern(float pattern);
-    float getDashPattern() const;
-
-    void pushPoint(QPointF& point);
-
-    void mouseMoveEvent(QMouseEvent* event) override;
-
-    void completeDrawing() override;
-
-    virtual QVector<QPointF> getPoints();
-
-protected:
-    friend class Polygon;
-    friend class ComplexPolygon;
-    QVector<ControlPoint> controlPoints;                                // 控制点
-    ControlPoint tempControlPoint;                                      // 暂时的控制点（追踪鼠标移动）
-
-    float lineWidth = getSetting<float>(Key_LineWidth);                 // 线宽
-    float dashPattern = getSetting<float>(Key_LineDashPattern);         // 虚线段长
-    QColor color = getSetting<QRgb>(Key_LineColor);                     // 颜色
-    LineStyle lineStyle = getSetting<LineStyle>(Key_LineStyle);         // 样式
-};
-
-// ================================================================================================ Polyline
-class Polyline : public BaseLine {
-public:
-    Polyline();
-    ~Polyline();
-    void mousePressEvent(QMouseEvent* event) override;
-
-protected:
-    void draw(QPainter& painter) override;
-};
-
-// ================================================================================================ Spline
-class Spline : public BaseLine {
-public:
-    Spline();
-    ~Spline();
-    void mousePressEvent(QMouseEvent* event) override;
-
-    QVector<QPointF> getPoints() override;
-
-    void completeDrawing() override;
-protected:
-    QVector<QPointF> linePoints;   // 计算得到的曲线上的点
-    void draw(QPainter& painter) override;
-};
-
-// ================================================================================================ Arc3Points
-class Arc3Points : public BaseLine {
-public:
-    Arc3Points();
-    ~Arc3Points();
-
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
-    QVector<QPointF> getPoints() override;
-    void completeDrawing() override;
-
-protected:
-    void draw(QPainter& painter) override;
-};
-
-// ================================================================================================ Arc2Points
-class Arc2Points : public BaseLine {
-public:
-    Arc2Points();
-    ~Arc2Points();
-
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
-    QVector<QPointF> getPoints() override;
-    void completeDrawing() override;
-
-protected:
-    void draw(QPainter& painter) override;
-    void drawCircle(QPainter& painter, const QPointF& point1, const QPointF& point2);
-};
-
-
-// ================================================================================================ Polygon
-class Polygon : public Geo {
-public:
-    Polygon();
-    ~Polygon();
-
-    void setFillColor(const QColor& color);
-    QColor getFillColor() const;
-
-    void setBorderColor(const QColor& color);
-    QColor getBorderColor() const;
-
-    void setBorderStyle(LineStyle LineStyle);
-    LineStyle getBorderStyle() const;
-
-    void setBorderWidth(float width);
-    float getBorderWidth() const;
 
     void draw(QPainter& painter) override;
-
-    void mousePressEvent(QMouseEvent* event) override;
-
-    void mouseMoveEvent(QMouseEvent* event) override;
-
-    void completeDrawing() override;
 
 private:
-    BaseLine* edges = nullptr;
-
-    float lineWidth = getSetting<float>(Key_PgLineWidth);                  // 边框宽度
-    QColor fillColor = getSetting<QRgb>(Key_PgFillColor);                  // 面内填充颜色
-    QColor lineColor = getSetting<QRgb>(Key_PgLineColor);                  // 边框颜色
-    LineStyle lineStyle = getSetting<LineStyle>(Key_PgLineStyle);          // 边框线形
-    float lineDashPattern = getSetting<float>(Key_PgLineDashPattern);         // 虚线段长
+    QColor color;                    // 点的颜色
+    PointShape shape;                // 点的形状
 };
 
-// ================================================================================================ ComplexPolygon
-class ComplexPolygon : public Geo {
+// ================================================================================================ SimpleLine
+class SimpleLine : public Geo {
 public:
-    ComplexPolygon();
-    ~ComplexPolygon();
+    SimpleLine();
+    void initialize() override;
 
-    void setFillColor(const QColor& color);
-    QColor getFillColor() const;
-
-    void setBorderColor(const QColor& color);
-    QColor getBorderColor() const;
-
-    void setBorderStyle(LineStyle style);
-    LineStyle getBorderStyle() const;
-
-    void setBorderWidth(float width);
-    float getBorderWidth() const;
-
-    void draw(QPainter& painter) override;
-
+    // 图形构造事件
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
-
     void completeDrawing() override;
 
-private:
-    QVector<BaseLine*> edges;  // 存储多个边界对象
+    void draw(QPainter& painter) override;
+protected:
 
-    QColor fillColor = getSetting<QRgb>(Key_PgFillColor); // 面内填充颜色
-    QColor lineColor = getSetting<QRgb>(Key_PgLineColor); // 边框颜色
-    LineStyle lineStyle = getSetting<LineStyle>(Key_PgLineStyle); // 边框线形
-    float lineWidth = getSetting<float>(Key_PgLineWidth); // 边框宽度
-    float lineDashPattern = getSetting<float>(Key_PgLineDashPattern);         // 虚线段长
+    QVector<QPointF> points;        // 点集
+    NodeLineStyle nodeLineStyle;    // 节点线型
+    
+    float lineWidth;                    // 线宽
+    float dashPattern;                  // 虚线段长
+    QColor color;                       // 颜色
+    LineStyle lineStyle;                // 样式（实线、虚线）
+};
+
+// ================================================================================================ SimpleArea
+class SimpleArea : public Geo {
+public:
+    SimpleArea();
+    void initialize() override;
+
+    // 图形构造事件
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void completeDrawing() override;
+
+    void draw(QPainter& painter) override;
+protected:
+
+    QVector<QPointF> points;    // 点集
+    NodeLineStyle nodeLineStyle;    // 节点线型
+
+    float lineWidth;               // 边框宽度
+    QColor fillColor;              // 面内填充颜色
+    QColor lineColor;              // 边框颜色
+    LineStyle lineStyle;           // 边框线形
+    float lineDashPattern;         // 虚线段长
+
+};
+// ================================================================================================ SimpleArea
+class ComplexArea : public Geo {
+public:
+    ComplexArea();
+    void initialize() override;
+
+    // 图形构造事件
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void completeDrawing() override;
+
+    void draw(QPainter& painter) override;
+protected:
+
+    bool isDrawing;                       // 在绘制
+    QVector<QVector<QPointF>> pointss;    // 二维点集
+    QVector<Component> component;
+
+    NodeLineStyle nodeLineStyle;   // 节点线型
+    float lineWidth;               // 边框宽度
+    QColor fillColor;              // 面内填充颜色
+    QColor lineColor;              // 边框颜色
+    LineStyle lineStyle;           // 边框线形
+    float lineDashPattern;         // 虚线段长
 };

@@ -95,6 +95,7 @@ enum class NodeLineStyle
     Polyline,       // 折线
     Spline,         // 样条线
     ThreePointArc,  // 三点圆弧
+    Arc,			// 普通圆弧
     Streamline      // 流线
 };
 ```

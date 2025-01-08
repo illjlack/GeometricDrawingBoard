@@ -45,7 +45,8 @@ enum DrawMode
     DrawArcThreePoints,        // 三点圆弧
     DrawArcTwoPoints,          // 两点圆弧
     DrawStreamline,             // 流线
-    DrawPolygon,
+    DrawPolygon,                // 简单面
+    DrawComplexPolygon,         // 复杂面
 
     EndDrawMode
 };
@@ -62,6 +63,7 @@ enum GeoType
     TypeArcTwoPoints,           // 两点圆弧
     TypeStreamline,             // 流线
     TypePolygon,                // 简单面
+    TypeComplexPolygon,         // 复杂面
 
     EndGeoType
 };

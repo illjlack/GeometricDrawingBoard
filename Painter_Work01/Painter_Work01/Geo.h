@@ -116,6 +116,7 @@ public:
 
 protected:
     friend class Polygon;
+    friend class ComplexPolygon;
     QVector<ControlPoint> controlPoints;                                // 控制点
     ControlPoint tempControlPoint;                                      // 暂时的控制点（追踪鼠标移动）
 
@@ -167,6 +168,22 @@ protected:
     void drawArc(QPainter& painter, const QPointF& point1, const QPointF& point2, const QPointF& point3);
 };
 
+// ================================================================================================ Arc2Points
+class Arc2Points : public BaseLine {
+public:
+    Arc2Points();
+    ~Arc2Points();
+
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    QVector<QPointF> getPoints() override;
+    void completeDrawing() override;
+
+protected:
+    void draw(QPainter& painter) override;
+    void drawCircle(QPainter& painter, const QPointF& point1, const QPointF& point2);
+};
+
 
 // ================================================================================================ Polygon
 class Polygon : public Geo {
@@ -201,4 +218,40 @@ private:
     QColor fillColor = getSetting<QRgb>(Key_PgFillColor);                  // 面内填充颜色
     QColor lineColor = getSetting<QRgb>(Key_PgLineColor);                  // 边框颜色
     LineStyle lineStyle = getSetting<LineStyle>(Key_PgLineStyle);          // 边框线形
+    float lineDashPattern = getSetting<float>(Key_PgLineDashPattern);         // 虚线段长
+};
+
+// ================================================================================================ ComplexPolygon
+class ComplexPolygon : public Geo {
+public:
+    ComplexPolygon();
+    ~ComplexPolygon();
+
+    void setFillColor(const QColor& color);
+    QColor getFillColor() const;
+
+    void setBorderColor(const QColor& color);
+    QColor getBorderColor() const;
+
+    void setBorderStyle(LineStyle style);
+    LineStyle getBorderStyle() const;
+
+    void setBorderWidth(float width);
+    float getBorderWidth() const;
+
+    void draw(QPainter& painter) override;
+
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+
+    void completeDrawing() override;
+
+private:
+    QVector<BaseLine*> edges;  // 存储多个边界对象
+
+    QColor fillColor = getSetting<QRgb>(Key_PgFillColor); // 面内填充颜色
+    QColor lineColor = getSetting<QRgb>(Key_PgLineColor); // 边框颜色
+    LineStyle lineStyle = getSetting<LineStyle>(Key_PgLineStyle); // 边框线形
+    float lineWidth = getSetting<float>(Key_PgLineWidth); // 边框宽度
+    float lineDashPattern = getSetting<float>(Key_PgLineDashPattern);         // 虚线段长
 };

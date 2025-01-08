@@ -25,6 +25,12 @@ Geo* createGeo(DrawMode mode)
     case DrawMode::DrawArcThreePoints:
         geo = new Arc3Points();
         break;
+    case DrawMode::DrawArcTwoPoints:
+        geo = new Arc2Points();
+        break;
+    case DrawMode::DrawComplexPolygon:
+        geo = new ComplexPolygon();
+        break;
     default:
         throw std::runtime_error("null DrawMode!!!!");
         break;
@@ -664,7 +670,118 @@ void Arc3Points::drawArc(QPainter& painter, const QPointF& point1, const QPointF
     }
 }
 
+// ===================================================================== Arc2Points
+Arc2Points::Arc2Points()
+{
+    setGeoType(GeoType::TypeArcTwoPoints);
+    setStateSelected(); // 还在绘制中，是当前选中
+}
 
+Arc2Points::~Arc2Points()
+{
+}
+
+void Arc2Points::mousePressEvent(QMouseEvent* event)
+{
+    if (event->button() == Qt::RightButton)
+    {
+        completeDrawing();
+    }
+    else
+    {
+        if (isStateDrawing())
+        {
+            QPointF point = event->pos();
+            pushPoint(point);
+            if (controlPoints.size() == 2)
+            {
+                completeDrawing();
+            }
+        }
+    }
+}
+
+void Arc2Points::completeDrawing()
+{
+    // 检查是否合法
+    if (controlPoints.size() < 2 || controlPoints[0] == controlPoints[1])
+    {
+        setStateInvalid();
+    }
+    BaseLine::completeDrawing();
+}
+
+QVector<QPointF> Arc2Points::getPoints()
+{
+    return QVector<QPointF>(controlPoints.begin(), controlPoints.end());
+}
+
+void Arc2Points::mouseMoveEvent(QMouseEvent* event)
+{
+    if (isStateDrawing())
+    {
+        tempControlPoint = event->pos();
+    }
+}
+
+void Arc2Points::draw(QPainter& painter)
+{
+    if (isStateInvalid()) {
+        return;
+    }
+
+    QPen pen;
+    pen.setColor(color);
+    pen.setWidthF(lineWidth);
+
+    if (lineStyle == LineStyle::Dashed) {
+        pen.setStyle(Qt::DashLine);
+        pen.setDashOffset(dashPattern);
+    }
+    else {
+        pen.setStyle(Qt::SolidLine);
+    }
+
+    painter.setPen(pen);
+
+    // 如果已有两个点，绘制圆
+    if (controlPoints.size() == 2) {
+        drawCircle(painter, controlPoints[0], controlPoints[1]);
+    }
+
+    if (isStateDrawing() && controlPoints.size() == 1) {
+        drawCircle(painter, controlPoints[0], tempControlPoint);
+    }
+
+    // 绘制控制点
+    if (isStateSelected()) {
+        for (auto& point : controlPoints) {
+            point.draw(painter);
+        }
+        if (isStateDrawing()) {
+            tempControlPoint.draw(painter);
+        }
+    }
+}
+
+void Arc2Points::drawCircle(QPainter& painter, const QPointF& point1, const QPointF& point2)
+{
+    QPointF center;
+    double radius;
+
+    // 计算圆心和半径
+    if (calculateCircle(point1, point2, center, radius)) {
+        QPainterPath path;
+
+        double startAngle = -std::atan2(point1.y() - center.y(), point1.x() - center.x()) * 180.0 / M_PI;;
+        QRectF rect(center.x() - radius, center.y() - radius, 2 * radius, 2 * radius);
+
+        path.moveTo(point1);  // 设置圆弧的起始点
+
+        path.arcTo(rect, startAngle, 360);  // 绘制整个圆
+        painter.drawPath(path);
+    }
+}
 
 // ===================================================================== Polygon
 Polygon::Polygon()
@@ -673,9 +790,6 @@ Polygon::Polygon()
     setStateSelected(); // 还在绘制中，是当前选中
 
     edges = static_cast<BaseLine*>(createGeo(getSetting<DrawMode>(Key_PgLineMode)));
-    edges->setColor(lineColor);
-    edges->setLineWidth(lineWidth);
-    edges->setLineStyle(lineStyle);
 }
 
 Polygon::~Polygon()
@@ -728,7 +842,19 @@ void Polygon::draw(QPainter& painter)
     {
         return;
     }
-    edges->draw(painter);
+
+    QPen pen;
+    pen.setColor(lineColor);
+    pen.setWidthF(lineWidth);
+
+    if (lineStyle == LineStyle::Dashed) {
+        pen.setStyle(Qt::DashLine);
+        pen.setDashOffset(lineDashPattern);
+    }
+    else {
+        pen.setStyle(Qt::SolidLine);
+    }
+    painter.setPen(pen);
 
     QBrush brush(fillColor);
     painter.setBrush(brush);
@@ -760,6 +886,18 @@ void Polygon::draw(QPainter& painter)
 
     painter.drawPath(path);
     painter.setBrush(Qt::NoBrush); // 恢复无填充     
+
+    // 绘制控制点
+    if (isStateSelected()) {
+        for (auto& point : edges->controlPoints) 
+        {
+            point.draw(painter);
+        }
+        if (isStateDrawing()) 
+        {
+            edges->tempControlPoint.draw(painter);
+        }
+    }
 }
 
 
@@ -771,6 +909,7 @@ void Polygon::mousePressEvent(QMouseEvent* event)
     }
     if (event->button() == Qt::RightButton)
     {
+        edges->mousePressEvent(event);
         completeDrawing();
     }
     else
@@ -791,11 +930,163 @@ void Polygon::completeDrawing()
     {
         setStateInvalid();
     }
-
-    // 把起始点也放入图形，来计算曲线(但,终点和起点放一起也很奇怪)
-    // todo
-
-    edges->completeDrawing();
     Geo::completeDrawing();
 }
 
+// ===================================================================== ComplexPolygon
+ComplexPolygon::ComplexPolygon() {
+    setGeoType(GeoType::TypeComplexPolygon);
+    setStateSelected();  // 还在绘制中，是当前选中
+
+    // 这里只为一个边界设置，后续可以支持多个边界的初始化
+    BaseLine* edge = static_cast<BaseLine*>(createGeo(getSetting<DrawMode>(Key_PgLineMode)));
+    edges.append(edge);
+}
+
+ComplexPolygon::~ComplexPolygon() {
+    // 清理所有边界对象
+    qDeleteAll(edges);
+    edges.clear();
+}
+
+void ComplexPolygon::setFillColor(const QColor& color) {
+    fillColor = color;
+}
+
+QColor ComplexPolygon::getFillColor() const {
+    return fillColor;
+}
+
+void ComplexPolygon::setBorderColor(const QColor& color) {
+    lineColor = color;
+}
+
+QColor ComplexPolygon::getBorderColor() const {
+    return lineColor;
+}
+
+void ComplexPolygon::setBorderStyle(LineStyle style) {
+    lineStyle = style;
+}
+
+LineStyle ComplexPolygon::getBorderStyle() const {
+    return lineStyle;
+}
+
+void ComplexPolygon::setBorderWidth(float width) {
+    lineWidth = width;
+}
+
+float ComplexPolygon::getBorderWidth() const {
+    return lineWidth;
+}
+
+void ComplexPolygon::draw(QPainter& painter) {
+    if (edges.isEmpty() || isStateInvalid()) {
+        return;
+    }
+
+    QPen pen;
+    pen.setColor(lineColor);
+    pen.setWidthF(lineWidth);
+
+    if (lineStyle == LineStyle::Dashed) {
+        pen.setStyle(Qt::DashLine);
+        pen.setDashOffset(lineDashPattern);
+    }
+    else {
+        pen.setStyle(Qt::SolidLine);
+    }
+    painter.setPen(pen);
+
+    QBrush brush(fillColor);
+    painter.setBrush(brush);
+    QPainterPath path;
+
+    // 绘制每一个边界
+    for (int i = 0; i < edges.size(); ++i) {
+        const QVector<QPointF>& points = edges[i]->getPoints();
+        if (i == 0) {
+            if (!points.isEmpty()) {
+                path.moveTo(points[0]);
+                for (int j = 1; j < points.size(); ++j) {
+                    path.lineTo(points[j]);
+                }
+            }
+            path.closeSubpath();
+        }
+        else {
+            // 对于后续边界，使用负的绘制方式，表示“孔”
+            if (!points.isEmpty()) {
+                path.moveTo(points[0]);
+                for (int j = 1; j < points.size(); ++j) {
+                    path.lineTo(points[j]);
+                }
+                path.closeSubpath(); // 闭合路径
+            }
+        }
+    }
+    painter.drawPath(path);
+
+    // 绘制控制点
+    if (isStateSelected()) 
+    {
+        for (auto edge : edges)
+        {
+            for (auto& point : edge->controlPoints)
+            {
+                point.draw(painter);
+            }
+            if (edge->isStateDrawing())
+            {
+                edge->tempControlPoint.draw(painter);
+            }
+        }
+    }
+    painter.setBrush(Qt::NoBrush);  // 恢复无填充
+}
+
+void ComplexPolygon::mousePressEvent(QMouseEvent* event) {
+    if (isStateComplete()) 
+    {
+        return;
+    }
+    if (event->button() == Qt::RightButton) 
+    {
+        if (edges.last()->isStateComplete())
+        {
+            completeDrawing();
+        }
+        else
+        {
+            edges.last()->mousePressEvent(event);
+            if (edges.last()->isStateInvalid())
+            {
+                delete edges.last();
+                edges.pop_back();
+                if (edges.isEmpty())completeDrawing();
+            }
+        }
+    }
+    else {
+        if (edges.last()->isStateComplete())
+        {
+            BaseLine* edge = static_cast<BaseLine*>(createGeo(getSetting<DrawMode>(Key_PgLineMode)));
+            edges.append(edge);
+        }
+        edges.last()->mousePressEvent(event);
+    }
+}
+
+void ComplexPolygon::mouseMoveEvent(QMouseEvent* event) {
+    // 继续绘制时，更新当前正在绘制的边界
+    edges.last()->mouseMoveEvent(event);
+}
+
+void ComplexPolygon::completeDrawing() {
+    if (edges.isEmpty()) 
+    {
+        setStateInvalid();
+    }
+    Geo::completeDrawing();
+}

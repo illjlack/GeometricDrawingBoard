@@ -218,6 +218,18 @@ bool calculateArcPoints(const QPointF& center, double radius, double startAngle,
 // ==========================================================================
 // 平行线计算
 // ==========================================================================
+// 参考：https://zhuanlan.zhihu.com/p/536948720
+
+// 精度常量
+const double EPS = 1e-8;
+
+// 精度处理
+int sgn(double x);
+// 向量标准化
+std::pair<double, double> normalize(double x, double y);
+
+// 向量叉乘
+double cross(double x1, double y1, double x2, double y2);
 
 /**
  * 计算折线的平行线
@@ -237,3 +249,28 @@ bool calculateParallelLine(const QVector<QPointF>& polyline, double dis, QVector
  * @return 如果计算成功则返回 true，失败则返回 false
  */
 bool calculateParallelLineThroughPoint(const QVector<QPointF>& polyline, const QPointF& targetPoint, QVector<QPointF>& parallelPolyline);
+
+
+// ==========================================================================
+// 缓冲区计算
+// ==========================================================================
+
+/**
+ * 根据起点、终点和圆心计算弧度较小方向的圆弧上的点
+ * @param startPoint 圆弧的起点
+ * @param endPoint 圆弧的终点
+ * @param center 圆心
+ * @param steps 步数，决定计算多少个点
+ * @param arcPoints 输出参数，保存计算得到的弧线上的点
+ * @return 如果计算成功则返回 true，失败则返回 false
+ */
+bool calculateArcPointsFromStartEndCenter(const QPointF& startPoint, const QPointF& endPoint, const QPointF& center, int steps, QVector<QPointF>& arcPoints);
+
+/**
+ * 计算折线的缓存区
+ * @param polyline 输入折线的点列表
+ * @param dis 平行线与折线的距离
+ * @param points 输出参数
+ * @return 如果计算成功则返回 true，失败则返回 false
+ */
+bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<QPointF>& points);

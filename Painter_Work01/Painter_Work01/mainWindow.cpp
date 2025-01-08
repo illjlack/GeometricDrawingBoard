@@ -19,8 +19,10 @@ mainWindow::mainWindow(QWidget* parent)
     // 创建菜单栏、工具栏、侧边栏和状态栏
     createMenuBar();
     createToolBar();
+    createNodeLineToolBar();
     createStatusBar();
     createSideBar();
+    
 
     // 设置窗口标题和大小
     setWindowTitle(L("几何图形绘制与缓冲区分析"));
@@ -98,6 +100,44 @@ void mainWindow::createToolBar()
     connect(drawComplexAreaAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_DrawMode, DrawMode::DrawComplexArea); });
 
     addToolBar(toolBar);
+}
+
+void mainWindow::createNodeLineToolBar()
+{
+    QToolBar* nodeLineToolBar = new QToolBar(this);
+
+    // 添加工具栏按钮
+    QAction* polylineAction = nodeLineToolBar->addAction(L("折线"));
+    polylineAction->setCheckable(true);
+    QAction* splineAction = nodeLineToolBar->addAction(L("样条线"));
+    splineAction->setCheckable(true);
+    QAction* threePointArcAction = nodeLineToolBar->addAction(L("三点圆弧"));
+    threePointArcAction->setCheckable(true);
+    QAction* arcAction = nodeLineToolBar->addAction(L("圆弧"));
+    arcAction->setCheckable(true);
+    QAction* streamlineAction = nodeLineToolBar->addAction(L("流线"));
+    streamlineAction->setCheckable(true);
+
+    // 将按钮分组，保证只能选中一个按钮
+    QActionGroup* actionGroup = new QActionGroup(this);
+    actionGroup->addAction(polylineAction);
+    actionGroup->addAction(splineAction);
+    actionGroup->addAction(threePointArcAction);
+    actionGroup->addAction(arcAction);
+    actionGroup->addAction(streamlineAction);
+    actionGroup->setExclusive(true); // 设置为互斥
+
+    // 默认选中折线按钮
+    polylineAction->setChecked(true);
+
+    // 连接信号和槽
+    connect(polylineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_NodeLineStyle, NodeLineStyle::StylePolyline); });
+    connect(splineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_NodeLineStyle, NodeLineStyle::StyleSpline); });
+    connect(threePointArcAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_NodeLineStyle, NodeLineStyle::StyleThreePointArc); });
+    connect(arcAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_NodeLineStyle, NodeLineStyle::StyleArc); });
+    connect(streamlineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); setSetting(Key_NodeLineStyle, NodeLineStyle::StyleStreamline); });
+
+    addToolBar(nodeLineToolBar);
 }
 
 

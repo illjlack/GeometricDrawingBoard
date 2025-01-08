@@ -11,7 +11,7 @@
 class Geo;
 Geo* createGeo(DrawMode mode);
 
-// ================================================================================================ Geo
+// ===================================================================== Geo
 class Geo {
 public:
     virtual ~Geo() = default;
@@ -54,7 +54,7 @@ private:
     GeoType geoType = GeoType::Undefined;
 };
 
-// ================================================================================================ Point
+// ===================================================================== Point
 class Point : public Geo {
 public:
     Point();
@@ -72,7 +72,7 @@ private:
     PointShape shape;                // 点的形状
 };
 
-// ================================================================================================ SimpleLine
+// ===================================================================== SimpleLine
 class SimpleLine : public Geo {
 public:
     SimpleLine();
@@ -95,34 +95,10 @@ protected:
     LineStyle lineStyle;                // 样式（实线、虚线）
 };
 
-// ================================================================================================ SimpleArea
-class SimpleArea : public Geo {
+// ===================================================================== DoubleLine
+class DoubleLine : public Geo {
 public:
-    SimpleArea();
-    void initialize() override;
-
-    // 图形构造事件
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
-    void completeDrawing() override;
-
-    void draw(QPainter& painter) override;
-protected:
-
-    QVector<QPointF> points;    // 点集
-    NodeLineStyle nodeLineStyle;    // 节点线型
-
-    float lineWidth;               // 边框宽度
-    QColor fillColor;              // 面内填充颜色
-    QColor lineColor;              // 边框颜色
-    LineStyle lineStyle;           // 边框线形
-    float lineDashPattern;         // 虚线段长
-
-};
-// ================================================================================================ SimpleArea
-class ComplexArea : public Geo {
-public:
-    ComplexArea();
+    DoubleLine();
     void initialize() override;
 
     // 图形构造事件
@@ -145,10 +121,81 @@ protected:
     float lineDashPattern;         // 虚线段长
 };
 
-// ================================================================================================ DoubleLine
-class DoubleLine : public Geo {
+// ===================================================================== ParallelLine
+class ParallelLine : public Geo {
 public:
-    DoubleLine();
+    ParallelLine();
+    void initialize() override;
+
+    // 图形构造事件
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void completeDrawing() override;
+
+    void draw(QPainter& painter) override;
+protected:
+
+    QVector<QVector<QPointF>> pointss;    // 二维点集
+    QVector<Component> component;
+
+    NodeLineStyle nodeLineStyle;   // 节点线型
+    float lineWidth;               // 边框宽度
+    QColor fillColor;              // 面内填充颜色
+    QColor lineColor;              // 边框颜色
+    LineStyle lineStyle;           // 边框线形
+    float lineDashPattern;         // 虚线段长
+};
+
+// ===================================================================== TwoPointCircle
+class TwoPointCircle : public Geo {
+public:
+    TwoPointCircle();
+    void initialize() override;
+
+    // 图形构造事件
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void completeDrawing() override;
+
+    void draw(QPainter& painter) override;
+protected:
+
+    QVector<QPointF> points;       // 点集
+    float lineWidth;               // 边框宽度
+    QColor fillColor;              // 面内填充颜色
+    QColor lineColor;              // 边框颜色
+    LineStyle lineStyle;           // 边框线形
+    float lineDashPattern;         // 虚线段长
+};
+
+// ===================================================================== SimpleArea
+class SimpleArea : public Geo {
+public:
+    SimpleArea();
+    void initialize() override;
+
+    // 图形构造事件
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void completeDrawing() override;
+
+    void draw(QPainter& painter) override;
+protected:
+
+    QVector<QPointF> points;    // 点集
+    NodeLineStyle nodeLineStyle;    // 节点线型
+
+    float lineWidth;               // 边框宽度
+    QColor fillColor;              // 面内填充颜色
+    QColor lineColor;              // 边框颜色
+    LineStyle lineStyle;           // 边框线形
+    float lineDashPattern;         // 虚线段长
+};
+
+// ===================================================================== ComplexArea 
+class ComplexArea : public Geo {
+public:
+    ComplexArea();
     void initialize() override;
 
     // 图形构造事件

@@ -19,10 +19,11 @@ public:
     ~mainWindow();
 
 private:
-    void createMenuBar();   // 创建菜单栏
-    void createToolBar();   // 创建工具栏
-    void createSideBar();   // 侧边栏
-    void createStatusBar(); // 创建状态栏
+    void createMenuBar();               // 创建菜单栏
+    void createToolBar();               // 创建工具栏
+    void createNodeLineToolBar();       // 创建节点线型工具栏
+    void createSideBar();               // 侧边栏
+    void createStatusBar();             // 创建状态栏
 
    Canvas* canvas;   //绘制区域
 

@@ -30,14 +30,13 @@ void GlobalDrawSettings::reset() {
     settings[Key_PointColor] = QColor(Qt::black).rgba();
 
     settings[Key_LineStyle] = LineStyle::Dashed;
-    settings[Key_LineWidth] = 1.0f;
+    settings[Key_LineWidth] = 2.0f;
     settings[Key_LineColor] = QColor(Qt::black).rgba();
     settings[Key_LineDashPattern] = 5.0f;
-    settings[Key_NodeLineStyle] = NodeLineStyle::StyleThreePointArc;
+    //settings[Key_NodeLineStyle] = NodeLineStyle::StyleThreePointArc;
+    settings[Key_NodeLineStyle] = NodeLineStyle::StylePolyline;
 
 
-
-    settings[Key_PgLineMode] = DrawMode::DrawPolyline;
     
     settings[Key_PgFillColor] = QColor(Qt::white).rgba();
     //settings[Key_PgFillColor] = QColor(Qt::blue).rgba();
@@ -47,8 +46,7 @@ void GlobalDrawSettings::reset() {
     settings[Key_PgLineStyle] = LineStyle::Solid;
     settings[Key_PgLineDashPattern] = 5.0f;
     //settings[Key_PgNodeLineStyle] = NodeLineStyle::StyleThreePointArc;
-    settings[Key_PgNodeLineStyle] = NodeLineStyle::StyleArc;
-    //settings[Key_PgNodeLineStyle] = NodeLineStyle::StylePolyline;
+    //settings[Key_PgNodeLineStyle] = NodeLineStyle::StyleArc;
     
     settings[Key_SplineOrder] = 3;
     settings[Key_SplineNodeCount] = 1000;

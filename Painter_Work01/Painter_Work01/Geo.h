@@ -146,9 +146,9 @@ public:
 
     QVector<QPointF> getPoints() override;
 
-    GeoSplineCurve geoSplineCurve;
     void completeDrawing() override;
 protected:
+    QVector<QPointF> linePoints;   // 计算得到的曲线上的点
     void draw(QPainter& painter) override;
 };
 
@@ -165,7 +165,6 @@ public:
 
 protected:
     void draw(QPainter& painter) override;
-    void drawArc(QPainter& painter, const QPointF& point1, const QPointF& point2, const QPointF& point3);
 };
 
 // ================================================================================================ Arc2Points

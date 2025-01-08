@@ -51,6 +51,18 @@ enum DrawMode
     EndDrawMode
 };
 
+enum NodeLineStyle
+{
+    BeginNodeLineStyle = EndDrawMode,
+
+    StylePolyline,       // 折线
+    StyleSpline,         // 样条线
+    StyleThreePointArc,  // 三点圆弧
+    StyleStreamline,     // 流线
+    
+    EndNodeLineStyle,
+};
+
 enum GeoType
 {
     BeginGeoType = EndDrawMode,

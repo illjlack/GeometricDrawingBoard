@@ -70,3 +70,32 @@
 屎山代码就是这么堆的,我悟了
 ```
 
+
+
+感觉又要改：
+
+是选择：简单线、双线、平行线、两点画圆、简单面、复杂面
+
+节点线型：折线、样条线、三点圆弧、流线
+
+线型：实线、虚线
+
+```cpp
+enum class DrawMode
+{
+    SimpleLine,     // 简单线
+    DoubleLine,     // 双线
+    ParallelLine,   // 平行线
+    TwoPointCircle, // 两点画圆
+    SimpleArea,     // 简单面
+    ComplexArea     // 复杂面
+};
+enum class NodeLineStyle 
+{
+    Polyline,       // 折线
+    Spline,         // 样条线
+    ThreePointArc,  // 三点圆弧
+    Streamline      // 流线
+};
+```
+

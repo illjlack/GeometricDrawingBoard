@@ -440,41 +440,48 @@ void Polyline::mousePressEvent(QMouseEvent* event)
 }
 
 // ====================================================Spline
-Spline::Spline():geoSplineCurve(getSetting<int>(Key_SplineOrder), getSetting<int>(Key_SplineNodeCount))
-{
+// 构造函数
+Spline::Spline() {
     setGeoType(GeoType::TypeSpline);
-    setStateSelected(); // 还在绘制中，是当前选中
+    setStateSelected(); // 设置当前为选中状态，表示正在绘制中
 }
 
-Spline::~Spline()
-{
-}
+// 析构函数
+Spline::~Spline() {}
 
 void Spline::mousePressEvent(QMouseEvent* event)
 {
-    if (event->button() == Qt::RightButton)
+    if (event->button() == Qt::RightButton) // 右键完成绘制
     {
         completeDrawing();
     }
-    else
+    else // 左键添加控制点
     {
-        if (isStateDrawing())
+        if (isStateDrawing()) // 如果当前处于绘制状态
         {
             QPointF point = event->pos();
-            pushPoint(point);
-            geoSplineCurve.addControlPoint(point);
+            pushPoint(point); // 存储控制点
+            controlPoints.push_back(point); // 将点添加到控制点列表
+
+            // 计算并更新曲线上的点
+            if (controlPoints.size() >= 2) // 至少两个控制点才能计算线
+            {
+                QVector<QPointF>points(controlPoints.begin(), controlPoints.end());
+                calculateLinePoints(NodeLineStyle::StyleSpline, points,500, linePoints); // 使用样条线
+            }
         }
     }
 }
 
 QVector<QPointF> Spline::getPoints()
 {
-    return geoSplineCurve.getCurvePoints();
+    // 返回计算得到的曲线上的点
+    return linePoints;
 }
 
-void Spline::draw(QPainter& painter) 
+void Spline::draw(QPainter& painter)
 {
-    if (isStateInvalid())
+    if (isStateInvalid()) // 如果当前状态无效，直接返回
     {
         return;
     }
@@ -494,26 +501,28 @@ void Spline::draw(QPainter& painter)
 
     painter.setPen(pen);
 
-    const QVector<QPointF>& curvePoints = geoSplineCurve.getCurvePoints();
-
-    if (!curvePoints.isEmpty()) {
+    // 绘制样条曲线（linePoints存储的是计算出来的曲线点）
+    if (!linePoints.isEmpty()) {
         QPainterPath path;
-        path.moveTo(curvePoints[0]);
+        path.moveTo(linePoints[0]);
 
-        for (int i = 1; i < curvePoints.size(); ++i) {
-            path.lineTo(curvePoints[i]);
+        // 绘制从第一个点到最后一个点的连线
+        for (int i = 1; i < linePoints.size(); ++i) {
+            path.lineTo(linePoints[i]);
         }
 
-        painter.drawPath(path);
+        painter.drawPath(path); // 绘制路径
     }
 
-    // 如果被选中,画控制点
+    // 如果当前对象被选中，绘制控制点
     if (isStateSelected())
     {
         for (auto& point : controlPoints)
         {
-            point.draw(painter);
+            point.draw(painter); // 绘制每个控制点
         }
+
+        // 如果当前正在绘制（鼠标按下并添加了控制点），绘制临时控制点
         if (isStateDrawing())
         {
             tempControlPoint.draw(painter);
@@ -523,14 +532,13 @@ void Spline::draw(QPainter& painter)
 
 void Spline::completeDrawing()
 {
-    // 检查是否合法
-    if (geoSplineCurve.getDegree() + 1 > geoSplineCurve.getNumControlPoints())
+    // 检查控制点数量是否足够，至少需要 2 个控制点才能计算样条曲线
+    if (controlPoints.size() < 2)
     {
-        setStateInvalid();
+        setStateInvalid(); // 如果控制点不足，设置为无效状态
     }
-    BaseLine::completeDrawing();
+    BaseLine::completeDrawing(); // 完成绘制
 }
-
 // ===================================================================== Arc3Points
 
 Arc3Points::Arc3Points()
@@ -607,14 +615,40 @@ void Arc3Points::draw(QPainter& painter)
 
     painter.setPen(pen);
 
+    QVector<QPointF> arcPoints;
+
+    // 判断控制点数量是否为 3，计算弧线上的点
     if (controlPoints.size() == 3) {
-        drawArc(painter, controlPoints[0], controlPoints[1], controlPoints[2]);
+        if (calculateArcPointsFromControlPoints(controlPoints[0], controlPoints[1], controlPoints[2],  100, arcPoints)) {
+            // 如果计算成功，使用计算出的点绘制弧线
+            QPainterPath path;
+            path.moveTo(arcPoints[0]);  // 起点
+
+            // 遍历并绘制弧线上的每个点
+            for (const QPointF& point : arcPoints) {
+                path.lineTo(point);
+            }
+
+            painter.drawPath(path);
+        }
     }
 
+    // 如果处于绘制状态且控制点数量为 2，绘制临时弧线
     if (isStateDrawing() && controlPoints.size() == 2) {
-        drawArc(painter, controlPoints[0], controlPoints[1], tempControlPoint);
+        if (calculateArcPointsFromControlPoints(controlPoints[0], controlPoints[1], tempControlPoint, 100, arcPoints)) {
+            // 如果计算成功，使用计算出的点绘制弧线
+            QPainterPath path;
+            path.moveTo(arcPoints[0]);  // 起点
+
+            // 遍历并绘制弧线上的每个点
+            for (const QPointF& point : arcPoints) {
+                path.lineTo(point);
+            }
+            painter.drawPath(path);
+        }
     }
 
+    // 绘制选中的控制点
     if (isStateSelected()) {
         for (auto& point : controlPoints) {
             point.draw(painter);
@@ -622,51 +656,6 @@ void Arc3Points::draw(QPainter& painter)
         if (isStateDrawing()) {
             tempControlPoint.draw(painter);
         }
-    }
-}
-
-void Arc3Points::drawArc(QPainter& painter, const QPointF& point1, const QPointF& point2, const QPointF& point3)
-{
-    QPointF center;
-    double radius;
-
-    if (calculateCircle(point1, point2, point3, center, radius)) {
-        QPainterPath path;
-
-        double startAngle = - std::atan2(point1.y() - center.y(), point1.x() - center.x()) * 180.0 / M_PI;
-        double endAngle = - std::atan2(point3.y() - center.y(), point3.x() - center.x()) * 180.0 / M_PI;
-        double middleAngle = -std::atan2(point2.y() - center.y(), point2.x() - center.x()) * 180.0 / M_PI;
- 
-        // 转换为[0,360]的坐标(都是逆时针方向)
-        auto normalizeAngle = [](double angle) {
-            while (angle < 0) {
-                angle += 360;
-            }
-            while (angle >360) {
-                angle -= 360;
-            }
-            return angle;
-        };
-
-        double angleDiffEnd = normalizeAngle(endAngle - startAngle);
-        double angleDiffMid = normalizeAngle(middleAngle - startAngle);
-
-        double angleDiff;
-        if (angleDiffEnd > angleDiffMid) // 同方向且第二个点在中间
-        {
-            angleDiff = angleDiffEnd;
-        }
-        else // 从另一个方向经过第二个点
-        {
-            angleDiff = angleDiffEnd - 360;
-        }
-        
-        QRectF rect(center.x() - radius, center.y() - radius, 2 * radius, 2 * radius);
-
-        path.moveTo(point1);
-
-        path.arcTo(rect, startAngle, angleDiff);
-        painter.drawPath(path);
     }
 }
 
@@ -744,15 +733,37 @@ void Arc2Points::draw(QPainter& painter)
 
     painter.setPen(pen);
 
-    // 如果已有两个点，绘制圆
+    QVector<QPointF> arcPoints;
+    // 判断控制点数量是否为 3，计算弧线上的点
     if (controlPoints.size() == 2) {
-        drawCircle(painter, controlPoints[0], controlPoints[1]);
+        if (calculateArcPointsFromControlPoints(controlPoints[0], controlPoints[1], 100, arcPoints)) {
+            // 如果计算成功，使用计算出的点绘制弧线
+            QPainterPath path;
+            path.moveTo(arcPoints[0]);  // 起点
+
+            // 遍历并绘制弧线上的每个点
+            for (const QPointF& point : arcPoints) {
+                path.lineTo(point);
+            }
+
+            painter.drawPath(path);
+        }
     }
 
     if (isStateDrawing() && controlPoints.size() == 1) {
-        drawCircle(painter, controlPoints[0], tempControlPoint);
-    }
+        if (calculateArcPointsFromControlPoints(controlPoints[0], tempControlPoint, 100, arcPoints)) {
+            // 如果计算成功，使用计算出的点绘制弧线
+            QPainterPath path;
+            path.moveTo(arcPoints[0]);  // 起点
 
+            // 遍历并绘制弧线上的每个点
+            for (const QPointF& point : arcPoints) {
+                path.lineTo(point);
+            }
+
+            painter.drawPath(path);
+        }
+    }
     // 绘制控制点
     if (isStateSelected()) {
         for (auto& point : controlPoints) {
@@ -761,25 +772,6 @@ void Arc2Points::draw(QPainter& painter)
         if (isStateDrawing()) {
             tempControlPoint.draw(painter);
         }
-    }
-}
-
-void Arc2Points::drawCircle(QPainter& painter, const QPointF& point1, const QPointF& point2)
-{
-    QPointF center;
-    double radius;
-
-    // 计算圆心和半径
-    if (calculateCircle(point1, point2, center, radius)) {
-        QPainterPath path;
-
-        double startAngle = -std::atan2(point1.y() - center.y(), point1.x() - center.x()) * 180.0 / M_PI;;
-        QRectF rect(center.x() - radius, center.y() - radius, 2 * radius, 2 * radius);
-
-        path.moveTo(point1);  // 设置圆弧的起始点
-
-        path.arcTo(rect, startAngle, 360);  // 绘制整个圆
-        painter.drawPath(path);
     }
 }
 

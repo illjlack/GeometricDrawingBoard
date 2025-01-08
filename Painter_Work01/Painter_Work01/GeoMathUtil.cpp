@@ -3,6 +3,34 @@
 #include <QPointF>
 #include <cmath>
 
+bool calculateLinePoints(NodeLineStyle lineStyle, const QVector<QPointF>& controlPoints, int steps, QVector<QPointF>& linePoints)
+{
+ linePoints.clear();
+
+ switch (lineStyle) {
+ case NodeLineStyle::StylePolyline:
+     linePoints = controlPoints;
+     return true;
+
+ case NodeLineStyle::StyleSpline:
+     return calculateBSplineCurve(controlPoints, 3, steps, linePoints);
+
+ case NodeLineStyle::StyleThreePointArc:
+     if (controlPoints.size() != 3)
+     {
+         return false;
+     }
+     return calculateArcPointsFromControlPoints(controlPoints[0], controlPoints[1], controlPoints[2], steps, linePoints);
+
+ case NodeLineStyle::StyleStreamline:
+     return false;
+
+ default:
+     return false;
+ }
+}
+
+
 // =================================================================================================贝塞尔曲线
     // 计算组合数（n 选 i）
 int binomialCoefficient(int n, int i)
@@ -47,77 +75,24 @@ QVector<QPointF> calculateBezierCurve(const QVector<QPointF>& controlPoints, int
 }
 
 // ==================================================================================================B样条
-// 构造函数
-GeoSplineCurve::GeoSplineCurve(int p, int numPoints)
-    : degree(p), numCurvePoints(numPoints) {}
 
-// 添加控制点
-void GeoSplineCurve::addControlPoint(const QPointF& point) {
-    controlPoints.append(point);
-    recalculateCurve();
-}
+// 计算B样条曲线点
+bool calculateBSplineCurve(const QVector<QPointF>& controlPoints, int degree, int numCurvePoints, QVector<QPointF>& curvePoints) {
+    curvePoints.clear();  // 清空传出的结果列表
 
-// 更新控制点
-void GeoSplineCurve::updateControlPoint(int index, const QPointF& point) {
-    if (index >= 0 && index < controlPoints.size()) {
-        controlPoints[index] = point;
-        recalculateCurve();
-    }
-}
-
-// 移除控制点
-void GeoSplineCurve::removeControlPoint(int index) {
-    if (index >= 0 && index < controlPoints.size()) {
-        controlPoints.removeAt(index);
-        recalculateCurve();
-    }
-}
-
-// 获取曲线点
-QVector<QPointF> GeoSplineCurve::getCurvePoints() const {
-    return curvePoints;
-}
-
-// 获取控制点
-QVector<QPointF> GeoSplineCurve::getControlPoints() const {
-    return controlPoints;
-}
-
-int GeoSplineCurve::getDegree()
-{
-    return degree;
-}
-
-int GeoSplineCurve::getNumControlPoints()
-{
-    return controlPoints.size();
-}
-
-// 设置样条曲线的次数
-void GeoSplineCurve::setDegree(int p) {
-    degree = std::max(1, p); // 保证次数至少为1
-    recalculateCurve();
-}
-
-// 设置生成的曲线点数
-void GeoSplineCurve::setNumCurvePoints(int numPoints) {
-    numCurvePoints = std::max(2, numPoints); // 保证点数至少为2
-    recalculateCurve();
-}
-
-// 重新计算样条曲线
-void GeoSplineCurve::recalculateCurve() {
-    curvePoints.clear();
-    if (controlPoints.size() < degree + 1) {
-        return; // 控制点不足，无法计算样条线
+    // 控制点数量小于degree时，无法计算B样条曲线
+    int n = controlPoints.size() - 1;
+    if (n < degree) {
+        return false;  // 无法计算样条曲线
     }
 
-    int n = controlPoints.size() - 1; // 控制点数
+    // 生成节点向量
     QVector<double> knots = generateKnotVector(n, degree);
 
     // 计算曲线上的点
     for (int i = 0; i < numCurvePoints; ++i) {
-        double t = i / static_cast<double>(numCurvePoints);
+        double t = i / static_cast<double>(numCurvePoints);  // t 范围 [0, 1]
+
         QPointF point(0.0, 0.0);
 
         // 按控制点计算加权值
@@ -126,24 +101,26 @@ void GeoSplineCurve::recalculateCurve() {
             point += weight * controlPoints[j];
         }
 
-        curvePoints.append(point);
+        curvePoints.append(point);  // 存储计算得到的曲线点
     }
+
+    return true;  // 计算成功
 }
 
 // 生成节点向量
-QVector<double> GeoSplineCurve::generateKnotVector(int n, int degree) const {
-    int m = n + degree + 2; // 节点向量大小
+QVector<double> generateKnotVector(int n, int degree) {
+    int m = n + degree + 2;  // 节点向量大小
     QVector<double> knots(m);
 
     for (int i = 0; i < m; ++i) {
         if (i <= degree) {
-            knots[i] = 0.0; // 前 degree+1 个值为 0
+            knots[i] = 0.0;  // 前 degree+1 个值为 0
         }
         else if (i >= m - degree - 1) {
-            knots[i] = 1.0; // 后 degree+1 个值为 1
+            knots[i] = 1.0;  // 后 degree+1 个值为 1
         }
         else {
-            knots[i] = (i - degree) / static_cast<double>(n - degree + 1); // 中间均匀分布
+            knots[i] = (i - degree) / static_cast<double>(n - degree + 1);  // 中间均匀分布
         }
     }
 
@@ -151,7 +128,7 @@ QVector<double> GeoSplineCurve::generateKnotVector(int n, int degree) const {
 }
 
 // Cox-de Boor 递归公式
-double GeoSplineCurve::coxDeBoor(const QVector<double>& knots, int i, int p, double t) const {
+double coxDeBoor(const QVector<double>& knots, int i, int p, double t) {
     if (p == 0) {
         // 基础情况
         return (knots[i] <= t && t < knots[i + 1]) ? 1.0 : 0.0;
@@ -240,3 +217,94 @@ bool calculateCircle(const QPointF& p1, const QPointF& p2, QPointF& center, doub
 
     return true;
 }
+
+double normalizeAngle(double angle)
+{
+    // 确保角度在[0, 2π)之间
+    while (angle < 0) {
+        angle += 2 * M_PI;
+    }
+    while (angle >= 2 * M_PI) {
+        angle -= 2 * M_PI;
+    }
+    return angle;
+}
+
+bool calculateArcPoints(const QPointF& center, double radius, double startAngle, double angleDiff, int steps, QVector<QPointF>& points)
+{
+    points.clear();
+
+    if (steps <= 0 || radius <= 0) {
+        return false;
+    }
+
+    // 计算角度步长，弧度制下直接使用 angleDiff
+    double angleStep = angleDiff / steps;
+
+    for (int i = 0; i <= steps; ++i) {
+        double angle = normalizeAngle(startAngle + i * angleStep);
+
+        double x = center.x() + radius * std::cos(angle);
+        double y = center.y() + radius * std::sin(angle);
+
+        points.append(QPointF(x, y));
+    }
+    return true;
+}
+
+bool calculateArcPointsFromControlPoints(const QPointF& point1, const QPointF& point2, const QPointF& point3, int steps, QVector<QPointF>& arcPoints)
+{
+    QPointF center;
+    double radius;
+
+    arcPoints.clear();
+
+    if (!calculateCircle(point1, point2, point3, center, radius)) {
+        return false;
+    }
+
+    // 计算起始、结束、和中间点的角度，弧度制直接计算
+    double startAngle = std::atan2(point1.y() - center.y(), point1.x() - center.x());
+    double endAngle = std::atan2(point3.y() - center.y(), point3.x() - center.x());
+    double middleAngle = std::atan2(point2.y() - center.y(), point2.x() - center.x());
+
+    startAngle = normalizeAngle(startAngle);
+    endAngle = normalizeAngle(endAngle);
+    middleAngle = normalizeAngle(middleAngle);
+
+    double angleDiffEnd = normalizeAngle(endAngle - startAngle);
+    double angleDiffMid = normalizeAngle(middleAngle - startAngle);
+
+    double angleDiff;
+    if (angleDiffEnd > angleDiffMid) // 同方向且第二个点在中间
+    {
+        angleDiff = angleDiffEnd;
+    }
+    else // 从另一个方向经过第二个点
+    {
+        angleDiff = angleDiffEnd - 2 * M_PI;
+    }
+
+    return calculateArcPoints(center, radius, startAngle, angleDiff, steps, arcPoints);
+}
+
+bool calculateArcPointsFromControlPoints(const QPointF& point1, const QPointF& point2, int steps, QVector<QPointF>& arcPoints)
+{
+    QPointF center;
+    double radius;
+
+    arcPoints.clear();
+
+    if (!calculateCircle(point1, point2,center, radius)) {
+        return false;
+    }
+
+    // 计算起始、结束、和中间点的角度，弧度制直接计算
+    double startAngle = std::atan2(point1.y() - center.y(), point1.x() - center.x());
+    
+    return calculateArcPoints(center, radius, startAngle, 2*M_PI, steps, arcPoints);
+}
+
+
+
+

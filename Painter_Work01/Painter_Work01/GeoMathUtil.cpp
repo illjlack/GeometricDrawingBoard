@@ -696,6 +696,7 @@ std::pair<double, double> normalize(double x, double y) {
 }
 
 // 向量叉乘
+// 可以用右手螺旋法则来判断方向， 除大拇指外， 四指朝1方向向2方向转， 此时大拇指方向即是叉乘结果方向， 向上为正;正的话，2在1的左边
 double cross(double x1, double y1, double x2, double y2) {
     return x1 * y2 - x2 * y1;
 }
@@ -805,9 +806,6 @@ bool calculateParallelLine(const QVector<QPointF>& polyline, double dis, QVector
     {
         return false; // 折线至少需要两个点
     }
-
-    // 清空输出参数
-    parallelPolyline.clear();
 
     // 遍历折线的每个点，计算单边平行线
     for (int i = 0; i < plLen; ++i)
@@ -923,8 +921,9 @@ bool calculateParallelLineThroughPoint(const QVector<QPointF>& polyline, const Q
     // 直线方向统一从后面的点指向前面的点
     double distance = pointToLineDistanceWithDirection(targetPoint,polyline[plLen - 1],polyline[plLen - 2]);
 
-    // 按照计算的距离生成平行线
-    return calculateParallelLine(polyline, distance, parallelPolyline);
+    //// 按照计算的距离生成平行线
+    //return calculateParallelLine(polyline, distance, parallelPolyline);
+    return calculateLineBuffer(polyline, distance, parallelPolyline);
 }
 
 // ==========================================================================
@@ -932,15 +931,17 @@ bool calculateParallelLineThroughPoint(const QVector<QPointF>& polyline, const Q
 // ==========================================================================
 
 /**
- * 根据起点、终点和圆心计算弧度较小方向的圆弧上的点
+ * 根据起点、终点和圆心计算特点方向的圆弧上的点(顺时针方向，从左往右)
  * @param startPoint 圆弧的起点
  * @param endPoint 圆弧的终点
  * @param center 圆心
  * @param steps 步数，决定计算多少个点
+ * @param clockwise 是否顺时针方向绘制圆弧，true 表示顺时针，false 表示逆时针
  * @param arcPoints 输出参数，保存计算得到的弧线上的点
  * @return 如果计算成功则返回 true，失败则返回 false
  */
-bool calculateArcPointsFromStartEndCenter(const QPointF& startPoint, const QPointF& endPoint, const QPointF& center, int steps, QVector<QPointF>& arcPoints)
+bool calculateArcPointsFromStartEndCenter(const QPointF& startPoint, const QPointF& endPoint, const QPointF& center,
+    int steps, QVector<QPointF>& arcPoints)
 {
     // 计算起点和终点的角度
     double startAngle = std::atan2(startPoint.y() - center.y(), startPoint.x() - center.x());
@@ -952,16 +953,41 @@ bool calculateArcPointsFromStartEndCenter(const QPointF& startPoint, const QPoin
     // 计算角度差（弧度差）
     double angleDiff = normalizeAngle(endAngle - startAngle);
 
-    // 判断弧度差是否大于PI（即选择较小的弧段）
-    if (angleDiff > M_PI) {
-        angleDiff -= 2 * M_PI;  // 选择较小的弧度方向
-    }
 
+        
     // 计算圆弧上的点
-    return calculateArcPoints(center, std::sqrt((center.x() - startPoint.x())*(center.x() - startPoint.x())
+    return calculateArcPoints(center, std::sqrt((center.x() - startPoint.x()) * (center.x() - startPoint.x())
         + (center.y() - startPoint.y()) * (center.y() - startPoint.y())), startAngle, angleDiff, steps, arcPoints);
 }
 
+
+/**
+ * 判断点与向量的位置关系
+ * @param point 点
+ * @param vectorStart 向量的起点
+ * @param vectorEnd 向量的终点
+ * @return 返回：
+
+ */
+int pointPositionRelativeToVector(const QPointF& point, const QPointF& vectorStart, const QPointF& vectorEnd)
+{
+    // 计算向量 AB 和 AP 的叉积
+    // x1*y2 - y1*x2
+    //可以用右手螺旋法则来判断方向， 除大拇指外， 四指朝1方向向2方向转， 此时大拇指方向即是叉乘结果方向， 向上为正
+    double crossProduct = (point.x() - vectorStart.x()) * (vectorEnd.y() - vectorStart.y()) -
+        (point.y() - vectorStart.y()) * (vectorEnd.x() - vectorStart.x());
+
+    if (crossProduct > 0)
+    {
+        return 1;  // 点在向量的左侧
+    }
+    else if (crossProduct < 0)
+    {
+        return -1; // 点在向量的右侧
+    }
+
+    return 0;  // 点在向量的同一直线上
+}
 
 /**
  * 计算折线的缓存区
@@ -970,8 +996,117 @@ bool calculateArcPointsFromStartEndCenter(const QPointF& startPoint, const QPoin
  * @param points 输出参数
  * @return 如果计算成功则返回 true，失败则返回 false
  */
+// 参考：https://zhuanlan.zhihu.com/p/539904045
+
 bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<QPointF>& points)
 {
+    // 思路：做折线的平行线，大于PI的角做圆弧处理，先从左往右画
+
+    int plLen = polyline.size();
+    if (plLen < 2)
+    {
+        return false; // 折线至少需要两个点
+    }
+
+    // 遍历折线的每个点
+    for (int i = 0; i < plLen; ++i)
+    {
+        if (i == 0)
+        {
+            // 如果是折线的起点
+            double x1 = polyline[i].x(), y1 = polyline[i].y();
+            double x2 = polyline[i + 1].x(), y2 = polyline[i + 1].y();
+
+            auto [vx, vy] = normalize(y1 - y2, x2 - x1);// （dy, -dx） = p1 - p2 方向是指向p1
+
+
+            //points.append(QPointF(x1 + vx * dis, y1 + vy * dis));  // 左
+            calculateArcPointsFromStartEndCenter(QPointF(x1 + vx * dis, y1 + vy * dis), QPointF(x1 - vx * dis, y1 - vy * dis), polyline[i], 20, points);
+            //points.append(QPointF(x1 - vx * dis, y1 - vy * dis));  // 向右偏移
+        }
+        else if (i == plLen - 1)
+        {
+            // 如果是折线的终点
+            double x1 = polyline[i - 1].x(), y1 = polyline[i - 1].y();
+            double x2 = polyline[i].x(), y2 = polyline[i].y();
+
+            auto [vx, vy] = normalize(y1 - y2, x2 - x1);
+
+            calculateArcPointsFromStartEndCenter( QPointF(x2 - vx * dis, y2 - vy * dis), QPointF(x2 + vx * dis, y2 + vy * dis), polyline[i], 20, points);
+        }
+        else
+        {
+            // 对于折线的中间点
+            double x0 = polyline[i].x(), y0 = polyline[i].y();
+            double x1 = polyline[i - 1].x(), y1 = polyline[i - 1].y();
+            double x2 = polyline[i + 1].x(), y2 = polyline[i + 1].y();
+
+            // 计算前后两段向量的单位向量
+            auto [x01, y01] = normalize(x1 - x0, y1 - y0);
+            auto [x02, y02] = normalize(x2 - x0, y2 - y0);
+
+            if (sgn(cross(x01, y01, x02, y02)) == 0)
+            {
+                continue;  // 如果共线，跳过该点
+            }
+
+            // 计算角平分线的单位向量（两个向量的平均）
+            auto [vx, vy] = normalize((x01 + x02) / 2, (y01 + y02) / 2);
+
+            // 计算角平分线的长度，用于确定平行线的偏移量
+            double sinX = std::fabs(cross(vx, vy, x02, y02));
+            double disBisector = dis / sinX;  // 使用叉乘来确定夹角的大小，得出平行线的距离
+
+            // 选择左侧或右侧的平行线
+            if (cross(x1 - x0, y1 - y0, x2 - x0, y2 - y0) > 0) // p2在左侧，直线方向是指向p1的，在画右边（角度大于PI）
+            {
+                points.append(QPointF(x0 + vx * disBisector, y0 + vy * disBisector));
+            }
+            else
+            {
+                auto [vx01, vy01] = normalize(y0 - y1, x1 - x0);
+                auto [vx20, vy20] = normalize(y2 - y0, x0 - x2);
+                calculateArcPointsFromStartEndCenter(QPointF(x0 + vx01 * dis, y0 + vy01 * dis), QPointF(x0 + vx20 * dis, y0 + vy20 * dis), polyline[i], 20, points);
+            }
+        }
+    }
+
+    // 遍历折线的每个点(反方向)
+    for (int i = plLen - 2; i > 0; --i)
+    {
+        // 对于折线的中间点
+        double x0 = polyline[i].x(), y0 = polyline[i].y();
+        double x1 = polyline[i - 1].x(), y1 = polyline[i - 1].y();
+        double x2 = polyline[i + 1].x(), y2 = polyline[i + 1].y();
+
+        // 计算前后两段向量的单位向量
+        auto [x01, y01] = normalize(x1 - x0, y1 - y0);
+        auto [x02, y02] = normalize(x2 - x0, y2 - y0);
+
+        if (sgn(cross(x01, y01, x02, y02)) == 0)
+        {
+            continue;  // 如果共线，跳过该点
+        }
+
+        // 计算角平分线的单位向量（两个向量的平均）
+        auto [vx, vy] = normalize((x01 + x02) / 2, (y01 + y02) / 2);
+
+        // 计算角平分线的长度，用于确定平行线的偏移量
+        double sinX = std::fabs(cross(vx, vy, x02, y02));
+        double disBisector = dis / sinX;  // 使用叉乘来确定夹角的大小，得出平行线的距离
+
+        if (cross(x1 - x0, y1 - y0, x2 - x0, y2 - y0) > 0) // p2在左侧，直线方向是指向p1的，在画右边（角度大于PI）
+        {
+            auto [vx01, vy01] = normalize(y0 - y1, x1 - x0);
+            auto [vx20, vy20] = normalize(y2 - y0, x0 - x2);
+            calculateArcPointsFromStartEndCenter(QPointF(x0 - vx20 * dis, y0 - vy20 * dis), QPointF(x0 - vx01 * dis, y0 - vy01 * dis), polyline[i], 20, points);
+        }
+        else
+        {
+            points.append(QPointF(x0 - vx * disBisector, y0 - vy * disBisector));  // 向左偏移
+        }
+    }
+    if (points.size())points.append(points[0]);
 
     return true;
 }

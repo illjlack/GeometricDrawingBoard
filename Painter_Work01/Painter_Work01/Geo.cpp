@@ -801,7 +801,7 @@ void ComplexArea::initialize()
     lineColor = getSetting<QRgb>(Key_PgLineColor);                      // 边框颜色
     lineStyle = getSetting<LineStyle>(Key_PgLineStyle);                 // 边框线形
     lineDashPattern = getSetting<float>(Key_PgLineDashPattern);         // 虚线段长
-    nodeLineStyle = getSetting<NodeLineStyle>(Key_NodeLineStyle);     // 节点线形
+    nodeLineStyle = getSetting<NodeLineStyle>(Key_NodeLineStyle);       // 节点线形
     setStateInitialized();
 }
 

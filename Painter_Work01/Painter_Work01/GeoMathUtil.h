@@ -275,15 +275,29 @@ bool calculateParallelLineThroughPoint(const QVector<QPointF>& polyline, const Q
 // ==========================================================================
 
 /**
- * 根据起点、终点和圆心计算弧度较小方向的圆弧上的点
+ * 根据起点、终点和圆心计算特点方向的圆弧上的点(顺时针方向，从左往右)
  * @param startPoint 圆弧的起点
  * @param endPoint 圆弧的终点
  * @param center 圆心
  * @param steps 步数，决定计算多少个点
+ * @param clockwise 是否顺时针方向绘制圆弧，true 表示顺时针，false 表示逆时针
  * @param arcPoints 输出参数，保存计算得到的弧线上的点
  * @return 如果计算成功则返回 true，失败则返回 false
  */
-bool calculateArcPointsFromStartEndCenter(const QPointF& startPoint, const QPointF& endPoint, const QPointF& center, int steps, QVector<QPointF>& arcPoints);
+bool calculateArcPointsFromStartEndCenter(const QPointF& startPoint, const QPointF& endPoint, const QPointF& center,
+    int steps, QVector<QPointF>& arcPoints);
+
+/**
+ * 判断点与向量的位置关系
+ * @param point 点
+ * @param vectorStart 向量的起点
+ * @param vectorEnd 向量的终点
+ * @return 返回：
+ *         - 1：点在向量的左侧
+ *         - -1：点在向量的右侧
+ *         - 0：点在向量的同一直线上
+ */
+int pointPositionRelativeToVector(const QPointF& point, const QPointF& vectorStart, const QPointF& vectorEnd);
 
 /**
  * 计算折线的缓存区

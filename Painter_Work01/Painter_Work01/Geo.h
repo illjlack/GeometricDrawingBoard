@@ -15,10 +15,10 @@ Geo* createGeo(DrawMode mode);
 class Geo {
 public:
     virtual ~Geo() = default;
-    virtual void initialize() = 0;                          // 初始化，在第一次点击（确定第一个控制点）的时候自动调用，来设置属性
+    virtual void initialize() = 0;                      // 初始化，在第一次点击（确定第一个控制点）的时候自动调用，来设置属性
     virtual void draw(QPainter& painter) = 0;           // 绘制方法
     virtual void drawControlPoints(QPainter& painter);  // 绘制控制点
-    //virtual void drawBuffer(QPainter& painter) = 0;     // 绘制缓冲区
+    //virtual void drawBuffer(QPainter& painter) = 0;   // 绘制缓冲区
     virtual void hitTesting(QPointF);                   // 点击测试
     virtual void completeDrawing(); // 完成构造（完成前接受事件来进行绘制）
 

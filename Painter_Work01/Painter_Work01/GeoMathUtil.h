@@ -131,7 +131,6 @@ QVector<double> generateKnotVector(int n, int degree);
  */
 bool calculateBSplineCurve(const QVector<QPointF>& controlPoints, int degree, int numCurvePoints, QVector<QPointF>& curvePoints);
 
-
 // ==========================================================================
 // 圆弧计算
 // ==========================================================================
@@ -232,7 +231,7 @@ std::pair<double, double> normalize(double x, double y);
 double cross(double x1, double y1, double x2, double y2);
 
 /**
- * 计算折线的平行线
+ * 计算折线的双边平行线
  * @param polyline 输入折线的点列表
  * @param dis 平行线与折线的距离
  * @param leftPolyline 输出参数，保存平行线的左侧点
@@ -240,6 +239,26 @@ double cross(double x1, double y1, double x2, double y2);
  * @return 如果计算成功则返回 true，失败则返回 false
  */
 bool calculateParallelLine(const QVector<QPointF>& polyline, double dis, QVector<QPointF>& leftPolyline, QVector<QPointF>& rightPolyline);
+
+/**
+ * 计算折线的单边平行线
+ * @param polyline 输入折线的点列表
+ * @param dis 平行线与折线的距离
+ * @param parallelPolyline 输出参数，保存单边平行线的点
+ * @return 如果计算成功则返回 true，失败则返回 false
+ */
+bool calculateParallelLine(const QVector<QPointF>& polyline, double dis, QVector<QPointF>& parallelPolyline);
+
+
+/**
+ * 计算点到直线的垂直距离，并返回带方向的结果
+ * @param point 点
+ * @param lineStart 直线的起点
+ * @param lineEnd 直线的终点
+ * @param direction 返回值，用于表示点在直线的哪一侧，正值为左侧，负值为右侧，0为直线上
+ * @return 点到直线的垂直距离
+ */
+double pointToLineDistanceWithDirection(const QPointF& point, const QPointF& lineStart, const QPointF& lineEnd);
 
 /**
  * 计算平行折线，且平行线经过指定的点

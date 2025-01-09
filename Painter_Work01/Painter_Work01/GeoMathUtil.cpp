@@ -389,13 +389,15 @@ bool calculateBSplineCurve(const QVector<QPointF>& controlPoints, int degree, in
     QVector<double> knots = generateKnotVector(n, degree);
 
     // 计算曲线上的点
-    for (int i = 0; i < numCurvePoints; ++i) {
+    for (int i = 0; i < numCurvePoints; ++i) 
+    {
         double t = i / static_cast<double>(numCurvePoints);  // t 范围 [0, 1]
 
         QPointF point(0.0, 0.0);
 
         // 按控制点计算加权值
-        for (int j = 0; j <= n; ++j) {
+        for (int j = 0; j <= n; ++j) 
+        {
             double weight = coxDeBoor(knots, j, degree, t);
             point += weight * controlPoints[j];
         }
@@ -677,6 +679,7 @@ double adjustArcAngleDiff(double angleDiff, double angleLimit)
 
 // ==========================================================================
 // 平行线计算
+// 直线方向统一从后面的点指向前面的点
 // ==========================================================================
 
 // 精度处理
@@ -698,7 +701,7 @@ double cross(double x1, double y1, double x2, double y2) {
 }
 
 /**
- * 计算折线的平行线
+ * 计算折线的双边平行线
  * @param polyline 输入折线的点列表
  * @param dis 平行线与折线的距离
  * @param leftPolyline 输出参数，保存平行线的左侧点
@@ -783,12 +786,126 @@ bool calculateParallelLine(const QVector<QPointF>& polyline, double dis, QVector
             }
         }
     }
-
     return true;
 }
 
 /**
- * 计算平行折线，且平行线经过指定的点
+ * 计算折线的单边平行线(ids正值为左侧，负值为右侧)
+ * @param polyline 输入折线的点列表
+ * @param dis 平行线与折线的距离
+ * @param parallelPolyline 输出参数，保存单边平行线的点
+ * @return 如果计算成功则返回 true，失败则返回 false
+ */
+bool calculateParallelLine(const QVector<QPointF>& polyline, double dis, QVector<QPointF>& parallelPolyline)
+{
+    // 思路：平行线段处法向量的dis远的点（实际只用求起点和终点），夹角处相邻两平行线段相交，求角平分线处向量dis/sin(一半夹角)处的点
+
+    int plLen = polyline.size();
+    if (plLen < 2)
+    {
+        return false; // 折线至少需要两个点
+    }
+
+    // 清空输出参数
+    parallelPolyline.clear();
+
+    // 遍历折线的每个点，计算单边平行线
+    for (int i = 0; i < plLen; ++i)
+    {
+        if (i == 0)
+        {
+            // 如果是折线的起点
+            double x1 = polyline[i].x(), y1 = polyline[i].y();
+            double x2 = polyline[i + 1].x(), y2 = polyline[i + 1].y();
+
+            auto [vx, vy] = normalize(y1 - y2, x2 - x1);// （dy, -dx） = p1 - p2 方向是指向p1
+
+            parallelPolyline.append(QPointF(x1 +  vx * dis, y1 +  vy * dis));
+        }
+        else if (i == plLen - 1)
+        {
+            // 如果是折线的终点
+            double x1 = polyline[i - 1].x(), y1 = polyline[i - 1].y();
+            double x2 = polyline[i].x(), y2 = polyline[i].y();
+
+            auto [vx, vy] = normalize(y1 - y2, x2 - x1);
+
+            parallelPolyline.append(QPointF(x2 +  vx * dis, y2 +  vy * dis)); 
+        }
+        else
+        {
+            // 对于折线的中间点
+            double x0 = polyline[i].x(), y0 = polyline[i].y();
+            double x1 = polyline[i - 1].x(), y1 = polyline[i - 1].y();
+            double x2 = polyline[i + 1].x(), y2 = polyline[i + 1].y();
+
+            // 计算前后两段向量的单位向量
+            auto [x01, y01] = normalize(x1 - x0, y1 - y0);
+            auto [x02, y02] = normalize(x2 - x0, y2 - y0);
+
+            if (sgn(cross(x01, y01, x02, y02)) == 0)
+            {
+                continue;  // 如果共线，跳过该点
+            }
+
+            // 计算角平分线的单位向量（两个向量的平均）
+            auto [vx, vy] = normalize((x01 + x02) / 2, (y01 + y02) / 2);
+
+            // 计算角平分线的长度，用于确定平行线的偏移量
+            double sinX = std::fabs(cross(vx, vy, x02, y02));
+            double disBisector = dis / sinX;  // 使用叉乘来确定夹角的大小，得出平行线的距离
+
+            // 选择左侧或右侧的平行线
+            if (cross(x1 - x0, y1 - y0, x2 - x0, y2 - y0) > 0)
+            {
+                parallelPolyline.append(QPointF(x0 - vx * disBisector, y0 - vy * disBisector));   // 向左偏移(如果dis是负数就向右偏移了)
+            }
+            else
+            {
+                parallelPolyline.append(QPointF(x0 + vx * disBisector, y0 + vy * disBisector));   // 向左偏移
+            }
+        }
+    }
+    return true;
+}
+
+ /**
+  * 计算点到直线的垂直距离，并返回带方向的结果
+  * @param point 点
+  * @param lineStart 直线的起点
+  * @param lineEnd 直线的终点
+  * @param direction 返回值，用于表示点在直线的哪一侧，正值为左侧，负值为右侧，0为直线上
+  * @return 点到直线的垂直距离
+  */
+double pointToLineDistanceWithDirection(const QPointF& point, const QPointF& lineStart, const QPointF& lineEnd)
+{
+    // 计算直线的方程 Ax + By + C = 0 的系数 A, B, C
+    double A = lineEnd.y() - lineStart.y();  // y2 - y1
+    double B = lineStart.x() - lineEnd.x();  // x1 - x2
+    double C = lineEnd.x() * lineStart.y() - lineStart.x() * lineEnd.y();  // x2 * y1 - x1 * y2
+
+    // 计算点到直线的垂直距离
+    double distance = std::fabs(A * point.x() + B * point.y() + C) / std::sqrt(A * A + B * B);
+
+    // 通过叉积判断点在直线的哪一侧
+    // 使用点到直线起点的向量和直线的方向向量计算叉积
+    double crossProduct = (point.x() - lineStart.x()) * (lineEnd.y() - lineStart.y()) - (point.y() - lineStart.y()) * (lineEnd.x() - lineStart.x());
+
+    if (crossProduct > 0)
+    {
+        return distance;
+    }
+    else if (crossProduct < 0)
+    {
+        return - distance;
+    }
+
+    return distance;
+}
+
+
+/**
+ * 计算平行折线，且平行线的第一条线段经过指定的点
  * @param polyline 输入折线的点列表
  * @param targetPoint 指定目标点，平行线将通过该点
  * @param parallelPolyline 输出参数，保存经过目标点的平行线
@@ -796,11 +913,18 @@ bool calculateParallelLine(const QVector<QPointF>& polyline, double dis, QVector
  */
 bool calculateParallelLineThroughPoint(const QVector<QPointF>& polyline, const QPointF& targetPoint, QVector<QPointF>& parallelPolyline)
 {
-    // 唉，写不来
-    // 先随便实验一下
-    QVector<QPointF> x;
-    calculateParallelLine(polyline, 50.f, parallelPolyline, x);
-    return true;
+    // 原理：就是计算点到最后一条线段的距离,然后按这个距离画单边平行线
+    int plLen = polyline.size();
+    if (plLen < 2)
+    {
+        return false; // 折线至少需要两个点
+    }
+    // 计算点到第一条线段的垂直距离
+    // 直线方向统一从后面的点指向前面的点
+    double distance = pointToLineDistanceWithDirection(targetPoint,polyline[plLen - 1],polyline[plLen - 2]);
+
+    // 按照计算的距离生成平行线
+    return calculateParallelLine(polyline, distance, parallelPolyline);
 }
 
 // ==========================================================================

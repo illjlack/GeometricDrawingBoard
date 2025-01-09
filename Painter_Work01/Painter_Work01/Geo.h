@@ -51,7 +51,13 @@ public:
     void setStateComplete();
     void setStateSelected();
     void setStateNotSelected();
+
+    void markControlPointsChanged();   // 标记控制点已改变
+    bool isControlPointsChanged() const; // 检查控制点是否已改变
+    void resetControlPointsChanged(); // 重置标记
 protected:
+
+
     void setGeoType(GeoType newType);   // 构造函数中,确定类型
     QVector<QPointF> controlPoints;    // 控制点 (每个类可以自己加划分信息)
     QPointF tempControlPoints;          // 临时控制点, 在绘制中使用
@@ -59,6 +65,8 @@ private:
     int geoState = 0;
     bool mouseLeftButtonPressed = false; // 鼠标是否按下拖动
     GeoType geoType = GeoType::Undefined;
+
+    bool controlPointsChanged = false; // 控制点变化，要重算
 };
 
 // ===================================================================== Point

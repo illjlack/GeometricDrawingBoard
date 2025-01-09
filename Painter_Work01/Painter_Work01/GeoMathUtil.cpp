@@ -919,9 +919,9 @@ bool calculateParallelLineThroughPoint(const QVector<QPointF>& polyline, const Q
     double distance = pointToLineDistanceWithDirection(targetPoint,polyline[plLen - 1],polyline[plLen - 2]);
 
     // 按照计算的距离生成平行线
-    //return calculateParallelLine(polyline, distance, parallelPolyline);
+    return calculateParallelLine(polyline, distance, parallelPolyline);
     //return calculateLineBuffer(polyline, distance, parallelPolyline);
-    calculateBuffer(polyline, distance, parallelPolyline);
+    // return calculateBuffer(polyline, distance, parallelPolyline);
 }
 
 // ==========================================================================================
@@ -1158,7 +1158,7 @@ void mapToGrid(const QVector<QPointF>& points, double r, int& k, GridMap& gridMa
     // 计算缩放比例，确保网格点总数控制在 1e6 以内
     double area = (bounds.width() + 2 * r) * (bounds.height() + 2 * r);
 
-    gridMap.scale = std::sqrt(area / 100000.0) < 1 ? 1 : std::sqrt(area / 100000.0); // 缩放比例
+    gridMap.scale = std::sqrt(area / 1000.0) < 1 ? 1 : std::sqrt(area / 1000.0); // 缩放比例
 
     k = std::round(r / gridMap.scale);
 
@@ -1270,9 +1270,64 @@ bool calculateBuffer(const QVector<QPointF>& points, double r, QVector<QPointF>&
     mapToGrid(points, r, k, gridMap);
 
     GridMap boundaryGridMap;
-    markBoundaryPoints(gridMap, k , boundaryGridMap);
-    
+    //markBoundaryPoints(gridMap, k , boundaryGridMap); // 这个是曼哈顿距离
+    markBoundaryPointsBruteForce(gridMap, k, boundaryGridMap);//更暴力
     restoreFromGrid(boundaryGridMap, boundaryPoints);
     // 返回结果
     return true;
+}
+
+// ========================================================= n3超级暴力
+// 计算欧几里得距离
+double euclideanDistance(int x1, int y1, int x2, int y2) {
+    return std::sqrt((x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2));
+}
+
+void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& boundaryGridMap) {
+    // 获取网格尺寸和初始点集合
+    int sizeX = gridMap.sizeX, sizeY = gridMap.sizeY;
+    const QVector<QPoint>& points = gridMap.gridPoints;
+
+    // 初始化标记网格
+    std::vector<std::vector<int>> mark(sizeX, std::vector<int>(sizeY, 0));
+
+    // 暴力枚举二维网格中的每个点
+    for (int i = 0; i < sizeX; i++) {
+        for (int j = 0; j < sizeY; j++) {
+            // 判断是否在任何初始点的距离 \( \leq k \) 范围内
+            for (const QPoint& point : points) {
+                int px = point.x(), py = point.y();
+                if (euclideanDistance(i, j, px, py) <= k) {
+                    mark[i][j] = 1; // 标记点为 1
+                    break; // 一旦满足条件，不需要再检查其他点
+                }
+            }
+        }
+    }
+
+    // 初始化结果网格
+    boundaryGridMap = gridMap;
+    QVector<QPoint>& boundaryPoints = boundaryGridMap.gridPoints;
+
+    // 找到边界点
+    const int dx[4] = { 0, 0, 1, -1 };
+    const int dy[4] = { -1, 1, 0, 0 };
+    for (int i = 0; i < sizeX; i++) {
+        for (int j = 0; j < sizeY; j++) {
+            if (mark[i][j] == 1) { // 如果点被标记为 1
+                bool isBoundary = false;
+                for (int z = 0; z < 4; z++) {
+                    int x = i + dx[z], y = j + dy[z];
+                    // 检查周围是否存在未标记的点
+                    if (x < 0 || x >= sizeX || y < 0 || y >= sizeY || mark[x][y] == 0) {
+                        isBoundary = true;
+                        break;
+                    }
+                }
+                if (isBoundary) {
+                    boundaryPoints.push_back(QPoint(i, j));
+                }
+            }
+        }
+    }
 }

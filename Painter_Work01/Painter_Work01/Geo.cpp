@@ -147,6 +147,18 @@ void Geo::setStateNotSelected()
     geoState &= ~GeoStateSelected;
 }
 
+void Geo::markControlPointsChanged() {
+    controlPointsChanged = true;
+}
+
+bool Geo::isControlPointsChanged() const {
+    return controlPointsChanged;
+}
+
+void Geo::resetControlPointsChanged() {
+    controlPointsChanged = false;
+}
+
 void Geo::keyPressEvent(QKeyEvent* event)
 {
 }
@@ -191,6 +203,7 @@ void Geo::endSegmentDrawing()
 
 void Geo::pushControlPoint(const QPoint& pos)
 {
+    markControlPointsChanged();
     controlPoints.push_back(pos);
 }
 
@@ -376,9 +389,14 @@ void SimpleLine::draw(QPainter& painter)
     }
     painter.setPen(pen);
 
-    if (isStateDrawing() && !tempControlPoints.isNull())controlPoints.push_back(tempControlPoints);
-    if (calculateLinePoints(nodeLineStyle, controlPoints, points))
+    if (isStateDrawing() && !tempControlPoints.isNull())
     {
+        controlPoints.push_back(tempControlPoints);
+        markControlPointsChanged();
+    }
+    if (!isControlPointsChanged() || calculateLinePoints(nodeLineStyle, controlPoints, points))
+    {
+        resetControlPointsChanged();
         QPainterPath path;
         path.moveTo(points.first());
         for (int i = 1; i < points.size(); ++i)
@@ -387,7 +405,11 @@ void SimpleLine::draw(QPainter& painter)
         }
         painter.drawPath(path);
     }
-    if (isStateDrawing() && !tempControlPoints.isNull())controlPoints.pop_back();
+    if (isStateDrawing() && !tempControlPoints.isNull())
+    {
+        markControlPointsChanged();
+        controlPoints.pop_back();
+    }
 
     // 如果被选中,画控制点
     if (isStateSelected())
@@ -459,6 +481,8 @@ void DoubleLine::mouseReleaseEvent(QMouseEvent* event)
 
 void DoubleLine::pushControlPoint(const QPoint& pos)
 {
+    markControlPointsChanged();
+
     isDrawing = true;
     controlPoints.push_back(pos);
     component.last().len++;
@@ -516,9 +540,11 @@ void DoubleLine::draw(QPainter& painter)
     {
         controlPoints.push_back(tempControlPoints);
         component.last().len++;
+        markControlPointsChanged();
     }
-    if (calculateLinePoints(component, controlPoints, pointss))
+    if (!isControlPointsChanged() || calculateLinePoints(component, controlPoints, pointss))
     {
+        resetControlPointsChanged();
         QPainterPath path;
         for (auto& points : pointss)
         {
@@ -535,6 +561,7 @@ void DoubleLine::draw(QPainter& painter)
     {
         controlPoints.pop_back();
         component.last().len--;
+        markControlPointsChanged();
     }
     // 如果被选中,画控制点
     if (isStateSelected())
@@ -618,6 +645,8 @@ void ParallelLine::endSegmentDrawing()
 
 void ParallelLine::pushControlPoint(const QPoint& pos)
 {
+    markControlPointsChanged();
+
     if (component.size() == 1)
     {
         controlPoints.push_back(pos);
@@ -669,9 +698,11 @@ void ParallelLine::draw(QPainter& painter)
     {
         controlPoints.push_back(tempControlPoints);
         component.last().len++;
+        markControlPointsChanged();
     }
-    if (calculateParallelLinePoints(component, controlPoints, pointss))
+    if (!isControlPointsChanged() || calculateParallelLinePoints(component, controlPoints, pointss))
     {
+        resetControlPointsChanged();
         QPainterPath path;
         for (auto& points : pointss)
         {
@@ -679,8 +710,8 @@ void ParallelLine::draw(QPainter& painter)
             path.moveTo(points.first());
             for (int i = 1; i < points.size(); ++i)
             {
-                //path.lineTo(points[i]);
-                path.addEllipse(points[i], 2, 2);
+                path.lineTo(points[i]);
+                // path.addEllipse(points[i], 2, 2);
             }
         }
         painter.drawPath(path);
@@ -689,6 +720,7 @@ void ParallelLine::draw(QPainter& painter)
     {
         controlPoints.pop_back();
         component.last().len--;
+        markControlPointsChanged();
     }
 
     // 如果被选中,画控制点
@@ -742,6 +774,8 @@ void TwoPointCircle::mouseMoveEvent(QMouseEvent* event)
 
 void TwoPointCircle::pushControlPoint(const QPoint& pos)
 {
+    markControlPointsChanged();
+
     controlPoints.push_back(pos);
     if (controlPoints.size() == 2)
     {
@@ -780,11 +814,16 @@ void TwoPointCircle::draw(QPainter& painter)
 
     QBrush brush(fillColor);
     painter.setBrush(brush);
-    if (isStateDrawing() && !tempControlPoints.isNull())controlPoints.push_back(tempControlPoints);
-    if (calculateCloseLinePoints(NodeLineStyle::StyleTwoPointCircle, controlPoints, points))
+    if (isStateDrawing() && !tempControlPoints.isNull())
     {
+        controlPoints.push_back(tempControlPoints);
+        markControlPointsChanged();
+    }
+    if (isControlPointsChanged() || calculateCloseLinePoints(NodeLineStyle::StyleTwoPointCircle, controlPoints, points))
+    {
+        resetControlPointsChanged();
         QPainterPath path;
-        path.moveTo(points.first());
+        if (points.size())path.moveTo(points.first());
         for (int i = 1; i < points.size(); ++i)
         {
             path.lineTo(points[i]);
@@ -792,7 +831,11 @@ void TwoPointCircle::draw(QPainter& painter)
         painter.drawPath(path);
     }
     painter.setBrush(Qt::NoBrush); // 恢复无填充   
-    if (isStateDrawing() && !tempControlPoints.isNull())controlPoints.pop_back();
+    if (isStateDrawing() && !tempControlPoints.isNull())
+    {
+        controlPoints.pop_back();
+        markControlPointsChanged();
+    }
 
     // 如果被选中,画控制点
     if (isStateSelected())
@@ -892,11 +935,16 @@ void SimpleArea::draw(QPainter& painter)
 
     QBrush brush(fillColor);
     painter.setBrush(brush);
-    if (isStateDrawing() && !tempControlPoints.isNull())controlPoints.push_back(tempControlPoints);
-    if (calculateCloseLinePoints(nodeLineStyle, controlPoints, points))
+    if (isStateDrawing() && !tempControlPoints.isNull())
     {
+        controlPoints.push_back(tempControlPoints);
+        markControlPointsChanged();
+    }
+    if (!isControlPointsChanged() || calculateCloseLinePoints(nodeLineStyle, controlPoints, points))
+    {
+        resetControlPointsChanged();
         QPainterPath path;
-        path.moveTo(points.first());
+        if(points.size())path.moveTo(points.first());
         for (int i = 1; i < points.size(); ++i)
         {
             path.lineTo(points[i]);
@@ -904,7 +952,11 @@ void SimpleArea::draw(QPainter& painter)
         painter.drawPath(path);
     }
     painter.setBrush(Qt::NoBrush); // 恢复无填充   
-    if (isStateDrawing() && !tempControlPoints.isNull())controlPoints.pop_back();
+    if (isStateDrawing() && !tempControlPoints.isNull())
+    {
+        controlPoints.pop_back();
+        markControlPointsChanged();
+    }
 
     // 如果被选中,画控制点
     if (isStateSelected())
@@ -975,6 +1027,8 @@ void ComplexArea::mouseReleaseEvent(QMouseEvent* event)
 
 void ComplexArea::pushControlPoint(const QPoint& pos)
 {
+    markControlPointsChanged();
+
     isDrawing = true;
     controlPoints.push_back(pos);
     component.last().len++;
@@ -1035,9 +1089,12 @@ void ComplexArea::draw(QPainter& painter)
     {
         controlPoints.push_back(tempControlPoints);
         component.last().len++;
+        markControlPointsChanged();
     }
-    if (calculateCloseLinePoints(component, controlPoints, pointss))
+    if (!isControlPointsChanged() || calculateCloseLinePoints(component, controlPoints, pointss))
     {
+        resetControlPointsChanged();
+
         QPainterPath path;
         for (auto& points : pointss)
         {
@@ -1055,6 +1112,7 @@ void ComplexArea::draw(QPainter& painter)
     {
         controlPoints.pop_back();
         component.last().len--;
+        markControlPointsChanged();
     }
     // 如果被选中,画控制点
     if (isStateSelected())

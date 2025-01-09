@@ -334,3 +334,7 @@ void mapToGrid(const QVector<QPointF>& points, double r, int& k, GridMap& gridMa
 void restoreFromGrid(const GridMap& gridMap, QVector<QPointF>& points);
 void markBoundaryPoints(const GridMap& gridMap, int k, GridMap& boundaryGridMap);
 bool calculateBuffer(const QVector<QPointF>& points, double r, QVector<QPointF>& boundaryPoints);
+
+
+double euclideanDistance(int x1, int y1, int x2, int y2);
+void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& boundaryGridMap);

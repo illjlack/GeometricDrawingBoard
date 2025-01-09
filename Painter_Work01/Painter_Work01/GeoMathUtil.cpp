@@ -917,8 +917,7 @@ bool calculateParallelLineThroughPoint(const QVector<QPointF>& polyline, const Q
     double distance = pointToLineDistanceWithDirection(targetPoint,polyline[plLen - 1],polyline[plLen - 2]);
 
     // 按照计算的距离生成平行线
-    //return calculateParallelLine(polyline, distance, parallelPolyline);
-    return calculateLineBuffer(polyline, distance, parallelPolyline);
+    return calculateParallelLine(polyline, distance, parallelPolyline);
 }
 
 // ==========================================================================
@@ -1071,8 +1070,8 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
     {
         // 对于折线的中间点
         double x0 = polyline[i].x(), y0 = polyline[i].y();
-        double x1 = polyline[i - 1].x(), y1 = polyline[i - 1].y();
-        double x2 = polyline[i + 1].x(), y2 = polyline[i + 1].y();
+        double x1 = polyline[i + 1].x(), y1 = polyline[i + 1].y();
+        double x2 = polyline[i - 1].x(), y2 = polyline[i - 1].y();
 
         // 计算前后两段向量的单位向量
         auto [x01, y01] = normalize(x1 - x0, y1 - y0);
@@ -1090,15 +1089,16 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
         double sinX = std::fabs(cross(vx, vy, x02, y02));
         double disBisector = dis / sinX;  // 使用叉乘来确定夹角的大小，得出平行线的距离
 
+        // 选择左侧或右侧的平行线
         if (cross(x1 - x0, y1 - y0, x2 - x0, y2 - y0) > 0) // p2在左侧，直线方向是指向p1的，在画右边（角度大于PI）
         {
-            auto [vx01, vy01] = normalize(y0 - y1, x1 - x0);
-            auto [vx20, vy20] = normalize(y2 - y0, x0 - x2);
-            calculateArcPointsFromStartEndCenter(QPointF(x0 - vx20 * dis, y0 - vy20 * dis), QPointF(x0 - vx01 * dis, y0 - vy01 * dis), polyline[i], 20, points);
+            points.append(QPointF(x0 + vx * disBisector, y0 + vy * disBisector));
         }
         else
         {
-            points.append(QPointF(x0 - vx * disBisector, y0 - vy * disBisector));  // 向左偏移
+            auto [vx01, vy01] = normalize(y0 - y1, x1 - x0);
+            auto [vx20, vy20] = normalize(y2 - y0, x0 - x2);
+            calculateArcPointsFromStartEndCenter(QPointF(x0 + vx01 * dis, y0 + vy01 * dis), QPointF(x0 + vx20 * dis, y0 + vy20 * dis), polyline[i], 20, points);
         }
     }
     if (points.size())points.append(points[0]);

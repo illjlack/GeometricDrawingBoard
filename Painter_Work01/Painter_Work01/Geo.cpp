@@ -42,7 +42,15 @@ Geo* createGeo(DrawMode mode)
 }
 
 
+
+
 // ===================================================================== Geo
+void Geo::initialize()
+{
+    geoParameters.initGeoParameters();
+    setStateInitialized();
+}
+
 void Geo::drawControlPoints(QPainter& painter)
 {
     if (isStateDrawing() && !tempControlPoints.isNull())controlPoints.push_back(tempControlPoints);
@@ -158,8 +166,21 @@ bool Geo::isControlPointsChanged() const {
     return controlPointsChanged;
 }
 
-void Geo::resetControlPointsChanged() {
+void Geo::resetControlPointsChanged() 
+{
     controlPointsChanged = false;
+}
+
+// 获取当前的 GeoParameters
+GeoParameters Geo::getGeoParameters()
+{
+    return geoParameters; // 返回当前结构体
+}
+
+// 设置 GeoParameters
+void  Geo::setGeoParameters(const GeoParameters& params)
+{
+    geoParameters = params;
 }
 
 void Geo::keyPressEvent(QKeyEvent* event)
@@ -218,12 +239,6 @@ Point::Point()
     setStateSelected(); // 还在绘制中，是当前选中
 }
 
-void Point::initialize()
-{
-    color = GlobalPointColor;                // 点的颜色
-    shape = GlobalPointShape;                // 点的形状
-    setStateInitialized();
-}
 
 void Point::mousePressEvent(QMouseEvent* event)
 {
@@ -283,7 +298,7 @@ void Point::draw(QPainter& painter)
     else if (shape == PointShape::Circle) {
         path.addEllipse(point, 5.0, 5.0);
     }
-    painter.setBrush(QBrush(color));
+    painter.setBrush(QBrush(geoParameters.lineColor));
     painter.setPen(Qt::NoPen);
     painter.drawPath(path);
     if (isStateSelected())
@@ -314,16 +329,6 @@ SimpleLine::SimpleLine()
     setStateSelected(); // 还在绘制中，是当前选中
 }
 
-void SimpleLine::initialize()
-{
-    lineWidth = GlobalLineWidth;                           // 线宽
-    dashPattern = GlobalLineDashPattern;                   // 虚线段长
-    color = GlobalLineColor;                               // 线的颜色
-    lineStyle = GlobalLineStyle;                           // 线样式
-    nodeLineStyle = GlobalNodeLineStyle;                   // 节点线形
-    setStateInitialized();
-}
-
 void SimpleLine::mousePressEvent(QMouseEvent* event)
 {
     if (!isStateInitialized()) initialize();
@@ -347,7 +352,7 @@ void SimpleLine::mouseMoveEvent(QMouseEvent* event)
 
     updateTempPoint(event->pos());
 
-    if (nodeLineStyle == NodeLineStyle::StyleStreamline && isMouseLeftButtonPressed())
+    if (geoParameters.nodeLineStyle == NodeLineStyle::StyleStreamline && isMouseLeftButtonPressed())
     {
         pushControlPoint(event->pos());
     }
@@ -356,7 +361,7 @@ void SimpleLine::mouseMoveEvent(QMouseEvent* event)
 void SimpleLine::mouseReleaseEvent(QMouseEvent* event)
 {
     // 如果是流线结束段绘制
-    if (!isStateComplete() && nodeLineStyle == NodeLineStyle::StyleStreamline && isMouseLeftButtonPressed())
+    if (!isStateComplete() && geoParameters.nodeLineStyle == NodeLineStyle::StyleStreamline && isMouseLeftButtonPressed())
     {
         endSegmentDrawing();
     }
@@ -365,7 +370,7 @@ void SimpleLine::mouseReleaseEvent(QMouseEvent* event)
 
 void SimpleLine::completeDrawing()
 {
-    if (!calculateLinePoints(nodeLineStyle, controlPoints, points))
+    if (!calculateLinePoints(geoParameters.nodeLineStyle, controlPoints, points))
     {
         setStateInvalid();
     }
@@ -379,12 +384,12 @@ void SimpleLine::draw(QPainter& painter)
         return;
     }
     QPen pen;
-    pen.setColor(color);
-    pen.setWidthF(lineWidth);
-    if (lineStyle == LineStyle::Dashed)
+    pen.setColor(geoParameters.lineColor);
+    pen.setWidthF(geoParameters.lineWidth);
+    if (geoParameters.lineStyle == LineStyle::Dashed)
     {
         pen.setStyle(Qt::DashLine);
-        pen.setDashOffset(dashPattern);
+        pen.setDashOffset(geoParameters.lineDashPattern);
     }
     else
     {
@@ -397,7 +402,7 @@ void SimpleLine::draw(QPainter& painter)
         controlPoints.push_back(tempControlPoints);
         markControlPointsChanged();
     }
-    if (!isControlPointsChanged() || calculateLinePoints(nodeLineStyle, controlPoints, points))
+    if (!isControlPointsChanged() || calculateLinePoints(geoParameters.nodeLineStyle, controlPoints, points))
     {
         resetControlPointsChanged();
         QPainterPath path;
@@ -432,13 +437,7 @@ void DoubleLine::initialize()
 {
     isDrawing = true;   // 第一个分图准备绘制
     component.push_back({ 0,NodeLineStyle::NoStyle });      // 新建分图
-
-    lineWidth = GlobalLineWidth;                                 // 宽度
-    lineColor = GlobalLineColor;                                  // 颜色
-    lineStyle = GlobalLineStyle;                                  // 线形
-    lineDashPattern = GlobalLineDashPattern;                      // 段长
-    nodeLineStyle = GlobalNodeLineStyle;                          // 节点线形
-    setStateInitialized();
+    Geo::initialize();
 }
 
 void DoubleLine::mousePressEvent(QMouseEvent* event)
@@ -492,7 +491,7 @@ void DoubleLine::pushControlPoint(const QPoint& pos)
 
     if (component.last().nodeLineStyle == NodeLineStyle::NoStyle)
     {
-        component.last().nodeLineStyle = nodeLineStyle;
+        component.last().nodeLineStyle = geoParameters.nodeLineStyle;
     }
 }
 
@@ -527,12 +526,12 @@ void DoubleLine::draw(QPainter& painter)
         return;
     }
     QPen pen;
-    pen.setColor(lineColor);
-    pen.setWidthF(lineWidth);
-    if (lineStyle == LineStyle::Dashed)
+    pen.setColor(geoParameters.lineColor);
+    pen.setWidthF(geoParameters.lineWidth);
+    if (geoParameters.lineStyle == LineStyle::Dashed)
     {
         pen.setStyle(Qt::DashLine);
-        pen.setDashOffset(lineDashPattern);
+        pen.setDashOffset(geoParameters.lineDashPattern);
     }
     else
     {
@@ -584,12 +583,7 @@ void ParallelLine::initialize()
 {
     component.push_back({ 0,NodeLineStyle::NoStyle });      // 新建分图
 
-    lineWidth = GlobalLineWidth;                                   // 宽度
-    lineColor = GlobalLineColor;                                    // 颜色
-    lineStyle = GlobalLineStyle;                                    // 线形
-    lineDashPattern = GlobalLineDashPattern;                        // 段长
-    nodeLineStyle = GlobalNodeLineStyle;                            // 节点线形
-    setStateInitialized();
+    Geo::initialize();
 }
 
 void ParallelLine::mousePressEvent(QMouseEvent* event)
@@ -657,7 +651,7 @@ void ParallelLine::pushControlPoint(const QPoint& pos)
         // 如果节点线形还没定义
         if (component.last().nodeLineStyle == NodeLineStyle::NoStyle)
         {
-            component.last().nodeLineStyle = nodeLineStyle;
+            component.last().nodeLineStyle = geoParameters.nodeLineStyle;
         }
     }
     else if (component.size() == 2)
@@ -684,12 +678,12 @@ void ParallelLine::draw(QPainter& painter)
         return;
     }
     QPen pen;
-    pen.setColor(lineColor);
-    pen.setWidthF(lineWidth);
-    if (lineStyle == LineStyle::Dashed)
+    pen.setColor(geoParameters.lineColor);
+    pen.setWidthF(geoParameters.lineWidth);
+    if (geoParameters.lineStyle == LineStyle::Dashed)
     {
         pen.setStyle(Qt::DashLine);
-        pen.setDashOffset(lineDashPattern);
+        pen.setDashOffset(geoParameters.lineDashPattern);
     }
     else
     {
@@ -740,15 +734,6 @@ TwoPointCircle::TwoPointCircle()
     setStateSelected(); // 还在绘制中，是当前选中
 }
 
-void TwoPointCircle::initialize()
-{
-    lineWidth = GlobalLineWidth;                                      // 边框宽度
-    fillColor = GlobalFillColor;                                       // 面内填充颜色
-    lineColor = GlobalLineColor;                                       // 边框颜色
-    lineStyle = GlobalLineStyle;                                       // 边框线形
-    lineDashPattern = GlobalLineDashPattern;                           // 虚线段长
-    setStateInitialized();
-}
 
 void TwoPointCircle::mousePressEvent(QMouseEvent* event)
 {
@@ -802,12 +787,12 @@ void TwoPointCircle::draw(QPainter& painter)
         return;
     }
     QPen pen;
-    pen.setColor(lineColor);
-    pen.setWidthF(lineWidth);
-    if (lineStyle == LineStyle::Dashed)
+    pen.setColor(geoParameters.lineColor);
+    pen.setWidthF(geoParameters.lineWidth);
+    if (geoParameters.lineStyle == LineStyle::Dashed)
     {
         pen.setStyle(Qt::DashLine);
-        pen.setDashOffset(lineDashPattern);
+        pen.setDashOffset(geoParameters.lineDashPattern);
     }
     else
     {
@@ -815,7 +800,7 @@ void TwoPointCircle::draw(QPainter& painter)
     }
     painter.setPen(pen);
 
-    QBrush brush(fillColor);
+    QBrush brush(geoParameters.fillColor);
     painter.setBrush(brush);
     if (isStateDrawing() && !tempControlPoints.isNull())
     {
@@ -855,18 +840,6 @@ SimpleArea::SimpleArea()
     setStateSelected(); // 还在绘制中，是当前选中
 }
 
-void SimpleArea::initialize()
-{
-    lineWidth = GlobalLineWidth;                                       // 边框宽度
-    fillColor = GlobalFillColor;                                        // 面内填充颜色
-    lineColor = GlobalLineColor;                                        // 边框颜色
-    lineStyle = GlobalLineStyle;                                        // 边框线形
-    lineDashPattern = GlobalLineDashPattern;                            // 虚线段长
-    nodeLineStyle = GlobalNodeLineStyle;                                // 节点线形
-
-    setStateInitialized();
-}
-
 void SimpleArea::mousePressEvent(QMouseEvent* event)
 {
     if (!isStateInitialized())initialize();
@@ -892,7 +865,7 @@ void SimpleArea::mouseMoveEvent(QMouseEvent* event)
     }
 
     // 如果是流线, 按下移动的时候就绘制
-    if (!isStateComplete() && nodeLineStyle == NodeLineStyle::StyleStreamline && isMouseLeftButtonPressed())
+    if (!isStateComplete() && geoParameters.nodeLineStyle == NodeLineStyle::StyleStreamline && isMouseLeftButtonPressed())
     {
         pushControlPoint(event->pos());
     }
@@ -901,7 +874,7 @@ void SimpleArea::mouseMoveEvent(QMouseEvent* event)
 void SimpleArea::mouseReleaseEvent(QMouseEvent* event)
 {
     // 如果是流线结束段绘制
-    if (!isStateComplete() && nodeLineStyle == NodeLineStyle::StyleStreamline && isMouseLeftButtonPressed())
+    if (!isStateComplete() && geoParameters.nodeLineStyle == NodeLineStyle::StyleStreamline && isMouseLeftButtonPressed())
     {
         endSegmentDrawing();
     }
@@ -910,7 +883,7 @@ void SimpleArea::mouseReleaseEvent(QMouseEvent* event)
 
 void SimpleArea::completeDrawing()
 {
-    if (!calculateCloseLinePoints(nodeLineStyle, controlPoints, points))
+    if (!calculateCloseLinePoints(geoParameters.nodeLineStyle, controlPoints, points))
     {
         setStateInvalid();
     }
@@ -924,12 +897,12 @@ void SimpleArea::draw(QPainter& painter)
         return;
     }
     QPen pen;
-    pen.setColor(lineColor);
-    pen.setWidthF(lineWidth);
-    if (lineStyle == LineStyle::Dashed)
+    pen.setColor(geoParameters.lineColor);
+    pen.setWidthF(geoParameters.lineWidth);
+    if (geoParameters.lineStyle == LineStyle::Dashed)
     {
         pen.setStyle(Qt::DashLine);
-        pen.setDashOffset(lineDashPattern);
+        pen.setDashOffset(geoParameters.lineDashPattern);
     }
     else
     {
@@ -937,14 +910,14 @@ void SimpleArea::draw(QPainter& painter)
     }
     painter.setPen(pen);
 
-    QBrush brush(fillColor);
+    QBrush brush(geoParameters.fillColor);
     painter.setBrush(brush);
     if (isStateDrawing() && !tempControlPoints.isNull())
     {
         controlPoints.push_back(tempControlPoints);
         markControlPointsChanged();
     }
-    if (!isControlPointsChanged() || calculateCloseLinePoints(nodeLineStyle, controlPoints, points))
+    if (!isControlPointsChanged() || calculateCloseLinePoints(geoParameters.nodeLineStyle, controlPoints, points))
     {
         resetControlPointsChanged();
         QPainterPath path;
@@ -981,14 +954,7 @@ void ComplexArea::initialize()
     isDrawing = true;   // 第一个分图准备绘制
     component.push_back({ 0,NodeLineStyle::NoStyle });      // 新建分图
 
-    lineWidth = GlobalLineWidth;                                         // 边框宽度
-    fillColor = GlobalFillColor;                                         // 面内填充颜色
-    lineColor = GlobalLineColor;                                         // 边框颜色
-    lineStyle = GlobalLineStyle;                                         // 边框线形
-    lineDashPattern = GlobalLineDashPattern;                             // 虚线段长
-    nodeLineStyle = GlobalNodeLineStyle;                                 // 节点线形
-
-    setStateInitialized();
+    Geo::initialize();
 }
 
 void ComplexArea::mousePressEvent(QMouseEvent* event)
@@ -1040,7 +1006,7 @@ void ComplexArea::pushControlPoint(const QPoint& pos)
     // 如果节点线形还没定义
     if (component.last().nodeLineStyle == NodeLineStyle::NoStyle)
     {
-        component.last().nodeLineStyle = nodeLineStyle;
+        component.last().nodeLineStyle = geoParameters.nodeLineStyle;
     }
 }
 
@@ -1075,12 +1041,12 @@ void ComplexArea::draw(QPainter& painter)
         return;
     }
     QPen pen;
-    pen.setColor(lineColor);
-    pen.setWidthF(lineWidth);
-    if (lineStyle == LineStyle::Dashed)
+    pen.setColor(geoParameters.lineColor);
+    pen.setWidthF(geoParameters.lineWidth);
+    if (geoParameters.lineStyle == LineStyle::Dashed)
     {
         pen.setStyle(Qt::DashLine);
-        pen.setDashOffset(lineDashPattern);
+        pen.setDashOffset(geoParameters.lineDashPattern);
     }
     else
     {
@@ -1088,7 +1054,7 @@ void ComplexArea::draw(QPainter& painter)
     }
     painter.setPen(pen);
 
-    QBrush brush(fillColor);
+    QBrush brush(geoParameters.fillColor);
     painter.setBrush(brush);
     if (isDrawing && isStateDrawing() && !tempControlPoints.isNull())
     {

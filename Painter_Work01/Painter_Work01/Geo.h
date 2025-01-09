@@ -5,6 +5,7 @@
 #include <QVector>
 #include <QKeyEvent>
 #include "GeoMathUtil.h"
+#include "comm.h"
 
 class Geo;
 Geo* createGeo(DrawMode mode);
@@ -13,7 +14,7 @@ Geo* createGeo(DrawMode mode);
 class Geo {
 public:
     virtual ~Geo() = default;
-    virtual void initialize() = 0;                      // 初始化，在第一次点击（确定第一个控制点）的时候自动调用，来设置属性
+    virtual void initialize();                          // 初始化，在第一次点击（确定第一个控制点）的时候自动调用，来设置属性
     virtual void draw(QPainter& painter) = 0;           // 绘制方法
     virtual void drawControlPoints(QPainter& painter);  // 绘制控制点
     //virtual void drawBuffer(QPainter& painter) = 0;   // 绘制缓冲区
@@ -50,28 +51,31 @@ public:
     void setStateSelected();
     void setStateNotSelected();
 
-    void markControlPointsChanged();   // 标记控制点已改变
-    bool isControlPointsChanged() const; // 检查控制点是否已改变
-    void resetControlPointsChanged(); // 重置标记
+    void markControlPointsChanged();            // 标记控制点已改变
+    bool isControlPointsChanged() const;        // 检查控制点是否已改变
+    void resetControlPointsChanged();           // 重置标记
+
+    
+    GeoParameters getGeoParameters();                        // 获取当前的 GeoParameters
+    void setGeoParameters(const GeoParameters& params);      // 设置 GeoParameters
+
 protected:
-
-
     void setGeoType(GeoType newType);   // 构造函数中,确定类型
-    QVector<QPointF> controlPoints;    // 控制点 (每个类可以自己加划分信息)
+    QVector<QPointF> controlPoints;     // 控制点 (每个类可以自己加划分信息)
     QPointF tempControlPoints;          // 临时控制点, 在绘制中使用
-private:
-    int geoState = 0;
-    bool mouseLeftButtonPressed = false; // 鼠标是否按下拖动
-    GeoType geoType = GeoType::Undefined;
+    GeoParameters geoParameters;        // 几何的参数
 
-    bool controlPointsChanged = false; // 控制点变化，要重算
+private:
+    int geoState = 0;                       // 状态
+    bool mouseLeftButtonPressed = false;    // 鼠标是否按下拖动
+    GeoType geoType = GeoType::Undefined;   // 反射几何的类型
+    bool controlPointsChanged = false;      // 控制点变化，要重算
 };
 
 // ===================================================================== Point
 class Point : public Geo {
 public:
     Point();
-    void initialize() override;
 
     // 图形构造事件
     void mousePressEvent(QMouseEvent* event) override;
@@ -89,7 +93,6 @@ private:
 class SimpleLine : public Geo {
 public:
     SimpleLine();
-    void initialize() override;
 
     // 图形构造事件
     void mousePressEvent(QMouseEvent* event) override;
@@ -99,14 +102,7 @@ public:
 
     void draw(QPainter& painter) override;
 protected:
-
     QVector<QPointF> points;        // 点集
-    NodeLineStyle nodeLineStyle;    // 节点线型
-    
-    float lineWidth;                    // 线宽
-    float dashPattern;                  // 虚线段长
-    QColor color;                       // 颜色
-    LineStyle lineStyle;                // 样式（实线、虚线）
 };
 
 // ===================================================================== DoubleLine
@@ -131,12 +127,6 @@ protected:
     QVector<QVector<QPointF>> pointss;    // 二维点集
     QVector<Component> component;
 
-    NodeLineStyle nodeLineStyle;   // 节点线型
-    float lineWidth;               // 边框宽度
-    QColor fillColor;              // 面内填充颜色
-    QColor lineColor;              // 边框颜色
-    LineStyle lineStyle;           // 边框线形
-    float lineDashPattern;         // 虚线段长
 };
 
 // ===================================================================== ParallelLine
@@ -159,20 +149,12 @@ protected:
 
     QVector<QVector<QPointF>> pointss;    // 二维点集
     QVector<Component> component;
-
-    NodeLineStyle nodeLineStyle;   // 节点线型
-    float lineWidth;               // 边框宽度
-    QColor fillColor;              // 面内填充颜色
-    QColor lineColor;              // 边框颜色
-    LineStyle lineStyle;           // 边框线形
-    float lineDashPattern;         // 虚线段长
 };
 
 // ===================================================================== TwoPointCircle
 class TwoPointCircle : public Geo {
 public:
     TwoPointCircle();
-    void initialize() override;
 
     // 图形构造事件
     void mousePressEvent(QMouseEvent* event) override;
@@ -185,18 +167,12 @@ public:
 protected:
 
     QVector<QPointF> points;       // 点集
-    float lineWidth;               // 边框宽度
-    QColor fillColor;              // 面内填充颜色
-    QColor lineColor;              // 边框颜色
-    LineStyle lineStyle;           // 边框线形
-    float lineDashPattern;         // 虚线段长
 };
 
 // ===================================================================== SimpleArea
 class SimpleArea : public Geo {
 public:
     SimpleArea();
-    void initialize() override;
 
     // 图形构造事件
     void mousePressEvent(QMouseEvent* event) override;
@@ -208,13 +184,6 @@ public:
 protected:
 
     QVector<QPointF> points;    // 点集
-    NodeLineStyle nodeLineStyle;    // 节点线型
-
-    float lineWidth;               // 边框宽度
-    QColor fillColor;              // 面内填充颜色
-    QColor lineColor;              // 边框颜色
-    LineStyle lineStyle;           // 边框线形
-    float lineDashPattern;         // 虚线段长
 };
 
 // ===================================================================== ComplexArea 
@@ -238,11 +207,4 @@ protected:
     bool isDrawing;                       // 在绘制
     QVector<QVector<QPointF>> pointss;    // 二维点集
     QVector<Component> component;
-
-    NodeLineStyle nodeLineStyle;   // 节点线型
-    float lineWidth;               // 边框宽度
-    QColor fillColor;              // 面内填充颜色
-    QColor lineColor;              // 边框颜色
-    LineStyle lineStyle;           // 边框线形
-    float lineDashPattern;         // 虚线段长
 };

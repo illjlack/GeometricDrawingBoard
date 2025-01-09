@@ -2,6 +2,7 @@
 #include <QVector>
 #include <QPointF>
 #include <cmath>
+#include <QRectF>
 
 // ==========================================================================
 // 计算线段上的点
@@ -917,12 +918,13 @@ bool calculateParallelLineThroughPoint(const QVector<QPointF>& polyline, const Q
     double distance = pointToLineDistanceWithDirection(targetPoint,polyline[plLen - 1],polyline[plLen - 2]);
 
     // 按照计算的距离生成平行线
-    return calculateParallelLine(polyline, distance, parallelPolyline);
+    //return calculateParallelLine(polyline, distance, parallelPolyline);
+    return calculateLineBuffer(polyline, distance, parallelPolyline);
 }
 
-// ==========================================================================
-// 缓冲区计算
-// ==========================================================================
+// ==========================================================================================
+// 缓冲区计算(基于矢量的缓冲区分析算法：平行线、角平分线、凸圆弧角，但是自相交处理不来)
+// ==========================================================================================
 
 /**
  * 根据起点、终点和圆心计算特点方向的圆弧上的点(顺时针方向，从左往右)
@@ -1104,4 +1106,98 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
     if (points.size())points.append(points[0]);
 
     return true;
+}
+
+
+// ==========================================================================================
+// 缓冲区计算(基于栅格的缓冲区分析算法，广搜所有点)
+// ==========================================================================================
+// 
+// 1. 遍历所有点，找到上下左右边界
+// 2. 映射到网格里（方形,距离r映射为步数k）
+// 3. 初始点标记为（1，k）,广搜,k可以优化一下,只记录步数的分界点
+// 4. 遍历网格，找到分界点(1的上下左右有0)
+// 5. 映射为原来坐标
+// 6. 复杂度O（n^2）;
+
+// 找到上下左右边界
+QRectF calculateBounds(const QVector<QPointF>& points, double r) 
+{
+    if (points.isEmpty()) 
+    {
+        return QRectF();
+    }
+    qreal minX = points[0].x();
+    qreal maxX = points[0].x();
+    qreal minY = points[0].y();
+    qreal maxY = points[0].y();
+    // 遍历所有点，更新边界
+    for (const QPointF& point : points) {
+        if (point.x() < minX) minX = point.x();
+        if (point.x() > maxX) maxX = point.x();
+        if (point.y() < minY) minY = point.y();
+        if (point.y() > maxY) maxY = point.y();
+    }
+    // 返回上下左右边界
+    return QRectF(QPointF(minX - r, minY - r), QPointF(maxX + r, maxY + r)); // 预留缓冲区
+}
+
+// 映射到网格
+QVector<QPointF> mapToGrid(const QVector<QPointF>& points, double r, int& gridSize)
+{
+    if (points.isEmpty() || r <= 0)
+    {
+        return QVector<QPointF>();
+    }
+
+    // 计算点集合的上下左右边界
+    QRectF bounds = calculateBounds(points, r);
+
+    int cols = static_cast<int>(std::ceil(bounds.width()));   // 列数
+    int rows = static_cast<int>(std::ceil(bounds.height()));  // 行数
+
+   // return gridPoints;
+}
+
+// 广搜标记点
+void markBoundaryPoints(QVector<QPointF>& gridPoints, int gridSize) {
+    // 在网格中标记初始点，并进行广搜
+    // TODO: 实现广搜算法，只记录步数的分界点
+}
+
+// 找到分界点
+QVector<QPointF> findBoundary(const QVector<QPointF>& gridPoints, int gridSize) {
+    // 找到网格中的分界点
+    QVector<QPointF> boundaryPoints;
+    // TODO: 遍历网格，检查每个点的上下左右，判断是否为分界点
+    return boundaryPoints;
+}
+
+// 映射回原始坐标
+QVector<QPointF> mapToOriginalCoordinates(const QVector<QPointF>& boundaryPoints, double r, int gridSize) {
+    // 将网格分界点映射回原始坐标
+    QVector<QPointF> originalCoordinates;
+    // TODO: 根据网格坐标和比例，计算回原始坐标
+    return originalCoordinates;
+}
+
+// 主缓冲区计算接口
+QVector<QPointF> calculateBuffer(const QVector<QPointF>& points, double r, int gridSize) {
+    // 1. 计算上下左右边界
+    QRectF bounds = calculateBounds(points);
+
+    // 2. 映射到网格
+    QVector<QPointF> gridPoints = mapToGrid(points, r, gridSize);
+
+    // 3. 标记分界点
+    markBoundaryPoints(gridPoints, gridSize);
+
+    // 4. 找到分界点
+    QVector<QPointF> boundaryPoints = findBoundary(gridPoints, gridSize);
+
+    // 5. 映射回原始坐标
+    QVector<QPointF> result = mapToOriginalCoordinates(boundaryPoints, r, gridSize);
+
+    // 返回结果
+    return result;
 }

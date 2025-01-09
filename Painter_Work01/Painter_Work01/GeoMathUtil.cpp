@@ -1115,7 +1115,7 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
 // 
 // 1. 遍历所有点，找到上下左右边界
 // 2. 映射到网格里（方形,距离r映射为步数k）
-// 3. 初始点标记为（1，k）,广搜,k可以优化一下,只记录步数的分界点
+// 3. 初始点标记为（1，k）,广搜,只记录步数的分界点
 // 4. 遍历网格，找到分界点(1的上下左右有0)
 // 5. 映射为原来坐标
 // 6. 复杂度O（n^2）;
@@ -1142,7 +1142,6 @@ QRectF calculateBounds(const QVector<QPointF>& points, double r)
     return QRectF(QPointF(minX - r, minY - r), QPointF(maxX + r, maxY + r)); // 预留缓冲区
 }
 
-// 映射到网格
 QVector<QPointF> mapToGrid(const QVector<QPointF>& points, double r, int& gridSize)
 {
     if (points.isEmpty() || r <= 0)
@@ -1153,10 +1152,39 @@ QVector<QPointF> mapToGrid(const QVector<QPointF>& points, double r, int& gridSi
     // 计算点集合的上下左右边界
     QRectF bounds = calculateBounds(points, r);
 
-    int cols = static_cast<int>(std::ceil(bounds.width()));   // 列数
-    int rows = static_cast<int>(std::ceil(bounds.height()));  // 行数
+    // 计算缩放比例
+    // 考虑时间复杂度，搜完格子要 控制在 1s 级别，网格数1e8；
+    // 这里是像素坐标，范围本来就小，直接控制1e6内
+    double area = bounds.width() * bounds.height();
+    double scale = std::sqrt(area / 1000000.0); // 确保网格点总数控制在 1e6 以内
 
-   // return gridPoints;
+    // 根据缩放比例计算网格大小
+    int cols = static_cast<int>(bounds.width() / scale);  // 网格列数
+    int rows = static_cast<int>(bounds.height() / scale); // 网格行数
+    gridSize = std::max(cols, rows); // 返回网格总尺寸（用于其他用途）
+    
+    QVector<QPointF> gridPoints;
+
+     // 考虑起始偏移量，调整网格起始点
+    QPointF adjustedOrigin(bounds.left(), bounds.top());
+
+    // 遍历所有点，将其坐标映射到网格
+    for (const QPointF& point : points)
+    {
+        // 映射 x 和 y 到网格坐标
+        int gridX = static_cast<int>((point.x() - adjustedOrigin.x()) / scale);
+        int gridY = static_cast<int>((point.y() - adjustedOrigin.y()) / scale);
+
+
+
+        // 将网格坐标中心点映射回 QRectF 区域
+        qreal mappedX = adjustedOrigin.x() + gridX * scale + scale / 2.0;
+        qreal mappedY = adjustedOrigin.y() + gridY * scale + scale / 2.0;
+
+        gridPoints.append(QPointF(mappedX, mappedY));
+    }
+
+    return gridPoints;
 }
 
 // 广搜标记点

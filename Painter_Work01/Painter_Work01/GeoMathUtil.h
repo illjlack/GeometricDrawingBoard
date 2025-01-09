@@ -5,7 +5,7 @@
 #define M_PI 3.14159265358979323846
 #include "Enums.h"
 
-
+#include <QRectF>
 
 // ==========================================================================
 // 计算线段上的点
@@ -307,3 +307,30 @@ int pointPositionRelativeToVector(const QPointF& point, const QPointF& vectorSta
  * @return 如果计算成功则返回 true，失败则返回 false
  */
 bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<QPointF>& points);
+
+// ==========================================================================================
+// 缓冲区计算(基于栅格的缓冲区分析算法，广搜所有点)
+// ==========================================================================================
+// 
+// 1. 遍历所有点，找到上下左右边界
+// 2. 映射到网格里（方形,距离r映射为步数k）
+// 3. 初始点标记为（1，k）,广搜,只记录步数的分界点
+// 4. 遍历网格，找到分界点(1的上下左右有0)
+// 5. 映射为原来坐标
+// 6. 复杂度O（n^2）;
+
+// 网格映射结构体
+struct GridMap
+{
+    QVector<QPoint> gridPoints;  // 映射到网格的点
+    double scale;                // 缩放比例
+    QPointF offset;              // 偏移量(网格原点对应的原来坐标)
+    int sizeX, sizeY;            // 网格尺寸
+};
+
+// 函数声明
+QRectF calculateBounds(const QVector<QPointF>& points);
+void mapToGrid(const QVector<QPointF>& points, double r, int& k, GridMap& gridMap);
+void restoreFromGrid(const GridMap& gridMap, QVector<QPointF>& points);
+void markBoundaryPoints(const GridMap& gridMap, int k, GridMap& boundaryGridMap);
+bool calculateBuffer(const QVector<QPointF>& points, double r, QVector<QPointF>& boundaryPoints);

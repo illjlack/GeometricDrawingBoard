@@ -679,7 +679,8 @@ void ParallelLine::draw(QPainter& painter)
             path.moveTo(points.first());
             for (int i = 1; i < points.size(); ++i)
             {
-                path.lineTo(points[i]);
+                //path.lineTo(points[i]);
+                path.addEllipse(points[i], 2, 2);
             }
         }
         painter.drawPath(path);

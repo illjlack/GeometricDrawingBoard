@@ -1122,10 +1122,7 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
 // 5. 映射为原来坐标
 // 6. 复杂度O（n^2）;
 
-// 算完后：：发现计算出的距离是曼哈顿距离
-// 而且轮廓是无序的点，不能围成图
-// 
-// 
+
 // 找到上下左右边界
 QRectF calculateBounds(const QVector<QPointF>& points)
 {

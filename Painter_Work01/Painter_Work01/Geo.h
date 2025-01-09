@@ -25,7 +25,7 @@ public:
     GeoType getGeoType(); // 反射类型
 
 
-    // 接受鼠标和键盘事件来进行绘制或修改
+    // 接受鼠标和键盘事件来进行绘制或修改(基类Geo里的输入事件不做具体功能，只维护状态)
     virtual void keyPressEvent(QKeyEvent* event);
     virtual void keyReleaseEvent(QKeyEvent* event);
     virtual void mouseMoveEvent(QMouseEvent* event);
@@ -33,12 +33,18 @@ public:
     virtual void mouseReleaseEvent(QMouseEvent* event);
     virtual void wheelEvent(QWheelEvent* event);
 
+    // 具体操作（默认实现）
+    virtual void updateTempPoint(const QPoint& pos);   // 更新临时点
+    virtual void endSegmentDrawing();   // 结束段绘制
+    virtual void pushControlPoint(const QPoint& pos); // 添加控制点
+
     // 状态的一些修改
     bool isStateDrawing();
     bool isStateComplete();
     bool isStateInvalid();
     bool isStateSelected();
     bool isStateInitialized();
+    bool isMouseLeftButtonPressed();
 
     void setStateInitialized();
     void setStateInvalid();
@@ -51,6 +57,7 @@ protected:
     QPointF tempControlPoints;          // 临时控制点, 在绘制中使用
 private:
     int geoState = 0;
+    bool mouseLeftButtonPressed = false; // 鼠标是否按下拖动
     GeoType geoType = GeoType::Undefined;
 };
 
@@ -81,6 +88,7 @@ public:
     // 图形构造事件
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
     void completeDrawing() override;
 
     void draw(QPainter& painter) override;
@@ -104,7 +112,11 @@ public:
     // 图形构造事件
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
     void completeDrawing() override;
+
+    void pushControlPoint(const QPoint& pos) override;
+    void endSegmentDrawing() override;
 
     void draw(QPainter& painter) override;
 protected:
@@ -130,7 +142,11 @@ public:
     // 图形构造事件
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
     void completeDrawing() override;
+
+    void endSegmentDrawing() override;
+    void pushControlPoint(const QPoint& pos) override;
 
     void draw(QPainter& painter) override;
 protected:
@@ -157,6 +173,8 @@ public:
     void mouseMoveEvent(QMouseEvent* event) override;
     void completeDrawing() override;
 
+    void pushControlPoint(const QPoint& pos) override;
+
     void draw(QPainter& painter) override;
 protected:
 
@@ -177,6 +195,7 @@ public:
     // 图形构造事件
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
     void completeDrawing() override;
 
     void draw(QPainter& painter) override;
@@ -201,7 +220,11 @@ public:
     // 图形构造事件
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
     void completeDrawing() override;
+
+    virtual void endSegmentDrawing();   // 结束段绘制
+    virtual void pushControlPoint(const QPoint& pos); // 添加控制点
 
     void draw(QPainter& painter) override;
 protected:

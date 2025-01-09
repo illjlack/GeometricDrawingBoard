@@ -77,20 +77,14 @@ void Canvas::mousePressEvent(QMouseEvent* event)
 
 void Canvas::mouseMoveEvent(QMouseEvent* event)
 {
-    if (DrawMode::None != getSetting<DrawMode>(Key_DrawMode))
-    {
-        if (!currentDrawGeo || currentDrawGeo->isStateComplete())
-        {
-            currentDrawGeo = createGeo(getSetting<DrawMode>(Key_DrawMode));
-            pushShape(currentDrawGeo);
-        }
-        currentDrawGeo->mouseMoveEvent(event);
-    }
+    if(currentDrawGeo)currentDrawGeo->mouseMoveEvent(event);
     update();
 }
 
 void Canvas::mouseReleaseEvent(QMouseEvent* event)
 {
+    if (currentDrawGeo)currentDrawGeo->mouseReleaseEvent(event);
+    update();
 }
 
 void Canvas::wheelEvent(QWheelEvent* event)

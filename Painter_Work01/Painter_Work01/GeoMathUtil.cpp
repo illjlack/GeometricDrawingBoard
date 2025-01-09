@@ -20,6 +20,8 @@ bool calculateLinePoints(NodeLineStyle lineStyle, const QVector<QPointF>& contro
     linePoints.clear();
     switch (lineStyle)
     {
+
+    case NodeLineStyle::StyleStreamline: // 流线和折线一样直接使用控制点
     case NodeLineStyle::StylePolyline:
         if (controlPoints.size() < 2)
         {
@@ -44,10 +46,6 @@ bool calculateLinePoints(NodeLineStyle lineStyle, const QVector<QPointF>& contro
             return false;
         }
         return calculateArcPointsFromControlPoints(controlPoints, steps, linePoints);
-
-    case NodeLineStyle::StyleStreamline:
-        return false;
-
     default:
         return false;
     }
@@ -68,6 +66,7 @@ bool calculateCloseLinePoints(NodeLineStyle lineStyle, const QVector<QPointF>& c
 
     switch (lineStyle)
     {
+    case NodeLineStyle::StyleStreamline:  // 流线和折线一样直接使用控制点
     case NodeLineStyle::StylePolyline:
         if (controlPoints.size() < 3)
         {
@@ -126,10 +125,6 @@ bool calculateCloseLinePoints(NodeLineStyle lineStyle, const QVector<QPointF>& c
             return false;
         }
         return calculateCirclePointsFromControlPoints(controlPoints[0], controlPoints[1], steps, linePoints);
-
-    case NodeLineStyle::StyleStreamline:
-
-        return false;
 
     default:
         return false;
@@ -921,7 +916,7 @@ bool calculateParallelLineThroughPoint(const QVector<QPointF>& polyline, const Q
     // 直线方向统一从后面的点指向前面的点
     double distance = pointToLineDistanceWithDirection(targetPoint,polyline[plLen - 1],polyline[plLen - 2]);
 
-    //// 按照计算的距离生成平行线
+    // 按照计算的距离生成平行线
     //return calculateParallelLine(polyline, distance, parallelPolyline);
     return calculateLineBuffer(polyline, distance, parallelPolyline);
 }

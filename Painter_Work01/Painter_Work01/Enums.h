@@ -14,21 +14,16 @@ enum DrawSettingKey
     Key_PointShape, // 点的形状
     Key_PointColor, // 点的颜色
 
-    Key_LineStyle,          // 线的样式
+    Key_LineStyle,          // 线的样式(实线、虚线)
     Key_LineWidth,          // 线宽
     Key_LineColor,          // 线的颜色
     Key_LineDashPattern,    // 虚线段长
     Key_NodeLineStyle,      // 节点线形
+    Key_FillColor,          // 面填充颜色
 
     Key_SplineOrder,          // 样条阶数
     Key_SplineNodeCount,      // 样条节点个数
-
-    Key_PgFillColor,          // 面填充颜色
-    Key_PgLineWidth,          // 面的边框宽
-    Key_PgLineColor,          // 边框颜色
-    Key_PgLineMode,           // 边框类型
-    Key_PgLineStyle,          // 线的样式
-    Key_PgLineDashPattern,    // 边框虚线段长
+    Key_Steps,                // 计算曲线的点的密度
 
     EndDrawSettingKey
 };

@@ -1,6 +1,9 @@
-#include "Geo.h"
+
 #include <QPainterPath>
 #include <qDebug>
+#include <stdexcept>
+#include "Geo.h"
+#include "comm.h"
 
 #define M_PI 3.14159265358979323846
 
@@ -217,8 +220,8 @@ Point::Point()
 
 void Point::initialize()
 {
-    color = getSetting<QRgb>(Key_PointColor);                // 点的颜色
-    shape = getSetting<PointShape>(Key_PointShape);          // 点的形状
+    color = GlobalPointColor;                // 点的颜色
+    shape = GlobalPointShape;                // 点的形状
     setStateInitialized();
 }
 
@@ -313,11 +316,11 @@ SimpleLine::SimpleLine()
 
 void SimpleLine::initialize()
 {
-    lineWidth = getSetting<float>(Key_LineWidth);                   // 线宽
-    dashPattern = getSetting<float>(Key_LineDashPattern);           // 虚线段长
-    color = getSetting<QRgb>(Key_LineColor);                        // 颜色
-    lineStyle = getSetting<LineStyle>(Key_LineStyle);               // 样式
-    nodeLineStyle = getSetting<NodeLineStyle>(Key_NodeLineStyle);   // 节点线形
+    lineWidth = GlobalLineWidth;                           // 线宽
+    dashPattern = GlobalLineDashPattern;                   // 虚线段长
+    color = GlobalLineColor;                               // 线的颜色
+    lineStyle = GlobalLineStyle;                           // 线样式
+    nodeLineStyle = GlobalNodeLineStyle;                   // 节点线形
     setStateInitialized();
 }
 
@@ -430,11 +433,11 @@ void DoubleLine::initialize()
     isDrawing = true;   // 第一个分图准备绘制
     component.push_back({ 0,NodeLineStyle::NoStyle });      // 新建分图
 
-    lineWidth = getSetting<float>(Key_LineWidth);                     // 宽度
-    lineColor = getSetting<QRgb>(Key_LineColor);                      // 颜色
-    lineStyle = getSetting<LineStyle>(Key_LineStyle);                 // 线形
-    lineDashPattern = getSetting<float>(Key_LineDashPattern);         // 段长
-    nodeLineStyle = getSetting<NodeLineStyle>(Key_NodeLineStyle);     // 节点线形
+    lineWidth = GlobalLineWidth;                                 // 宽度
+    lineColor = GlobalLineColor;                                  // 颜色
+    lineStyle = GlobalLineStyle;                                  // 线形
+    lineDashPattern = GlobalLineDashPattern;                      // 段长
+    nodeLineStyle = GlobalNodeLineStyle;                          // 节点线形
     setStateInitialized();
 }
 
@@ -581,11 +584,11 @@ void ParallelLine::initialize()
 {
     component.push_back({ 0,NodeLineStyle::NoStyle });      // 新建分图
 
-    lineWidth = getSetting<float>(Key_LineWidth);                     // 宽度
-    lineColor = getSetting<QRgb>(Key_LineColor);                      // 颜色
-    lineStyle = getSetting<LineStyle>(Key_LineStyle);                 // 线形
-    lineDashPattern = getSetting<float>(Key_LineDashPattern);         // 段长
-    nodeLineStyle = getSetting<NodeLineStyle>(Key_NodeLineStyle);     // 节点线形
+    lineWidth = GlobalLineWidth;                                   // 宽度
+    lineColor = GlobalLineColor;                                    // 颜色
+    lineStyle = GlobalLineStyle;                                    // 线形
+    lineDashPattern = GlobalLineDashPattern;                        // 段长
+    nodeLineStyle = GlobalNodeLineStyle;                            // 节点线形
     setStateInitialized();
 }
 
@@ -739,11 +742,11 @@ TwoPointCircle::TwoPointCircle()
 
 void TwoPointCircle::initialize()
 {
-    lineWidth = getSetting<float>(Key_PgLineWidth);                     // 边框宽度
-    fillColor = getSetting<QRgb>(Key_PgFillColor);                      // 面内填充颜色
-    lineColor = getSetting<QRgb>(Key_PgLineColor);                      // 边框颜色
-    lineStyle = getSetting<LineStyle>(Key_PgLineStyle);                 // 边框线形
-    lineDashPattern = getSetting<float>(Key_PgLineDashPattern);         // 虚线段长
+    lineWidth = GlobalLineWidth;                                      // 边框宽度
+    fillColor = GlobalFillColor;                                       // 面内填充颜色
+    lineColor = GlobalLineColor;                                       // 边框颜色
+    lineStyle = GlobalLineStyle;                                       // 边框线形
+    lineDashPattern = GlobalLineDashPattern;                           // 虚线段长
     setStateInitialized();
 }
 
@@ -854,12 +857,13 @@ SimpleArea::SimpleArea()
 
 void SimpleArea::initialize()
 {
-    lineWidth = getSetting<float>(Key_PgLineWidth);                     // 边框宽度
-    fillColor = getSetting<QRgb>(Key_PgFillColor);                      // 面内填充颜色
-    lineColor = getSetting<QRgb>(Key_PgLineColor);                      // 边框颜色
-    lineStyle = getSetting<LineStyle>(Key_PgLineStyle);                 // 边框线形
-    lineDashPattern = getSetting<float>(Key_PgLineDashPattern);         // 虚线段长
-    nodeLineStyle = getSetting<NodeLineStyle>(Key_NodeLineStyle);     // 节点线形
+    lineWidth = GlobalLineWidth;                                       // 边框宽度
+    fillColor = GlobalFillColor;                                        // 面内填充颜色
+    lineColor = GlobalLineColor;                                        // 边框颜色
+    lineStyle = GlobalLineStyle;                                        // 边框线形
+    lineDashPattern = GlobalLineDashPattern;                            // 虚线段长
+    nodeLineStyle = GlobalNodeLineStyle;                                // 节点线形
+
     setStateInitialized();
 }
 
@@ -977,12 +981,13 @@ void ComplexArea::initialize()
     isDrawing = true;   // 第一个分图准备绘制
     component.push_back({ 0,NodeLineStyle::NoStyle });      // 新建分图
 
-    lineWidth = getSetting<float>(Key_PgLineWidth);                     // 边框宽度
-    fillColor = getSetting<QRgb>(Key_PgFillColor);                      // 面内填充颜色
-    lineColor = getSetting<QRgb>(Key_PgLineColor);                      // 边框颜色
-    lineStyle = getSetting<LineStyle>(Key_PgLineStyle);                 // 边框线形
-    lineDashPattern = getSetting<float>(Key_PgLineDashPattern);         // 虚线段长
-    nodeLineStyle = getSetting<NodeLineStyle>(Key_NodeLineStyle);       // 节点线形
+    lineWidth = GlobalLineWidth;                                         // 边框宽度
+    fillColor = GlobalFillColor;                                         // 面内填充颜色
+    lineColor = GlobalLineColor;                                         // 边框颜色
+    lineStyle = GlobalLineStyle;                                         // 边框线形
+    lineDashPattern = GlobalLineDashPattern;                             // 虚线段长
+    nodeLineStyle = GlobalNodeLineStyle;                                 // 节点线形
+
     setStateInitialized();
 }
 

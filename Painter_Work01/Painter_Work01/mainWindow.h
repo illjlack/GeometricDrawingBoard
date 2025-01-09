@@ -4,35 +4,34 @@
 #include <QSlider>
 #include <QPushButton>
 #include <QColorDialog>
+#include <QDockWidget>
+#include <QFormLayout>
+#include <QLineEdit>
+#include <QSpinBox>
+#include <QComboBox>
 
-#include "Canvas.h"
+#include "Geo.h"
 
-class DrawingSettings;
-class PointSettings;
 
-class mainWindow : public QMainWindow
-{
+class Canvas;
+class GeoPropertyEditor;
+
+class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
-    mainWindow(QWidget *parent = nullptr);
-    ~mainWindow();
+    MainWindow(QWidget* parent = nullptr);
+    ~MainWindow();
 
 private:
     void createMenuBar();               // 创建菜单栏
     void createToolBar();               // 创建工具栏
     void createNodeLineToolBar();       // 创建节点线型工具栏
-    void createSideBar();               // 侧边栏
     void createStatusBar();             // 创建状态栏
 
-   Canvas* canvas;   //绘制区域
-
-   QDockWidget* sideBar; // 侧边栏
-   QWidget* sideBarWidget; // 侧边栏内容
-   DrawingSettings* currentSettings; // 当前显示的侧边栏
-
-   PointSettings* pointSettings;
-   //LineSettings* lineSettings;
+    Canvas* canvas;   // 绘制区域
+    GeoPropertyEditor* geoEditor; // 配置窗口
+    GeoPropertyEditor* propertyEditor; // 属性窗口
 
 private slots:
     void openFile();        // 打开文件
@@ -41,52 +40,80 @@ private slots:
     void showAbout();       // 显示关于信息
 };
 
-
-
-// 绘制设置 和 图形修改
-// 可以序列化
-// ==================================================== DrawingSettings
-
-class DrawingSettings : public QWidget {
+// ===================================================== Canvas
+class Canvas : public QWidget
+{
     Q_OBJECT
+
 public:
-    DrawingSettings(QWidget* parent = nullptr);
-    virtual ~DrawingSettings() = default;
-    virtual void reset() = 0; // 重置设置
+    explicit Canvas(QWidget* parent = nullptr);
+    ~Canvas();
+
+    void CompleteDrawing();         // 强制完成绘制
+
+protected:
+    void pushShape(Geo* shape);     // 加入对象
+
+    void paintEvent(QPaintEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
+    void keyReleaseEvent(QKeyEvent* event) override;
+
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
+    void wheelEvent(QWheelEvent* event) override;
+
+private:
+
+    Geo* currentDrawGeo = nullptr;
+    std::vector<Geo*> vec;
 };
 
-// ==================================================== PointSettings
 
-class PointSettings : public DrawingSettings {
+// ===================================================== GeoPropertyEditor
+
+class GeoPropertyEditor : public QWidget {
     Q_OBJECT
+
 public:
-    PointSettings(QWidget* parent = nullptr);
-    void reset() override;
+    explicit GeoPropertyEditor(QWidget* parent = nullptr);
+    void setGeo(Geo* geo);
+    void applyGlobalSettings();
+signals:
+    void geoUpdated();  // 通知属性更改
 
 private slots:
     void onColorButtonClicked();
+    void onValueChanged();
 
 private:
-    QSlider* sizeSlider;
-    QPushButton* colorButton;
-    QColor currentColor;
-    QColor defaultColor = Qt::black;
+    Geo* currentGeo;
+
+    // 属性字段
+    QComboBox* pointShapeComboBox;
+    QPushButton* pointColorButton;
+
+    QComboBox* lineStyleComboBox;
+    QSpinBox* lineWidthSpinBox;
+    QPushButton* lineColorButton;
+    QSpinBox* lineDashPatternSpinBox;
+
+    QPushButton* fillColorButton;
+
+    QSpinBox* splineOrderSpinBox;
+    QSpinBox* splineNodeCountSpinBox;
+    QSpinBox* stepsSpinBox;
+
+    QColor currentPointColor;
+    QColor currentLineColor;
+    QColor currentFillColor;
 };
 
-// ===================================================== LineSettings
+// 文本到枚举的映射
+LineStyle stringToLineStyle(const QString& styleText);
+PointShape stringToPointShape(const QString& shapeText);
 
-//class LineSettings : public DrawingSettings {
-//    Q_OBJECT
-//public:
-//    explicit LineSettings(QWidget* parent = nullptr);
-//    void reset() override;
-//
-//private slots:
-//    void onSolidLineSelected();
-//    void onDashedLineSelected();
-//
-//private:
-//    QSlider* widthSlider;
-//    QPushButton* solidLineButton;
-//    QPushButton* dashedLineButton;
-//};
+
+QString lineStyleToString(LineStyle style);
+
+QString pointShapeToString(PointShape shape);

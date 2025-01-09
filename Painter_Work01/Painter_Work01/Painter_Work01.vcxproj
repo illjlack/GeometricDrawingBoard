@@ -103,21 +103,23 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="DrawSettings.cpp" />
+    <ClCompile Include="comm.cpp" />
     <ClCompile Include="Geo.cpp" />
     <QtRcc Include="mainWindow.qrc" />
-    <QtMoc Include="mainWindow.h" />
-    <ClCompile Include="Canvas.cpp" />
+    <QtMoc Include="MainWindow.h" />
     <ClCompile Include="GeoMathUtil.cpp" />
-    <ClCompile Include="mainWindow.cpp" />
+    <ClCompile Include="MainWindow.cpp">
+      <DynamicSource Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">input</DynamicSource>
+      <QtMocFileName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Filename).moc</QtMocFileName>
+      <DynamicSource Condition="'$(Configuration)|$(Platform)'=='Release|x64'">input</DynamicSource>
+      <QtMocFileName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(Filename).moc</QtMocFileName>
+    </ClCompile>
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="DrawSettings.h" />
     <ClInclude Include="Enums.h" />
     <ClInclude Include="Geo.h" />
     <ClInclude Include="GeoMathUtil.h" />
-    <QtMoc Include="Canvas.h" />
     <ClInclude Include="comm.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

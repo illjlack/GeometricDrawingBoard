@@ -4,8 +4,6 @@
 #include <QColor>
 #include <QVector>
 #include <QKeyEvent>
-
-#include "DrawSettings.h"
 #include "GeoMathUtil.h"
 
 class Geo;

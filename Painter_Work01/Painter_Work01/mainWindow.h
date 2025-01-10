@@ -9,7 +9,7 @@
 #include <QLineEdit>
 #include <QSpinBox>
 #include <QComboBox>
-
+#include <QCheckBox>
 #include "Geo.h"
 
 
@@ -52,7 +52,8 @@ public:
     void CompleteDrawing();         // 强制完成绘制
 
 protected:
-    void pushShape(Geo* shape);     // 加入对象
+    void pushGeo(Geo* shape);           // 加入对象
+    void removeGeo(Geo* geo);           // 移除对象
 
     void paintEvent(QPaintEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
@@ -63,10 +64,17 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
 
-private:
+signals:
+    void selectedGeo(Geo* geo);
 
-    Geo* currentDrawGeo = nullptr;
-    std::vector<Geo*> vec;
+private:
+    Geo* currentSelectGeo = nullptr;    // 当前选中的geo
+    bool isLeftButtonPressed = false;
+
+    // 链表用于维护 Geo 对象的顺序
+    std::list<Geo*> geoList;
+    // 映射 Geo 指针到链表中对应元素的迭代器
+    std::map<Geo*, std::list<Geo*>::iterator> geoMap;
 };
 
 
@@ -77,43 +85,76 @@ class GeoPropertyEditor : public QWidget {
 
 public:
     explicit GeoPropertyEditor(QWidget* parent = nullptr);
-    void setGeo(Geo* geo);
-    void applyGlobalSettings();
+    void setGeo(Geo* geo); // 设置当前 Geo 对象
+    void applyGlobalSettings(); // 应用全局设置到编辑器
+
+    void setGeoParameters(const GeoParameters& params); // 设置 UI 参数
+    GeoParameters getGeoParameters() const; // 获取 UI 参数
+
 signals:
-    void geoUpdated();  // 通知属性更改
+    void updateGeo();
 
 private slots:
-    void onColorButtonClicked();
-    void onValueChanged();
+    void onColorButtonClicked(); // 颜色选择按钮点击槽
+    void onValueChanged(); // 属性值改变槽
 
 private:
-    Geo* currentGeo;
+    Geo* currentGeo; // 当前编辑的 Geo 对象
 
-    // 属性字段
-    QComboBox* pointShapeComboBox;
-    QPushButton* pointColorButton;
+    bool isSwitchingObject = false; // 表示是否处于切换对象期间
 
-    QComboBox* lineStyleComboBox;
-    QSpinBox* lineWidthSpinBox;
-    QPushButton* lineColorButton;
-    QSpinBox* lineDashPatternSpinBox;
+    // 点属性字段
+    QComboBox* pointShapeComboBox; // 点形状下拉框
+    QPushButton* pointColorButton; // 点颜色选择按钮
 
-    QPushButton* fillColorButton;
+    // 线属性字段
+    QComboBox* lineStyleComboBox; // 线样式下拉框
+    QSpinBox* lineWidthSpinBox; // 线宽调整框
+    QSpinBox* lineDashPatternSpinBox; // 虚线段长度调整框
+    QPushButton* lineColorButton; // 线颜色选择按钮
 
-    QSpinBox* splineOrderSpinBox;
-    QSpinBox* splineNodeCountSpinBox;
-    QSpinBox* stepsSpinBox;
+    // 面属性字段
+    QPushButton* fillColorButton; // 填充颜色选择按钮
 
-    QColor currentPointColor;
-    QColor currentLineColor;
-    QColor currentFillColor;
+    // 样条属性字段
+    QSpinBox* splineOrderSpinBox; // 样条阶数调整框
+    QSpinBox* splineNodeCountSpinBox; // 样条节点数调整框
+    QSpinBox* stepsSpinBox; // 曲线密度调整框
+
+    // 缓冲区相关字段
+    QCheckBox* bufferVisibleCheckBox; // 缓冲区可见性复选框
+    QComboBox* bufferCalculationModeComboBox; // 缓冲区计算模式下拉框
+    QSpinBox* bufferDistanceSpinBox; // 缓冲区距离调整框
+
+    // 缓冲区线的属性字段
+    QComboBox* bufferLineStyleComboBox; // 缓冲区线样式下拉框
+    QSpinBox* bufferLineWidthSpinBox; // 缓冲区线宽调整框
+    QSpinBox* bufferLineDashPatternSpinBox; // 缓冲区虚线段长度调整框
+    QPushButton* bufferLineColorButton; // 缓冲区线颜色选择按钮
+
+    // 缓冲区面的属性字段
+    QPushButton* bufferFillColorButton; // 缓冲区填充颜色选择按钮
+
+    // 缓冲区边框的属性字段
+    QCheckBox* bufferHasBorderCheckBox; // 是否有边框复选框
+
+    // 当前颜色状态
+    QColor currentPointColor; // 当前点颜色
+    QColor currentLineColor; // 当前线颜色
+    QColor currentFillColor; // 当前填充颜色
+    QColor currentBufferLineColor; // 当前缓冲区线颜色
+    QColor currentBufferFillColor; // 当前缓冲区填充颜色
+
 };
+
+
 
 // 文本到枚举的映射
 LineStyle stringToLineStyle(const QString& styleText);
 PointShape stringToPointShape(const QString& shapeText);
 
-
 QString lineStyleToString(LineStyle style);
-
 QString pointShapeToString(PointShape shape);
+
+BufferCalculationMode stringToBufferCalculationMode(const QString& modeText);
+QString bufferCalculationModeToString(BufferCalculationMode mode);

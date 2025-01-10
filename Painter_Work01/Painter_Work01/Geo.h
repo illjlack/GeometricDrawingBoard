@@ -14,15 +14,9 @@ Geo* createGeo(DrawMode mode);
 class Geo {
 public:
     virtual ~Geo() = default;
-    virtual void initialize();                          // 初始化，在第一次点击（确定第一个控制点）的时候自动调用，来设置属性
-    virtual void draw(QPainter& painter) = 0;           // 绘制方法
-    virtual void drawControlPoints(QPainter& painter);  // 绘制控制点
-    //virtual void drawBuffer(QPainter& painter) = 0;   // 绘制缓冲区
-    virtual void hitTesting(QPointF);                   // 点击测试
-    virtual void completeDrawing(); // 完成构造（完成前接受事件来进行绘制）
 
-    GeoType getGeoType(); // 反射类型
-
+    // 反射类型
+    GeoType getGeoType(); 
 
     // 接受鼠标和键盘事件来进行绘制或修改(基类Geo里的输入事件不做具体功能，只维护状态)
     virtual void keyPressEvent(QKeyEvent* event);
@@ -32,10 +26,12 @@ public:
     virtual void mouseReleaseEvent(QMouseEvent* event);
     virtual void wheelEvent(QWheelEvent* event);
 
-    // 具体操作（默认实现）
-    virtual void updateTempPoint(const QPoint& pos);   // 更新临时点
-    virtual void endSegmentDrawing();   // 结束段绘制
-    virtual void pushControlPoint(const QPoint& pos); // 添加控制点
+    // 点击测试
+    virtual bool hitTesting(QPointF);
+    // 完成构造
+    virtual void completeDrawing();  
+    // 绘制方法
+    virtual void draw(QPainter& painter) = 0; 
 
     // 状态的一些修改
     bool isStateDrawing();
@@ -43,33 +39,52 @@ public:
     bool isStateInvalid();
     bool isStateSelected();
     bool isStateInitialized();
-    bool isMouseLeftButtonPressed();
 
-    void setStateInitialized();
-    void setStateInvalid();
-    void setStateComplete();
     void setStateSelected();
     void setStateNotSelected();
-
-    void markControlPointsChanged();            // 标记控制点已改变
-    bool isControlPointsChanged() const;        // 检查控制点是否已改变
-    void resetControlPointsChanged();           // 重置标记
-
-    
+              
     GeoParameters getGeoParameters();                        // 获取当前的 GeoParameters
     void setGeoParameters(const GeoParameters& params);      // 设置 GeoParameters
 
 protected:
+    virtual void initialize();                          // 初始化，在第一次点击（确定第一个控制点）的时候自动调用，来设置属性
+    
+    virtual void drawControlPoints(QPainter& painter);  // 绘制控制点
+    virtual void drawBuffer(QPainter& painter);         // 绘制缓冲区
+    
     void setGeoType(GeoType newType);   // 构造函数中,确定类型
     QVector<QPointF> controlPoints;     // 控制点 (每个类可以自己加划分信息)
     QPointF tempControlPoints;          // 临时控制点, 在绘制中使用
     GeoParameters geoParameters;        // 几何的参数
 
+    // 具体操作（默认实现）
+    virtual void updateTempPoint(const QPoint& pos);   // 更新临时点
+    virtual void endSegmentDrawing();   // 结束段绘制
+    virtual void pushControlPoint(const QPoint& pos); // 添加控制点
+
+    bool isMouseLeftButtonPressed();
+
+    void setStateInitialized();
+    void setStateInvalid();
+    void setStateComplete();
+
+    void markControlPointsChanged();            // 标记控制点已改变
+    bool isControlPointsChanged() const;        // 检查控制点是否已改变
+    void resetControlPointsChanged();           // 重置标记
+
+    void markBufferChanged();            // 标记控制点已改变
+    bool isBufferChanged() const;        // 检查控制点是否已改变
+    void resetBufferChanged();           // 重置标记
+
+    QPointF* currentSelectedPoint = nullptr; // 当前选中控制点
+
 private:
+
     int geoState = 0;                       // 状态
     bool mouseLeftButtonPressed = false;    // 鼠标是否按下拖动
     GeoType geoType = GeoType::Undefined;   // 反射几何的类型
     bool controlPointsChanged = false;      // 控制点变化，要重算
+    bool bufferChanged = true;             // 缓冲区变化，要重算
 };
 
 // ===================================================================== Point
@@ -85,8 +100,6 @@ public:
     void draw(QPainter& painter) override;
 
 private:
-    QColor color;                    // 点的颜色
-    PointShape shape;                // 点的形状
 };
 
 // ===================================================================== SimpleLine
@@ -121,10 +134,14 @@ public:
     void endSegmentDrawing() override;
 
     void draw(QPainter& painter) override;
+    void drawBuffer(QPainter& painter) override;
 protected:
 
     bool isDrawing;                       // 在绘制
     QVector<QVector<QPointF>> pointss;    // 二维点集
+
+    QVector<QVector<QPointF>> buffers;    // 缓冲区
+
     QVector<Component> component;
 
 };

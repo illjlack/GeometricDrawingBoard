@@ -322,19 +322,21 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
 // 网格映射结构体
 struct GridMap
 {
-    QVector<QPoint> gridPoints;  // 映射到网格的点
-    double scale;                // 缩放比例
-    QPointF offset;              // 偏移量(网格原点对应的原来坐标)
-    int sizeX, sizeY;            // 网格尺寸
+    QVector<QVector<QPoint>> gridPointss;    // 映射到网格的点(很多条线)
+    double scale;                           // 缩放比例
+    QPointF offset;                         // 偏移量(网格原点对应的原来坐标)
+    int sizeX, sizeY;                       // 网格尺寸
 };
 
 // 函数声明
-QRectF calculateBounds(const QVector<QPointF>& points);
-void mapToGrid(const QVector<QPointF>& points, double r, int& k, GridMap& gridMap);
-void restoreFromGrid(const GridMap& gridMap, QVector<QPointF>& points);
-void markBoundaryPoints(const GridMap& gridMap, int k, GridMap& boundaryGridMap);
-bool calculateBuffer(const QVector<QPointF>& points, double r, QVector<QPointF>& boundaryPoints);
+QRectF calculateBounds(const QVector<QVector<QPointF>>& pointss);
 
+void mapToGrid(const QVector<QVector<QPointF>>& pointss, double r, int& k, GridMap& gridMap);
+void restoreFromGrid(const GridMap& gridMap, QVector<QVector<QPointF>>& pointss);
+// n3超级暴力
+// 计算欧几里得距离
+int euclideanDistance2(int x1, int y1, int x2, int y2);
 
-double euclideanDistance(int x1, int y1, int x2, int y2);
 void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& boundaryGridMap);
+// 主缓冲区计算接口
+bool calculateBuffer(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss);

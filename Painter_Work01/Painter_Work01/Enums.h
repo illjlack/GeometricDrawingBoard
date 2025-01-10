@@ -34,14 +34,14 @@ enum DrawMode
 {
     BeginDrawMode = DrawSettingKey::EndDrawSettingKey,
 
-    None,
+    DrawSelect,
     DrawPoint,
     DrawSimpleLine,     // 简单线
     DrawDoubleLine,     // 双线
     DrawParallelLine,   // 平行线
     DrawTwoPointCircle, // 两点画圆
     DrawSimpleArea,     // 简单面
-    DrawComplexArea,     // 复杂面
+    DrawComplexArea,    // 复杂面
 
     EndDrawMode
 };
@@ -105,4 +105,14 @@ enum PointShape {
     Circle,     // 圆形
 
     EndPointShape
+};
+
+
+enum BufferCalculationMode {
+    BeginBufferCalculationMode = EndPointShape,
+
+    Vector,  // 矢量模式
+    Raster,   // 栅格模式
+
+    EndBufferCalculationMode
 };

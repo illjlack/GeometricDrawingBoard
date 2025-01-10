@@ -71,19 +71,27 @@ void Geo::drawControlPoints(QPainter& painter)
     if (isStateDrawing() && !tempControlPoints.isNull())controlPoints.pop_back();
 }
 
-void Geo::hitTesting(QPointF point)
+void Geo::drawBuffer(QPainter& painter)
 {
+}
+
+bool Geo::hitTesting(QPointF point)
+{
+    // 基类判断控制点点的点击测试
     // 处理点击测试，判断是否点击到目标区域
-    // 比如，可以判断一个点是否在几何图形内，或者是否在控制点附近
+    bool selected = false;
     for (auto& controlPoint : controlPoints)
     {
         if (QRectF(controlPoint.x() - 6, controlPoint.y() - 6, 12, 12).contains(point))
         {
-            // 点中某个控制点，可以响应一些操作
             setStateSelected();
+            selected = true;
+
+            currentSelectedPoint = &controlPoint;
             break;
         }
     }
+    return selected;
 }
 
 
@@ -160,6 +168,7 @@ void Geo::setStateNotSelected()
 
 void Geo::markControlPointsChanged() {
     controlPointsChanged = true;
+    markBufferChanged();
 }
 
 bool Geo::isControlPointsChanged() const {
@@ -169,6 +178,19 @@ bool Geo::isControlPointsChanged() const {
 void Geo::resetControlPointsChanged() 
 {
     controlPointsChanged = false;
+}
+
+void Geo::markBufferChanged()
+{
+    bufferChanged = true;
+}
+bool Geo::isBufferChanged() const 
+{
+    return bufferChanged;
+}
+void Geo::resetBufferChanged()
+{
+    bufferChanged = false;
 }
 
 // 获取当前的 GeoParameters
@@ -181,6 +203,7 @@ GeoParameters Geo::getGeoParameters()
 void  Geo::setGeoParameters(const GeoParameters& params)
 {
     geoParameters = params;
+    markBufferChanged();
 }
 
 void Geo::keyPressEvent(QKeyEvent* event)
@@ -292,13 +315,13 @@ void Point::draw(QPainter& painter)
     }
 
     QPainterPath path;
-    if (shape == PointShape::Square) {
+    if (geoParameters.pointShape == PointShape::Square) {
         path.addRect(point.x() - 5, point.y() - 5, 10, 10);
     }
-    else if (shape == PointShape::Circle) {
+    else if (geoParameters.pointShape == PointShape::Circle) {
         path.addEllipse(point, 5.0, 5.0);
     }
-    painter.setBrush(QBrush(geoParameters.lineColor));
+    painter.setBrush(QBrush(geoParameters.pointColor));
     painter.setPen(Qt::NoPen);
     painter.drawPath(path);
     if (isStateSelected())
@@ -306,10 +329,10 @@ void Point::draw(QPainter& painter)
         painter.setBrush(Qt::NoBrush);
         painter.setPen(QPen(Qt::lightGray, 2));
 
-        if (shape == PointShape::Square) {
+        if (geoParameters.pointShape == PointShape::Square) {
             painter.drawRect(point.x() - 6, point.y() - 6, 12, 12);
         }
-        else if (shape == PointShape::Circle) {
+        else if (geoParameters.pointShape == PointShape::Circle) {
             painter.drawEllipse(point, 6.0, 6.0);
         }
     }
@@ -423,6 +446,11 @@ void SimpleLine::draw(QPainter& painter)
     if (isStateSelected())
     {
         drawControlPoints(painter);
+    }
+
+    if (geoParameters.bufferVisible)
+    {
+        drawBuffer(painter);
     }
 }
 
@@ -570,7 +598,69 @@ void DoubleLine::draw(QPainter& painter)
     {
         drawControlPoints(painter);
     }
+    if (isStateComplete() && geoParameters.bufferVisible)
+    {
+        drawBuffer(painter);
+    }
 }
+
+void DoubleLine::drawBuffer(QPainter& painter)
+{
+    if (!geoParameters.bufferVisible)
+    {
+        return; // 如果缓冲区不可见，直接返回
+    }
+
+    // 设置缓冲区线的样式
+    QPen bufferPen;
+    bufferPen.setColor(geoParameters.bufferLineColor);
+    bufferPen.setWidthF(geoParameters.bufferLineWidth);
+    if (geoParameters.bufferLineStyle == LineStyle::Dashed)
+    {
+        bufferPen.setStyle(Qt::DashLine);
+        bufferPen.setDashOffset(geoParameters.bufferLineDashPattern);
+    }
+    else
+    {
+        bufferPen.setStyle(Qt::SolidLine);
+    }
+    painter.setPen(bufferPen);
+
+    // 如果缓冲区需要边框
+    if (geoParameters.bufferHasBorder)
+    {
+        // 绘制缓冲区边界的路径
+        QPainterPath bufferPath;
+        // 计算缓冲区的路径，这里是空的，需要您根据需求实现点的计算逻辑
+        if (!isBufferChanged() || calculateBuffer(pointss, geoParameters.bufferDistance, buffers))
+        {
+            resetBufferChanged();
+            QPainterPath path;
+            for (auto& points : buffers)
+            {
+                if (points.size() < 2)continue; // 这一个分图失效
+                path.moveTo(points.first());
+                for (int i = 1; i < points.size(); ++i)
+                {
+                    path.lineTo(points[i]);
+                }
+            }
+            painter.drawPath(path);
+        }
+
+        painter.drawPath(bufferPath);
+    }
+
+    // 绘制缓冲区面填充
+    QBrush bufferBrush(QColor(geoParameters.bufferFillColor));
+    painter.setBrush(bufferBrush);
+    // 绘制填充区域
+    //
+    //
+    painter.setBrush(Qt::NoBrush);
+}
+
+
 
 // ===================================================================== ParallelLine
 ParallelLine::ParallelLine()
@@ -807,7 +897,7 @@ void TwoPointCircle::draw(QPainter& painter)
         controlPoints.push_back(tempControlPoints);
         markControlPointsChanged();
     }
-    if (isControlPointsChanged() || calculateCloseLinePoints(NodeLineStyle::StyleTwoPointCircle, controlPoints, points))
+    if (!isControlPointsChanged() || calculateCloseLinePoints(NodeLineStyle::StyleTwoPointCircle, controlPoints, points))
     {
         resetControlPointsChanged();
         QPainterPath path;

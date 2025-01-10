@@ -921,8 +921,6 @@ bool calculateParallelLineThroughPoint(const QVector<QPointF>& polyline, const Q
 
     // 按照计算的距离生成平行线
     return calculateParallelLine(polyline, distance, parallelPolyline);
-    //return calculateLineBuffer(polyline, distance, parallelPolyline);
-    // return calculateBuffer(polyline, distance, parallelPolyline);
 }
 
 // ==========================================================================================
@@ -1115,19 +1113,7 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
 // ==========================================================================================
 // 缓冲区计算(基于栅格的缓冲区分析算法，广搜所有点)
 // ==========================================================================================
-// 
-// 1. 遍历所有点，找到上下左右边界
-// 2. 映射到网格里（方形,距离r映射为步数k）
-// 3. 初始点标记为（1，k）,广搜,只记录步数的分界点
-// 4. 遍历网格，找到分界点(1的上下左右有0)
-// 5. 映射为原来坐标
-// 6. 复杂度O（n^2）;
 
-// 算完后：：发现计算出的距离是曼哈顿距离
-// 而且轮廓是无序的点，不能围成图(应该能搜索排序)
-// 
-// 
-// 找到上下左右边界
 QRectF calculateBounds(const QVector<QVector<QPointF>>& pointss)
 {
     if (pointss.isEmpty() || pointss[0].isEmpty())
@@ -1158,7 +1144,7 @@ void mapToGrid(const QVector<QVector<QPointF>>& pointss, double r, int& k, GridM
     // 计算点集合的上下左右边界
     QRectF bounds = calculateBounds(pointss);
 
-    // 考虑时间复杂度，搜完格子要 控制在 1s 级别，网格数1e8；
+    // 考虑时间复杂度，搜完格子要控制在 1s 级别，网格数1e8；
     // 计算缩放比例，确保网格点总数控制在 1e6 以内
     double area = (bounds.width() + 2 * r) * (bounds.height() + 2 * r);
 
@@ -1176,7 +1162,6 @@ void mapToGrid(const QVector<QVector<QPointF>>& pointss, double r, int& k, GridM
     // 清空现有网格点
     gridMap.gridPointss.clear();
 
-
     // 将点映射到网格
     for (auto& points : pointss)
     {
@@ -1189,7 +1174,6 @@ void mapToGrid(const QVector<QVector<QPointF>>& pointss, double r, int& k, GridM
             v.append(QPoint(xGrid, yGrid)); // 存储映射后的网格点
         }
     }
-
 }
 
 void restoreFromGrid(const GridMap& gridMap, QVector<QVector<QPointF>>& pointss)
@@ -1210,11 +1194,13 @@ void restoreFromGrid(const GridMap& gridMap, QVector<QVector<QPointF>>& pointss)
 
 // n3超级暴力
 // 计算欧几里得距离
-int euclideanDistance2(int x1, int y1, int x2, int y2) {
+int euclideanDistance2(int x1, int y1, int x2, int y2)
+{
     return (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2);
 }
 
-void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& boundaryGridMap) {
+void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& boundaryGridMap)
+{
     // 获取网格尺寸和初始点集合
     int sizeX = gridMap.sizeX, sizeY = gridMap.sizeY;
     const QVector<QVector<QPoint>>& pointss = gridMap.gridPointss;
@@ -1223,7 +1209,8 @@ void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& bounda
     std::vector<std::vector<int>> mark(sizeX, std::vector<int>(sizeY, 0));
 
     // ============================================================================== 矢量点图的线段上的点都标记
-    auto markPointsOnLine = [](const QPoint& start, const QPoint& end, QVector<QPoint>& gridPoints) {
+    auto markPointsOnLine = [](const QPoint& start, const QPoint& end, QVector<QPoint>& gridPoints)
+    {
         int x1 = start.x();
         int y1 = start.y();
         int x2 = end.x();
@@ -1285,18 +1272,18 @@ void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& bounda
 
     QVector<QPoint> boundaryPoints;
     // 找到边界点
-    const int dx[8] = { 0, 0, 1, -1 , 1, 1, -1, -1};
-    const int dy[8] = { -1, 1, 0, 0 , 1, -1, 1, -1};
+    const int dx[8] = { 0, 0, 1, -1 , 1, 1, -1, -1 };
+    const int dy[8] = { -1, 1, 0, 0 , 1, -1, 1, -1 };
 
     for (int i = 0; i < sizeX; i++) {
         for (int j = 0; j < sizeY; j++) {
             if (mark[i][j] == 1) { // 如果点被标记为 1
                 bool isBoundary = false;
-                for (int z = 0; z < 8; z++) 
+                for (int z = 0; z < 8; z++)
                 {
                     int x = i + dx[z], y = j + dy[z];
                     // 检查周围是否存在未标记的点
-                    if (x < 0 || x >= sizeX || y < 0 || y >= sizeY || mark[x][y])continue;
+                    if (x < 0 || x >= sizeX || y < 0 || y >= sizeY || mark[x][y]) continue;
                     isBoundary = true;
                     break;
                 }
@@ -1308,7 +1295,7 @@ void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& bounda
     }
 
     // 清空mark,标记边界
-    for (auto& row : mark) 
+    for (auto& row : mark)
     {
         std::fill(row.begin(), row.end(), 0);
     }
@@ -1320,22 +1307,8 @@ void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& bounda
     // =========================================================== dfs搜索，排序点
     // 因为都是闭合路径，且没有交点，dfs可以搜出
     // 初始化结果网格
-    
-    //std::function<void(int, int, QVector<QPoint>&)> dfs = [&](int x, int y, QVector<QPoint>& points)
-    //{
-    //    for (int i = 0; i < 8; i++) // 可以斜着分界！！！！！
-    //    {
-    //        int x1 = x + dx[i], y1 = y + dy[i];
-    //        // 检查周围是否存在未标记的点
-    //        if (x1 < 0 || x1 >= sizeX || y1 < 0 || y1 >= sizeY || !mark[x1][y1])continue;
-    //        points.push_back({ x1,y1 });
-    //        mark[x1][y1] = 0;
-    //        dfs(x1, y1, points);
-    //    }
-    //};
-    // 
-    // 函数栈会溢出，用stack模拟递归
-    std::function<void(int, int, QVector<QPoint>&)> dfs = [&](int startX, int startY, QVector<QPoint>& points) {
+    std::function<void(int, int, QVector<QPoint>&)> dfs = [&](int startX, int startY, QVector<QPoint>& points)
+    {
         std::stack<QPoint> stack;
         stack.push(QPoint(startX, startY));
 
@@ -1363,9 +1336,8 @@ void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& bounda
         }
     };
 
-
     boundaryGridMap = gridMap;
-    QVector<QVector<QPoint>>& boundaryPointss = boundaryGridMap.gridPointss; 
+    QVector<QVector<QPoint>>& boundaryPointss = boundaryGridMap.gridPointss;
     boundaryPointss.clear();
     for (auto& point : boundaryPoints)
     {
@@ -1377,8 +1349,8 @@ void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& bounda
     }
 }
 
-// 主缓冲区计算接口
-bool calculateBuffer(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss)
+// 计算缓冲区边界，使用栅格化算法
+bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss)
 {
     boundaryPointss.clear();
     if (r < 0) return false; // 非法半径直接返回

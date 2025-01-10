@@ -632,7 +632,7 @@ void DoubleLine::drawBuffer(QPainter& painter)
         // 绘制缓冲区边界的路径
         QPainterPath bufferPath;
         // 计算缓冲区的路径，这里是空的，需要您根据需求实现点的计算逻辑
-        if (!isBufferChanged() || calculateBuffer(pointss, geoParameters.bufferDistance, buffers))
+        if (!isBufferChanged() || computeBufferBoundaryWithGrid(pointss, geoParameters.bufferDistance, buffers))
         {
             resetBufferChanged();
             QPainterPath path;

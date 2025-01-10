@@ -269,9 +269,8 @@ double pointToLineDistanceWithDirection(const QPointF& point, const QPointF& lin
  */
 bool calculateParallelLineThroughPoint(const QVector<QPointF>& polyline, const QPointF& targetPoint, QVector<QPointF>& parallelPolyline);
 
-
 // ==========================================================================
-// 缓冲区计算
+// 缓冲区计算（基于矢量的缓冲区分析算法：平行线、角平分线、凸圆弧角，但是自相交处理不来)
 // ==========================================================================
 
 /**
@@ -309,34 +308,65 @@ int pointPositionRelativeToVector(const QPointF& point, const QPointF& vectorSta
 bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<QPointF>& points);
 
 // ==========================================================================================
-// 缓冲区计算(基于栅格的缓冲区分析算法，广搜所有点)
+// 基于栅格的缓冲区分析算法（暴力枚举所有点，深搜排序）
 // ==========================================================================================
-// 
-// 1. 遍历所有点，找到上下左右边界
-// 2. 映射到网格里（方形,距离r映射为步数k）
-// 3. 初始点标记为（1，k）,广搜,只记录步数的分界点
-// 4. 遍历网格，找到分界点(1的上下左右有0)
-// 5. 映射为原来坐标
-// 6. 复杂度O（n^2）;
 
 // 网格映射结构体
 struct GridMap
 {
-    QVector<QVector<QPoint>> gridPointss;    // 映射到网格的点(很多条线)
-    double scale;                           // 缩放比例
-    QPointF offset;                         // 偏移量(网格原点对应的原来坐标)
-    int sizeX, sizeY;                       // 网格尺寸
+    QVector<QVector<QPoint>> gridPointss;    // 映射到网格的点（多个线段）
+    double scale;                            // 缩放比例
+    QPointF offset;                          // 偏移量（网格原点对应的原来坐标）
+    int sizeX, sizeY;                        // 网格尺寸
 };
 
 // 函数声明
+/**
+ * 计算点集的边界框（最小矩形）
+ * @param pointss 输入的点集
+ * @return 返回边界框的矩形（QRectF）
+ */
 QRectF calculateBounds(const QVector<QVector<QPointF>>& pointss);
 
+/**
+ * 将点集映射到网格
+ * @param pointss 输入点集
+ * @param r 网格大小
+ * @param k 缩放比例
+ * @param gridMap 输出网格映射
+ */
 void mapToGrid(const QVector<QVector<QPointF>>& pointss, double r, int& k, GridMap& gridMap);
+
+/**
+ * 从网格恢复点集
+ * @param gridMap 输入网格映射
+ * @param pointss 输出点集
+ */
 void restoreFromGrid(const GridMap& gridMap, QVector<QVector<QPointF>>& pointss);
-// n3超级暴力
-// 计算欧几里得距离
+
+/**
+ * 计算两点之间的欧几里得距离的平方
+ * @param x1 第一个点的 x 坐标
+ * @param y1 第一个点的 y 坐标
+ * @param x2 第二个点的 x 坐标
+ * @param y2 第二个点的 y 坐标
+ * @return 返回两点之间的欧几里得距离的平方
+ */
 int euclideanDistance2(int x1, int y1, int x2, int y2);
 
+/**
+ * 标记边界点（暴力枚举法）
+ * @param gridMap 输入的网格映射
+ * @param k 距离阈值
+ * @param boundaryGridMap 输出的标记边界点的网格映射
+ */
 void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& boundaryGridMap);
-// 主缓冲区计算接口
-bool calculateBuffer(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss);
+
+/**
+ * 计算缓冲区边界，使用栅格化算法
+ * @param pointss 输入的点集
+ * @param r 缓冲区的距离
+ * @param boundaryPointss 输出的边界点集
+ * @return 如果计算成功则返回 true，失败则返回 false
+ */
+bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss);

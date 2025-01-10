@@ -1162,7 +1162,7 @@ void mapToGrid(const QVector<QVector<QPointF>>& pointss, double r, int& k, GridM
     // 计算缩放比例，确保网格点总数控制在 1e6 以内
     double area = (bounds.width() + 2 * r) * (bounds.height() + 2 * r);
 
-    gridMap.scale = std::sqrt(area / 1000000.0) < 1 ? 1 : std::sqrt(area / 1000000.0); // 缩放比例
+    gridMap.scale = std::sqrt(area / 100000.0) < 1 ? 1 : std::sqrt(area / 100000.0); // 缩放比例
 
     k = std::round(r / gridMap.scale);
 
@@ -1365,8 +1365,8 @@ void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& bounda
 
 
     boundaryGridMap = gridMap;
-    QVector<QVector<QPoint>>& boundaryPointss = boundaryGridMap.gridPointss;
-
+    QVector<QVector<QPoint>>& boundaryPointss = boundaryGridMap.gridPointss; 
+    boundaryPointss.clear();
     for (auto& point : boundaryPoints)
     {
         if (mark[point.x()][point.y()])

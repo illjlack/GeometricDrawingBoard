@@ -46,8 +46,8 @@ void initializeGlobalDrawSettings()
     GlobalSteps = 1000;
 
     GlobalBufferVisible = true;                          // 默认显示缓冲区
-    GlobalBufferCalculationMode = BufferCalculationMode::Vector; // 默认矢量模式
-    GlobalBufferDistance = 10.0;                         // 默认缓冲区距离为 10.0
+    GlobalBufferCalculationMode = BufferCalculationMode::Raster; // 默认矢量模式
+    GlobalBufferDistance = 100.0;                         // 默认缓冲区距离为 10.0
 
     // 缓冲区线的属性初始化
     GlobalBufferHasBorder = true;

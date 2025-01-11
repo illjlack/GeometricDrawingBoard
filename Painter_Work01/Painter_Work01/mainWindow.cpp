@@ -171,9 +171,8 @@ void MainWindow::createNodeLineToolBar()
 
 void MainWindow::createStatusBar()
 {
-    QStatusBar* statusBar = new QStatusBar(this);
-    setStatusBar(statusBar);
-    statusBar->showMessage(L("准备就绪"));
+    setStatusBar(GlobalStatusBar);
+    GlobalStatusBar->showMessage(L("准备就绪"));
 }
 
 void MainWindow::openFile()

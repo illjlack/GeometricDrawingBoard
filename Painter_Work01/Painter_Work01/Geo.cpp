@@ -202,8 +202,10 @@ GeoParameters Geo::getGeoParameters()
 // …Ë÷√ GeoParameters
 void  Geo::setGeoParameters(const GeoParameters& params)
 {
+    if (geoParameters.bufferDistance != params.bufferDistance || 
+        geoParameters.bufferCalculationMode!= params.bufferCalculationMode)markBufferChanged();
+
     geoParameters = params;
-    markBufferChanged();
 }
 
 void Geo::keyPressEvent(QKeyEvent* event)
@@ -642,7 +644,9 @@ void DoubleLine::drawBuffer(QPainter& painter)
                 path.moveTo(points.first());
                 for (int i = 1; i < points.size(); ++i)
                 {
+
                     path.lineTo(points[i]);
+                    
                 }
             }
             painter.drawPath(path);

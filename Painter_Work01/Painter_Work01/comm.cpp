@@ -1,6 +1,7 @@
 #include "comm.h"
 
 #include <QColor>
+#include <QStatusBar>
 
 DrawMode GlobalDrawMode;
 
@@ -30,6 +31,8 @@ float GlobalBufferLineDashPattern;     // 缓冲区虚线段长
 // 缓冲区面的属性
 QRgb GlobalBufferFillColor;            // 缓冲区填充颜色
 
+QStatusBar* GlobalStatusBar;            // 状态栏
+
 void initializeGlobalDrawSettings()
 {
     GlobalDrawMode = DrawMode::DrawSelect;
@@ -58,4 +61,7 @@ void initializeGlobalDrawSettings()
 
     // 缓冲区面的填充颜色初始化
     GlobalBufferFillColor = QColor(Qt::lightGray).rgba(); // 缓冲区填充颜色（默认浅灰色）
+
+
+    GlobalStatusBar = new QStatusBar();
 }

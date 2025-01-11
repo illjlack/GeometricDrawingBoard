@@ -25,7 +25,7 @@ inline QString L(const char* str) {
 // 配置
 #include "Enums.h"
 #include <QRgb>
-
+#include <QStatusBar>
 // 全局变量声明
 extern DrawMode GlobalDrawMode;           // 绘制模式（线，面，。。）
 
@@ -56,6 +56,8 @@ extern float GlobalBufferLineDashPattern;     // 缓冲区虚线段长
 // 缓冲区面的属性
 extern QRgb GlobalBufferFillColor;            // 缓冲区填充颜色
 
+
+extern QStatusBar* GlobalStatusBar; // 状态栏
 
 void initializeGlobalDrawSettings();
 

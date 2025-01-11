@@ -5,6 +5,8 @@
 #include <QRectF>
 #include <queue>
 #include <stack>
+#include <QApplication>
+#include "comm.h"
 
 // ==========================================================================
 // 计算线段上的点
@@ -1148,7 +1150,7 @@ void mapToGrid(const QVector<QVector<QPointF>>& pointss, double r, int& k, GridM
     // 计算缩放比例，确保网格点总数控制在 1e6 以内
     double area = (bounds.width() + 2 * r) * (bounds.height() + 2 * r);
 
-    gridMap.scale = std::sqrt(area / 100000.0) < 1 ? 1 : std::sqrt(area / 100000.0); // 缩放比例
+    gridMap.scale = std::sqrt(area / 500000.0);  // 缩放比例
 
     k = std::round(r / gridMap.scale);
 
@@ -1255,6 +1257,13 @@ void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& bounda
         }
     }
 
+    //double needTime = 1LL * gridPoints.size() * sizeX * sizeY / 1e8;
+    //QString message = L("正在计算栅格边界，预计计算时间：小于 %1 秒").arg(needTime, 0, 'f', 2);
+    //GlobalStatusBar->clearMessage();
+    ////QApplication::processEvents(); // 强制界面更新
+    //GlobalStatusBar->showMessage(message);
+    ////QApplication::processEvents(); // 会导致绘制设备失效，而界面更新要等事件队列，应该要多线程
+
     // 暴力枚举二维网格中的每个点
     for (int i = 0; i < sizeX; i++) {
         for (int j = 0; j < sizeY; j++) {
@@ -1347,7 +1356,149 @@ void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& bounda
             dfs(point.x(), point.y(), boundaryPointss.last());
         }
     }
+    //GlobalStatusBar->clearMessage();
+    //GlobalStatusBar->showMessage(L("准备就绪"));
 }
+
+/**
+ * 对折线的点集进行高斯平滑处理
+ *
+ * 使用高斯核对输入的点集进行平滑，减少锯齿效应和噪声。
+ *
+ * @param points 输入的折线点列表，包含边界上的各个点。
+ * @param sigma 高斯核的标准差，控制平滑的强度。值越大，平滑效果越明显。
+ * @param kernelSize 高斯核的大小，通常是一个奇数。值越大，计算时会考虑更宽范围的邻域点。
+ *
+ * @return 无返回值，直接修改输入的 points 参数，进行平滑操作。
+ */
+
+// 计算点到线段的垂直距离
+double perpendicularDistance(const QPointF& point, const QPointF& start, const QPointF& end) {
+    double x1 = start.x(), y1 = start.y();
+    double x2 = end.x(), y2 = end.y();
+    double x0 = point.x(), y0 = point.y();
+
+    // 计算线段的长度
+    double dx = x2 - x1;
+    double dy = y2 - y1;
+    double segmentLength = std::sqrt(dx * dx + dy * dy);
+
+    // 如果线段的长度为零，返回点到起点的距离
+    if (segmentLength == 0) {
+        return std::sqrt((x0 - x1) * (x0 - x1) + (y0 - y1) * (y0 - y1));
+    }
+
+    // 计算投影点的比例t
+    double t = ((x0 - x1) * dx + (y0 - y1) * dy) / (segmentLength * segmentLength);
+    t = std::max(0.0, std::min(1.0, t));  // 限制t在0到1之间
+
+    // 计算投影点的坐标
+    double projection_x = x1 + t * dx;
+    double projection_y = y1 + t * dy;
+
+    // 计算并返回点到投影点的距离
+    return std::sqrt((x0 - projection_x) * (x0 - projection_x) + (y0 - projection_y) * (y0 - projection_y));
+}
+
+void douglasPeucker(QVector<QPointF>& points, double epsilon = 4) {
+    if (points.size() < 3) return;  // 点数少于3个，无法简化
+
+    // 获取起点和终点
+    QPointF start = points.first();
+    QPointF end = points.last();
+
+    // 找到最大距离的点
+    double maxDist = 0.0;
+    int index = 0;
+    for (int i = 1; i < points.size() - 1; ++i) {
+        double dist = perpendicularDistance(points[i], start, end);
+        if (dist > maxDist) {
+            maxDist = dist;
+            index = i;
+        }
+    }
+
+    // 如果最大距离大于阈值epsilon，保留该点并递归简化两部分折线
+    if (maxDist > epsilon) {
+        // 递归左侧
+        QVector<QPointF> left(points.begin(), points.begin() + index + 1);
+        douglasPeucker(left, epsilon);
+
+        // 递归右侧
+        QVector<QPointF> right(points.begin() + index, points.end());
+        douglasPeucker(right, epsilon);
+
+        // 合并左右部分，去掉重复的端点
+        points.clear();
+        points.append(left);
+        points.append(right.mid(1)); // 去掉右侧第一个点，因为它已经在左侧结束时存在
+    }
+    else {
+        // 如果最大距离小于阈值epsilon，直接保留起点和终点，认为该部分已经简化到足够接近
+        points.clear();
+        points.append(start);  // 保留起点
+        points.append(end);    // 保留终点
+    }
+}
+
+// Catmull-Rom 样条插值函数
+QVector<QPointF> catmullRomSpline(const QVector<QPointF>& points, int interpolationCount = 10, bool isClosed = false, double tension = 0.8) {
+    QVector<QPointF> result;  // 用于存储平滑后的点集
+
+    if (points.size() < 4) {
+        // 点数少于4个，无法使用 Catmull-Rom 样条插值，直接返回原始点集
+        return points;
+    }
+
+    // 如果是闭合曲线，补充首尾的控制点
+    QVector<QPointF> extendedPoints = points;
+    if (isClosed) {
+        extendedPoints.prepend(points.last());
+        extendedPoints.append(points.first());
+        extendedPoints.append(points[1]);
+    }
+    else {
+        // 如果是非闭合曲线，复制边界点（头和尾）
+        extendedPoints.prepend(points.first());
+        extendedPoints.append(points.last());
+    }
+
+    // 遍历每组4个控制点，生成平滑曲线
+    for (int i = 1; i < extendedPoints.size() - 2; ++i) {
+        QPointF p0 = extendedPoints[i - 1];
+        QPointF p1 = extendedPoints[i];
+        QPointF p2 = extendedPoints[i + 1];
+        QPointF p3 = extendedPoints[i + 2];
+
+        // 在当前段插值
+        for (int j = 0; j <= interpolationCount; ++j) {
+            double t = static_cast<double>(j) / interpolationCount;  // t在[0, 1]之间
+
+            // Catmull-Rom 样条公式（加入张力系数）
+            double t2 = t * t;
+            double t3 = t2 * t;
+            double x = tension * ((2 * p1.x()) +
+                (-p0.x() + p2.x()) * t +
+                (2 * p0.x() - 5 * p1.x() + 4 * p2.x() - p3.x()) * t2 +
+                (-p0.x() + 3 * p1.x() - 3 * p2.x() + p3.x()) * t3);
+
+            double y = tension * ((2 * p1.y()) +
+                (-p0.y() + p2.y()) * t +
+                (2 * p0.y() - 5 * p1.y() + 4 * p2.y() - p3.y()) * t2 +
+                (-p0.y() + 3 * p1.y() - 3 * p2.y() + p3.y()) * t3);
+
+            result.append(QPointF(x, y));  // 添加插值点
+        }
+    }
+
+    // 如果是闭合曲线，确保首尾相连
+    if (isClosed) {
+        result.append(result.first());
+    }
+
+    return result;
+}
+
 
 // 计算缓冲区边界，使用栅格化算法
 bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss)
@@ -1368,5 +1519,43 @@ bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, dou
 
     // 从网格恢复二维边界点集合
     restoreFromGrid(boundaryGridMap, boundaryPointss);
+
+    for (auto& points : boundaryPointss)
+    {
+        //int step = 10; // 稀疏步长
+        //for (int i = 0; i < points.size(); i += step)
+        //{
+        //    v.push_back(points[i]);
+        //}
+        //if(points.size())v.push_back(points[0]); // 闭合
+        ////v.swap(points);
+        ////gaussianSmoothing(points);
+
+        //if (points.size())v.push_back(points[0]); // 闭合
+        //if (points.size())v.push_back(points[0]); // 闭合
+        //points.clear();
+        //calculateBSplineCurve(v, 3, v.size() * 3, points);
+
+        // 因为是闭合曲线起始和终点几乎在一起
+        // 分为两段
+        int midIndex = points.size() / 2;
+        QVector<QPointF> firstHalf(points.begin(), points.begin() + midIndex + 1);
+        QVector<QPointF> secondHalf(points.mid(midIndex));
+        douglasPeucker(firstHalf);
+        douglasPeucker(secondHalf);
+        points.clear();
+        points.append(firstHalf);
+        points.append(secondHalf.mid(1));
+
+        catmullRomSpline(points, 10, true);
+
+        QVector<QPointF>v;
+        if(points.size())points.push_back(points[0]);
+        calculateBSplineCurve(points, 3, points.size()*100, v);
+        points.swap(v);
+        if (points.size())points.push_back(points[0]);
+
+
+    }
     return true;
 }

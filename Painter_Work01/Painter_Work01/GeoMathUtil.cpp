@@ -7,6 +7,7 @@
 #include <stack>
 #include <QApplication>
 #include "comm.h"
+#include <unordered_map>
 
 // ==========================================================================
 // 计算线段上的点
@@ -1113,7 +1114,7 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
 
 
 // ==========================================================================================
-// 缓冲区计算(基于栅格的缓冲区分析算法，广搜所有点)
+// 缓冲区计算(基于栅格的缓冲区分析算法)
 // ==========================================================================================
 
 QRectF calculateBounds(const QVector<QVector<QPointF>>& pointss)
@@ -1138,7 +1139,7 @@ QRectF calculateBounds(const QVector<QVector<QPointF>>& pointss)
         }
     }
     // 返回上下左右边界
-    return QRectF(QPointF(minX, minY), QPointF(maxX, maxY)); // 预留缓冲区
+    return QRectF(QPointF(minX, minY), QPointF(maxX, maxY));
 }
 
 void mapToGrid(const QVector<QVector<QPointF>>& pointss, double r, int& k, GridMap& gridMap)
@@ -1559,3 +1560,192 @@ bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, dou
     }
     return true;
 }
+
+
+
+// ==========================================================================================
+
+// 判断点是否在所有折线的距离小于给定值
+bool isPointCloseToAnyPolyline(const QPointF& point, const QVector<QVector<QPointF>>& boundaryPointss, double distance)
+{
+    for (const QVector<QPointF>& polyline : boundaryPointss)
+    {
+        double minDistance = std::numeric_limits<double>::infinity();
+
+        // 遍历当前折线的每个线段
+        for (int i = 0; i < polyline.size() - 1; ++i)
+        {
+            const QPointF& start = polyline[i];
+            const QPointF& end = polyline[i + 1];
+
+            // 计算当前点到该线段的垂直距离
+            double distance = perpendicularDistance(point, start, end);
+
+            // 更新最小垂直距离
+            minDistance = std::min(minDistance, distance);
+
+            // 如果当前最小距离已经小于阈值，提前返回
+            if (minDistance < distance)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+struct Rect
+{
+    // 左上角
+    double x;
+    double y;
+
+    double size;
+};
+
+// 判断矩形里在边界上（四个角有部分在缓冲区内，有部分在外）
+bool isRectOnBoundary(const Rect& rect, const QVector<QVector<QPointF>>& pointss, double distance)
+{
+    bool hasInBuffer = false;
+    bool hasOutBuffer = false;
+
+    // 矩形的四个角坐标
+    QPointF topLeft(rect.x, rect.y);
+    if (isPointCloseToAnyPolyline(topLeft, pointss, distance))hasInBuffer = true;
+    else hasOutBuffer = true;
+    QPointF topRight(rect.x + rect.size, rect.y);
+    if (isPointCloseToAnyPolyline(topRight, pointss, distance))hasInBuffer = true;
+    else hasOutBuffer = true;
+    if (hasInBuffer && hasOutBuffer)return true;
+    QPointF bottomLeft(rect.x, rect.y + rect.size);
+    if (isPointCloseToAnyPolyline(bottomLeft, pointss, distance))hasInBuffer = true;
+    else hasOutBuffer = true;
+    if (hasInBuffer && hasOutBuffer)return true;
+    QPointF bottomRight(rect.x + rect.size, rect.y + rect.size);
+    if (isPointCloseToAnyPolyline(bottomRight, pointss, distance))hasInBuffer = true;
+    else hasOutBuffer = true;
+    return hasInBuffer && hasOutBuffer;
+}
+
+/**
+ * 计算缓冲区边界，使用栅格化算法
+ * @param pointss 输入的矢量图
+ * @param r 缓冲区的距离
+ * @param epsilon 精度
+ * @param boundaryPointss 输出的边界点集
+ * @return 如果计算成功则返回 true，失败则返回 false
+ */
+
+ // 计算边界并填充到 boundaryPointss 中
+bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, double distance, double epsilon, QVector<QVector<QPointF>>& boundaryPointss)
+{
+    QRectF bounds = calculateBounds(pointss);  // 获取边界框
+
+    struct Rect 
+    {
+        double x;    // 左上角 x 坐标
+        double y;    // 左上角 y 坐标
+        double size; // 正方形的边长
+    };
+
+    std::queue<Rect> boundaryRect;  // 可能的区域（正方形好划分）
+
+    // 初始化边界区域
+    boundaryRect.push({ bounds.x() - distance - 5* epsilon, bounds.y() - distance - 5 * epsilon, std::max(bounds.height(), bounds.width()) + distance + 10 * epsilon });
+
+
+    struct QPointHash {
+        std::size_t operator()(const QPoint& point) const {
+            return std::hash<int>()(point.x()) ^ (std::hash<int>()(point.y()) << 1);
+        }
+    };
+
+    struct QPointEqual {
+        bool operator()(const QPoint& lhs, const QPoint& rhs) const {
+            return lhs.x() == rhs.x() && lhs.y() == rhs.y();
+        }
+    };
+
+    std::unordered_map<QPoint, bool, QPointHash, QPointEqual> boundarySet; // epsilon作为单位长度,本来可以使用unordered_set的，但是标识删除会迭代器失效，麻烦
+
+    while (!boundaryRect.empty()) {
+        Rect currentRect = boundaryRect.front();
+        boundaryRect.pop();
+
+        if (currentRect.size < epsilon) { // 小于精度视为点
+            // 将当前正方形的中心点加入 boundarySet
+            int xCenter = static_cast<int>((currentRect.x + currentRect.size / 2) / epsilon);
+            int yCenter = static_cast<int>((currentRect.y + currentRect.size / 2) / epsilon);
+            boundarySet[{ xCenter, yCenter }] = true;
+        }
+        else {
+            // 将当前正方形划分为四个子矩形，继续递归分割
+            double halfSize = currentRect.size / 2;
+
+            // 检查每个子矩形是否与边界相交
+            if (isRectOnBoundary({ currentRect.x, currentRect.y, halfSize }, pointss, distance))  // 左上
+                boundaryRect.push({ currentRect.x, currentRect.y, halfSize });
+            if (isRectOnBoundary({ currentRect.x + halfSize, currentRect.y, halfSize }, pointss, distance))  // 右上
+                boundaryRect.push({ currentRect.x + halfSize, currentRect.y, halfSize });
+            if (isRectOnBoundary({ currentRect.x, currentRect.y + halfSize, halfSize }, pointss, distance))  // 左下
+                boundaryRect.push({ currentRect.x, currentRect.y + halfSize, halfSize });
+            if (isRectOnBoundary({ currentRect.x + halfSize, currentRect.y + halfSize, halfSize }, pointss, distance))  // 右下
+                boundaryRect.push({ currentRect.x + halfSize, currentRect.y + halfSize, halfSize });
+        }
+    }
+
+    
+
+    const int dx[8] = { 0, 0, 1, -1 , 1, 1, -1, -1 };
+    const int dy[8] = { -1, 1, 0, 0 , 1, -1, 1, -1 };
+
+    // =========================================================== dfs搜索，排序点
+    // 因为都是闭合路径，且没有交点，dfs可以搜出
+    // 
+
+    std::function<void(int, int, QVector<QPointF>&)> dfs = [&](int startX, int startY, QVector<QPointF>& points)
+    {
+        std::stack<QPoint> stack;
+        stack.push(QPoint(startX, startY));
+
+        boundarySet[{startX, startY}] = 0;
+        points.push_back(QPoint(startX, startY));
+
+        while (!stack.empty()) 
+        {
+            QPoint current = stack.top();
+            stack.pop();
+
+            int x = current.x();
+            int y = current.y();
+
+            // 遍历 8 个方向
+            for (int i = 0; i < 8; i++) 
+            {
+                int x1 = x + dx[i];
+                int y1 = y + dy[i];
+                if (!boundarySet[{x1, y1 }]) 
+                {
+                    continue;
+                }
+                boundarySet[{x1,y1}] = 0;
+                stack.push(QPoint(x1, y1));
+                points.push_back(QPointF(x1*epsilon, y1* epsilon)); // 乘以单位长度还原原来坐标
+            }
+        }
+    };
+
+    boundaryPointss.clear();
+    for (auto & [point,flag] : boundarySet)
+    {
+        if(flag)
+        { 
+           boundaryPointss.push_back(QVector<QPointF>());
+           dfs(point.x(), point.y(), boundaryPointss.last());
+        }
+    }
+
+    return true;
+}
+

@@ -370,3 +370,15 @@ void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& bounda
  * @return 如果计算成功则返回 true，失败则返回 false
  */
 bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss);
+
+
+/**
+ * 计算缓冲区边界，使用栅格化算法
+ * @param pointss 输入的矢量图
+ * @param r 缓冲区的距离
+ * @param epsilon 精度
+ * @param boundaryPointss 输出的边界点集
+ * @return 如果计算成功则返回 true，失败则返回 false
+ */
+ // 计算边界并填充到 boundaryPointss 中
+bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, double distance, double epsilon, QVector<QVector<QPointF>>& boundaryPointss);

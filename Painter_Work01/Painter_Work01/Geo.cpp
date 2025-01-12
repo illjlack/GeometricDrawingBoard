@@ -96,9 +96,6 @@ bool Geo::hitTesting(const QPointF& point)
 
 void Geo::dragGeo(const QPointF& point)
 {
-    // 为了避免一直算缓冲区，这里先关了
-    geoParameters.bufferVisible = false;
-
     // 如果选择的是控制点,就修改控制点
     if (currentSelectedPoint)
     {

@@ -342,6 +342,15 @@ void Canvas::mouseMoveEvent(QMouseEvent* event)
     // 如果是选择模式，可以进行拖拽
     if (DrawMode::DrawSelect == GlobalDrawMode && isLeftButtonPressed)
     {
+        // 为了避免拖拽的时候一直算缓冲区，这里先关了
+        GeoParameters geoParameters = currentSelectGeo->getGeoParameters();
+        if (geoParameters.bufferVisible)
+        {
+            geoParameters.bufferVisible = false;
+            currentSelectGeo->setGeoParameters(geoParameters);
+            emit selectedGeo(currentSelectGeo); // 更新一下uis
+        }
+
         currentSelectGeo->dragGeo(event->pos());
     }
     else

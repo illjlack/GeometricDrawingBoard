@@ -1113,6 +1113,7 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
 }
 
 
+
 // ==========================================================================================
 // 缓冲区计算(基于栅格的缓冲区分析算法)
 // ==========================================================================================
@@ -1142,7 +1143,7 @@ QRectF calculateBounds(const QVector<QVector<QPointF>>& pointss)
     return QRectF(QPointF(minX, minY), QPointF(maxX, maxY));
 }
 
-void mapToGrid(const QVector<QVector<QPointF>>& pointss, double r, GridMap& gridMap)
+void getGridMap(const QVector<QVector<QPointF>>& pointss, double r, GridMap& gridMap)
 {
     // 计算点集合的上下左右边界
     QRectF bounds = calculateBounds(pointss);
@@ -1151,7 +1152,12 @@ void mapToGrid(const QVector<QVector<QPointF>>& pointss, double r, GridMap& grid
     // 计算缩放比例，确保网格点总数控制在 1e6 以内
     double area = (bounds.width() + 2 * r) * (bounds.height() + 2 * r);
 
-    gridMap.scale = std::sqrt(area / 100000.0);  // 缩放比例
+    int pointNum = 0;
+    for (auto& points : pointss)pointNum += points.size();
+
+    gridMap.scale = std::sqrt(area*pointNum / 10000000.0);  // 缩放比例
+
+    // 算法复杂度：area*pointNum*scale（控制在秒级别）
 
     int k = std::round(r / gridMap.scale);
 
@@ -1161,28 +1167,12 @@ void mapToGrid(const QVector<QVector<QPointF>>& pointss, double r, GridMap& grid
     // 计算网格尺寸，增加一定缓冲区域
     gridMap.sizeX = static_cast<int>(bounds.width() / gridMap.scale + 2 * k + 10);
     gridMap.sizeY = static_cast<int>(bounds.height() / gridMap.scale + 2 * k + 10);
-
-    // 清空现有网格点
-    gridMap.gridPointss.clear();
-
-    // 将点映射到网格
-    for (auto& points : pointss)
-    {
-        gridMap.gridPointss.push_back(QVector<QPoint>());
-        QVector<QPoint>& v = gridMap.gridPointss.last();
-        for (const QPointF& point : points)
-        {
-            int xGrid = static_cast<int>((point.x() - gridMap.offset.x()) / gridMap.scale);
-            int yGrid = static_cast<int>((point.y() - gridMap.offset.y()) / gridMap.scale);
-            v.append(QPoint(xGrid, yGrid)); // 存储映射后的网格点
-        }
-    }
 }
 
-void restoreFromGrid(const GridMap& gridMap, QVector<QVector<QPointF>>& pointss)
+void restoreFromGrid(const QVector<QVector<QPoint>>& gridPointss, const GridMap& gridMap, QVector<QVector<QPointF>>& pointss)
 {
     // 遍历二维网格点集合
-    for (const QVector<QPoint>& gridPoints : gridMap.gridPointss)
+    for (const QVector<QPoint>& gridPoints : gridPointss)
     {
         pointss.push_back(QVector<QPointF>());
         QVector<QPointF>& points = pointss.last();
@@ -1266,12 +1256,11 @@ bool isPointCloseToAnyPolyline(const QPointF& point, const QVector<QVector<QPoin
     return false;
 }
 
-void markBoundaryPointsBruteForce(const QVector<QVector<QPointF>>& Apointss,const GridMap& gridMap, double r, GridMap& boundaryGridMap)
+void markBoundaryPointsBruteForce(const QVector<QVector<QPointF>>& pointss,const GridMap& gridMap, double r, QVector<QVector<QPoint>>& boundaryPointss)
 {
     // 获取网格尺寸和初始点集合
     int sizeX = gridMap.sizeX, sizeY = gridMap.sizeY;
 
-    const QVector<QVector<QPoint>>& pointss = gridMap.gridPointss;
 
     // 初始化标记网格
     std::vector<std::vector<int>> mark(sizeX, std::vector<int>(sizeY, 0));
@@ -1284,7 +1273,7 @@ void markBoundaryPointsBruteForce(const QVector<QVector<QPointF>>& Apointss,cons
             // 判断是否在任何初始点的距离范围内
             double x = i * gridMap.scale + gridMap.offset.x();
             double y = j * gridMap.scale + gridMap.offset.y();
-            if (isPointCloseToAnyPolyline({ x,y }, Apointss, r))
+            if (isPointCloseToAnyPolyline({ x,y }, pointss, r))
             {
                 mark[i][j] = 1;
             }
@@ -1357,8 +1346,6 @@ void markBoundaryPointsBruteForce(const QVector<QVector<QPointF>>& Apointss,cons
         }
     };
 
-    boundaryGridMap = gridMap;
-    QVector<QVector<QPoint>>& boundaryPointss = boundaryGridMap.gridPointss;
     boundaryPointss.clear();
     for (auto& point : boundaryPoints)
     {
@@ -1371,7 +1358,7 @@ void markBoundaryPointsBruteForce(const QVector<QVector<QPointF>>& Apointss,cons
 }
 
 
-void douglasPeucker(QVector<QPointF>& points, double epsilon = 5) {
+void douglasPeucker(QVector<QPointF>& points, double epsilon) {
     if (points.size() < 3) return;  // 点数少于3个，无法简化
 
     // 获取起点和终点
@@ -1411,104 +1398,115 @@ void douglasPeucker(QVector<QPointF>& points, double epsilon = 5) {
     }
 }
 
-// Catmull-Rom 样条插值函数
-QVector<QPointF> catmullRomSpline(const QVector<QPointF>& points, int interpolationCount = 10, bool isClosed = false, double tension = 0.8) {
-    QVector<QPointF> result;  // 用于存储平滑后的点集
+// 求解三次样条的解
+void solveCubicSpline(const QVector<QPointF>& controlPoints, QVector<QPointF>& result)
+{
+    int n = controlPoints.size() - 1;
+    if (n < 1) return;
 
-    if (points.size() < 4) {
-        // 点数少于4个，无法使用 Catmull-Rom 样条插值，直接返回原始点集
-        return points;
+    QVector<double> h(n), a(n), l(n + 1, 1.0), mu(n), z(n + 1);
+
+    // 计算 h 和 a
+    for (int i = 0; i < n; ++i)
+    {
+        h[i] = controlPoints[i + 1].x() - controlPoints[i].x();
+        a[i] = (controlPoints[i + 1].y() - controlPoints[i].y()) / h[i];
     }
 
-    // 如果是闭合曲线，补充首尾的控制点
-    QVector<QPointF> extendedPoints = points;
-    if (isClosed) {
-        extendedPoints.prepend(points.last());
-        extendedPoints.append(points.first());
-        extendedPoints.append(points[1]);
-    }
-    else {
-        // 如果是非闭合曲线，复制边界点（头和尾）
-        extendedPoints.prepend(points.first());
-        extendedPoints.append(points.last());
+    // 解三对角方程
+    for (int i = 1; i < n; ++i)
+    {
+        l[i] = 2 * (controlPoints[i + 1].x() - controlPoints[i - 1].x()) - h[i - 1] * mu[i - 1];
+        mu[i] = h[i] / l[i];
+        z[i] = (a[i] - h[i - 1] * z[i - 1]) / l[i];
     }
 
-    // 遍历每组4个控制点，生成平滑曲线
-    for (int i = 1; i < extendedPoints.size() - 2; ++i) {
-        QPointF p0 = extendedPoints[i - 1];
-        QPointF p1 = extendedPoints[i];
-        QPointF p2 = extendedPoints[i + 1];
-        QPointF p3 = extendedPoints[i + 2];
+    l[n] = 1.0;
+    z[n] = 0.0;
 
-        // 在当前段插值
-        for (int j = 0; j <= interpolationCount; ++j) {
-            double t = static_cast<double>(j) / interpolationCount;  // t在[0, 1]之间
+    // 回代
+    QVector<double> c(n + 1), b(n), d(n);
+    c[n] = 0.0;
+    for (int j = n - 1; j >= 0; --j)
+    {
+        c[j] = z[j] - mu[j] * c[j + 1];
+        b[j] = (controlPoints[j + 1].y() - controlPoints[j].y()) / h[j] - h[j] * (c[j + 1] + 2 * c[j]) / 3;
+        d[j] = (c[j + 1] - c[j]) / (3 * h[j]);
+    }
 
-            // Catmull-Rom 样条公式（加入张力系数）
-            double t2 = t * t;
-            double t3 = t2 * t;
-            double x = tension * ((2 * p1.x()) +
-                (-p0.x() + p2.x()) * t +
-                (2 * p0.x() - 5 * p1.x() + 4 * p2.x() - p3.x()) * t2 +
-                (-p0.x() + 3 * p1.x() - 3 * p2.x() + p3.x()) * t3);
-
-            double y = tension * ((2 * p1.y()) +
-                (-p0.y() + p2.y()) * t +
-                (2 * p0.y() - 5 * p1.y() + 4 * p2.y() - p3.y()) * t2 +
-                (-p0.y() + 3 * p1.y() - 3 * p2.y() + p3.y()) * t3);
-
-            result.append(QPointF(x, y));  // 添加插值点
+    // 生成样条曲线
+    result.clear();
+    for (int i = 0; i < n; ++i)
+    {
+        for (int j = 0; j < 100; ++j)  // 每段生成100个插值点
+        {
+            double t = j / 100.0;
+            double x = controlPoints[i].x() + t * h[i];
+            double y = controlPoints[i].y() + b[i] * t + c[i] * t * t + d[i] * t * t * t;
+            result.append(QPointF(x, y));
         }
     }
-
-    // 如果是闭合曲线，确保首尾相连
-    if (isClosed) {
-        result.append(result.first());
-    }
-
-    return result;
 }
-
 
 // 计算缓冲区边界，使用栅格化算法
 bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss)
 {
     boundaryPointss.clear();
-    if (r < 0) return false; // 非法半径直接返回
+
+    // 如果半径非法，返回false
+    if (r < 0)
+        return false;
 
     GridMap gridMap;
 
     // 将二维点集合映射到网格
-    mapToGrid(pointss, r, gridMap);
+    getGridMap(pointss, r, gridMap);
 
-    GridMap boundaryGridMap;
+    QVector<QVector<QPoint>> gridBoundaryPointss;
 
-    // 调用分界点标记函数
-    markBoundaryPointsBruteForce(pointss, gridMap, r,boundaryGridMap); // 使用暴力算法计算
+    // 使用暴力算法计算分界点
+    markBoundaryPointsBruteForce(pointss, gridMap, r, gridBoundaryPointss);
 
     // 从网格恢复二维边界点集合
-    restoreFromGrid(boundaryGridMap, boundaryPointss);
+    restoreFromGrid(gridBoundaryPointss, gridMap, boundaryPointss);
+
+    // 对每个边界点集合进行Douglas-Peucker简化，并应用B样条曲线
+
+    // 误差在scale
 
     for (auto& points : boundaryPointss)
     {
         int midIndex = points.size() / 2;
+
+        // 将边界点集拆分为前后两半
         QVector<QPointF> firstHalf(points.begin(), points.begin() + midIndex + 1);
         QVector<QPointF> secondHalf(points.mid(midIndex));
-        douglasPeucker(firstHalf);
-        douglasPeucker(secondHalf);
+
+        // 使用Douglas-Peucker简化两半点集
+        douglasPeucker(firstHalf, gridMap.scale*2);
+        douglasPeucker(secondHalf, gridMap.scale * 2);
+
+        // 清空当前集合，并将简化后的前后两半合并
         points.clear();
         points.append(firstHalf);
         points.append(secondHalf.mid(1));
 
-        catmullRomSpline(points, 10, true);
+        // 使用B样条曲线平滑简化后的边界点集
+        QVector<QPointF> smoothedPoints;
+        if (points.size())
+            points.push_back(points[0]); // 保证闭合
 
-        QVector<QPointF>v;
-        if(points.size())points.push_back(points[0]);
-        calculateBSplineCurve(points, 3, points.size()*100, v);
-        points.swap(v);
-        if (points.size())points.push_back(points[0]);
+        //calculateBSplineCurve(points, 3, points.size() * 100, smoothedPoints);
 
+        //solveCubicSpline(points, smoothedPoints);
 
+        // 替换原始点集为平滑后的点集
+        //points.swap(smoothedPoints);
+
+        // 保证闭合
+        if (points.size())
+            points.push_back(points[0]);
     }
+
     return true;
 }

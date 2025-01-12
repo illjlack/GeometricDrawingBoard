@@ -311,20 +311,18 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
 // 基于栅格的缓冲区分析算法（暴力枚举所有点，深搜排序）
 // ==========================================================================================
 
-// 网格映射结构体
-struct GridMap
-{
-    QVector<QVector<QPoint>> gridPointss;    // 映射到网格的点（多个线段）
-    double scale;                            // 缩放比例
-    QPointF offset;                          // 偏移量（网格原点对应的原来坐标）
-    int sizeX, sizeY;                        // 网格尺寸
+// GridMap 数据结构，用于存储网格映射信息
+struct GridMap {
+    double scale;     // 缩放比例
+    QPointF offset;   // 偏移量
+    int sizeX;        // 网格横向尺寸
+    int sizeY;        // 网格纵向尺寸
 };
 
-// 函数声明
 /**
- * 计算点集的边界框（最小矩形）
- * @param pointss 输入的点集
- * @return 返回边界框的矩形（QRectF）
+ * 计算点集的边界
+ * @param pointss 输入点集
+ * @return 点集的边界矩形
  */
 QRectF calculateBounds(const QVector<QVector<QPointF>>& pointss);
 
@@ -332,45 +330,67 @@ QRectF calculateBounds(const QVector<QVector<QPointF>>& pointss);
  * 将点集映射到网格
  * @param pointss 输入点集
  * @param r 网格大小
- * @param k 缩放比例
  * @param gridMap 输出网格映射
  */
-void mapToGrid(const QVector<QVector<QPointF>>& pointss, double r, GridMap& gridMap);
+void getGridMap(const QVector<QVector<QPointF>>& pointss, double r, GridMap& gridMap);
 
 /**
- * 从网格恢复点集
- * @param gridMap 输入网格映射
- * @param pointss 输出点集
+ * 从网格恢复原始点集
+ * @param gridPointss 网格点集
+ * @param gridMap 网格映射
+ * @param pointss 输出恢复后的点集
  */
-void restoreFromGrid(const GridMap& gridMap, QVector<QVector<QPointF>>& pointss);
+void restoreFromGrid(const QVector<QVector<QPoint>>& gridPointss, const GridMap& gridMap, QVector<QVector<QPointF>>& pointss);
 
 /**
- * 计算两点之间的欧几里得距离的平方
- * @param x1 第一个点的 x 坐标
- * @param y1 第一个点的 y 坐标
- * @param x2 第二个点的 x 坐标
- * @param y2 第二个点的 y 坐标
- * @return 返回两点之间的欧几里得距离的平方
+ * 计算欧几里得距离的平方
+ * @param x1 第一个点的x坐标
+ * @param y1 第一个点的y坐标
+ * @param x2 第二个点的x坐标
+ * @param y2 第二个点的y坐标
+ * @return 欧几里得距离的平方
  */
 int euclideanDistance2(int x1, int y1, int x2, int y2);
 
-
-// 计算点到线段的垂直距离
+/**
+ * 计算点到线段的垂直距离
+ * @param point 点
+ * @param start 线段起点
+ * @param end 线段终点
+ * @return 点到线段的垂直距离
+ */
 double pointToSegmentDistance(const QPointF& point, const QPointF& start, const QPointF& end);
 
 /**
- * 标记边界点（暴力枚举法）
- * @param gridMap 输入的网格映射
- * @param k 距离阈值
- * @param boundaryGridMap 输出的标记边界点的网格映射
+ * 判断点是否在任意折线的距离小于给定值
+ * @param point 点
+ * @param boundaryPointss 折线集合
+ * @param distance 给定的距离阈值
+ * @return 如果点距离某个折线小于阈值，返回true
  */
-void markBoundaryPointsBruteForce(const QVector<QVector<QPointF>>& pointss, const GridMap& gridMap, double r, GridMap& boundaryGridMap);
+bool isPointCloseToAnyPolyline(const QPointF& point, const QVector<QVector<QPointF>>& boundaryPointss, double distance);
+
+/**
+ * 使用暴力算法标记边界点
+ * @param pointss 输入点集
+ * @param gridMap 网格映射
+ * @param r 网格大小
+ * @param boundaryPointss 输出边界点集合
+ */
+void markBoundaryPointsBruteForce(const QVector<QVector<QPointF>>& pointss, const GridMap& gridMap, double r, QVector<QVector<QPoint>>& boundaryPointss);
+
+/**
+ * Douglas-Peucker算法进行线简化
+ * @param points 点集
+ * @param epsilon 简化精度
+ */
+void douglasPeucker(QVector<QPointF>& points, double epsilon = 4);
 
 /**
  * 计算缓冲区边界，使用栅格化算法
- * @param pointss 输入的点集
- * @param r 缓冲区的距离
- * @param boundaryPointss 输出的边界点集
- * @return 如果计算成功则返回 true，失败则返回 false
+ * @param pointss 输入点集
+ * @param r 缓冲区半径
+ * @param boundaryPointss 输出缓冲区边界点集合
+ * @return 如果成功，返回true
  */
 bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss);

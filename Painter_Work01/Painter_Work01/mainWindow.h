@@ -49,7 +49,7 @@ public:
     explicit Canvas(QWidget* parent = nullptr);
     ~Canvas();
 
-    void CompleteDrawing();         // 强制完成绘制
+    void modeChange();         // 强制完成绘制
 
 protected:
     void pushGeo(Geo* shape);           // 加入对象

@@ -1142,7 +1142,7 @@ QRectF calculateBounds(const QVector<QVector<QPointF>>& pointss)
     return QRectF(QPointF(minX, minY), QPointF(maxX, maxY));
 }
 
-void mapToGrid(const QVector<QVector<QPointF>>& pointss, double r, int& k, GridMap& gridMap)
+void mapToGrid(const QVector<QVector<QPointF>>& pointss, double r, GridMap& gridMap)
 {
     // 计算点集合的上下左右边界
     QRectF bounds = calculateBounds(pointss);
@@ -1151,9 +1151,9 @@ void mapToGrid(const QVector<QVector<QPointF>>& pointss, double r, int& k, GridM
     // 计算缩放比例，确保网格点总数控制在 1e6 以内
     double area = (bounds.width() + 2 * r) * (bounds.height() + 2 * r);
 
-    gridMap.scale = std::sqrt(area / 500000.0);  // 缩放比例
+    gridMap.scale = std::sqrt(area / 100000.0);  // 缩放比例
 
-    k = std::round(r / gridMap.scale);
+    int k = std::round(r / gridMap.scale);
 
     // 偏移量，用于让网格坐标从 (0, 0) 开始
     gridMap.offset = QPointF(bounds.left() - (k + 5) * gridMap.scale, bounds.top() - (k + 5) * gridMap.scale);
@@ -1202,80 +1202,91 @@ int euclideanDistance2(int x1, int y1, int x2, int y2)
     return (x1 - x2) * (x1 - x2) + (y1 - y2) * (y1 - y2);
 }
 
-void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& boundaryGridMap)
+// 计算点到线段的垂直距离
+double pointToSegmentDistance(const QPointF& point, const QPointF& start, const QPointF& end) {
+    double x1 = start.x(), y1 = start.y();
+    double x2 = end.x(), y2 = end.y();
+    double x0 = point.x(), y0 = point.y();
+
+    // 计算线段的长度
+    double dx = x2 - x1;
+    double dy = y2 - y1;
+    double segmentLength = std::sqrt(dx * dx + dy * dy);
+
+    // 如果线段的长度为零，返回点到起点的距离
+    if (segmentLength == 0) {
+        return std::sqrt((x0 - x1) * (x0 - x1) + (y0 - y1) * (y0 - y1));
+    }
+
+    // 计算投影点的比例t
+    double t = ((x0 - x1) * dx + (y0 - y1) * dy) / (segmentLength * segmentLength);
+    t = std::max(0.0, std::min(1.0, t));  // 限制t在0到1之间
+
+    // 计算投影点的坐标
+    double projection_x = x1 + t * dx;
+    double projection_y = y1 + t * dy;
+
+    // 计算并返回点到投影点的距离
+    return std::sqrt((x0 - projection_x) * (x0 - projection_x) + (y0 - projection_y) * (y0 - projection_y));
+}
+
+// 判断点是否在所有折线的距离小于给定值
+bool isPointCloseToAnyPolyline(const QPointF& point, const QVector<QVector<QPointF>>& boundaryPointss, double distance)
+{
+    for (const QVector<QPointF>& polyline : boundaryPointss)
+    {
+        double minDistance = std::numeric_limits<double>::infinity();
+
+        if (polyline.size() == 1)
+        {
+            double d = euclideanDistance2(point.x(), point.y(), polyline[0].x(), polyline[0].y());
+            if (d < distance*distance)
+            {
+                return true;
+            }
+        }
+             
+        // 遍历当前折线的每个线段
+        for (int i = 0; i < polyline.size() - 1; ++i)
+        {
+            const QPointF& start = polyline[i];
+            const QPointF& end = polyline[i + 1];
+
+            // 计算当前点到该线段的垂直距离
+            double d = pointToSegmentDistance(point, start, end);
+
+             // 如果当前最小距离已经小于阈值，提前返回
+            if (d < distance)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+void markBoundaryPointsBruteForce(const QVector<QVector<QPointF>>& Apointss,const GridMap& gridMap, double r, GridMap& boundaryGridMap)
 {
     // 获取网格尺寸和初始点集合
     int sizeX = gridMap.sizeX, sizeY = gridMap.sizeY;
+
     const QVector<QVector<QPoint>>& pointss = gridMap.gridPointss;
 
     // 初始化标记网格
     std::vector<std::vector<int>> mark(sizeX, std::vector<int>(sizeY, 0));
 
-    // ============================================================================== 矢量点图的线段上的点都标记
-    auto markPointsOnLine = [](const QPoint& start, const QPoint& end, QVector<QPoint>& gridPoints)
-    {
-        int x1 = start.x();
-        int y1 = start.y();
-        int x2 = end.x();
-        int y2 = end.y();
-
-        int dx = std::abs(x2 - x1);
-        int dy = std::abs(y2 - y1);
-
-        int sx = (x2 > x1) ? 1 : (x2 < x1) ? -1 : 0;
-        int sy = (y2 > y1) ? 1 : (y2 < y1) ? -1 : 0;
-
-        // 使用 Bresenham 算法标记线段上的所有点
-        int err = dx - dy;
-
-        while (true) {
-            gridPoints.push_back({ x1, y1 });
-
-            if (x1 == x2 && y1 == y2) {
-                break;
-            }
-
-            int e2 = 2 * err;
-            if (e2 > -dy) {
-                err -= dy;
-                x1 += sx;
-            }
-            if (e2 < dx) {
-                err += dx;
-                y1 += sy;
-            }
-        }
-    };
-
-    QVector<QPoint> gridPoints;
-    for (const QVector<QPoint>& points : pointss) {
-        for (int i = 0; i < points.size() - 1; ++i) {
-            const QPoint& start = points[i];
-            const QPoint& end = points[i + 1];
-
-            // 调用 markPointsOnLine 标记线段上的点
-            markPointsOnLine(start, end, gridPoints);
-        }
-    }
-
-    //double needTime = 1LL * gridPoints.size() * sizeX * sizeY / 1e8;
-    //QString message = L("正在计算栅格边界，预计计算时间：小于 %1 秒").arg(needTime, 0, 'f', 2);
-    //GlobalStatusBar->clearMessage();
-    ////QApplication::processEvents(); // 强制界面更新
-    //GlobalStatusBar->showMessage(message);
-    ////QApplication::processEvents(); // 会导致绘制设备失效，而界面更新要等事件队列，应该要多线程
+    int k = std::round(r / gridMap.scale);
 
     // 暴力枚举二维网格中的每个点
     for (int i = 0; i < sizeX; i++) {
         for (int j = 0; j < sizeY; j++) {
             // 判断是否在任何初始点的距离范围内
-            for (const QPoint& point : gridPoints)
+            double x = i * gridMap.scale + gridMap.offset.x();
+            double y = j * gridMap.scale + gridMap.offset.y();
+            if (isPointCloseToAnyPolyline({ x,y }, Apointss, r))
             {
-                int px = point.x(), py = point.y();
-                if (euclideanDistance2(i, j, px, py) <= k * k) {
-                    mark[i][j] = 1; // 标记点为 1,在缓冲区范围内
-                    break;
-                }
+                mark[i][j] = 1;
             }
         }
     }
@@ -1357,51 +1368,10 @@ void markBoundaryPointsBruteForce(const GridMap& gridMap, int k, GridMap& bounda
             dfs(point.x(), point.y(), boundaryPointss.last());
         }
     }
-    //GlobalStatusBar->clearMessage();
-    //GlobalStatusBar->showMessage(L("准备就绪"));
 }
 
-/**
- * 对折线的点集进行高斯平滑处理
- *
- * 使用高斯核对输入的点集进行平滑，减少锯齿效应和噪声。
- *
- * @param points 输入的折线点列表，包含边界上的各个点。
- * @param sigma 高斯核的标准差，控制平滑的强度。值越大，平滑效果越明显。
- * @param kernelSize 高斯核的大小，通常是一个奇数。值越大，计算时会考虑更宽范围的邻域点。
- *
- * @return 无返回值，直接修改输入的 points 参数，进行平滑操作。
- */
 
-// 计算点到线段的垂直距离
-double perpendicularDistance(const QPointF& point, const QPointF& start, const QPointF& end) {
-    double x1 = start.x(), y1 = start.y();
-    double x2 = end.x(), y2 = end.y();
-    double x0 = point.x(), y0 = point.y();
-
-    // 计算线段的长度
-    double dx = x2 - x1;
-    double dy = y2 - y1;
-    double segmentLength = std::sqrt(dx * dx + dy * dy);
-
-    // 如果线段的长度为零，返回点到起点的距离
-    if (segmentLength == 0) {
-        return std::sqrt((x0 - x1) * (x0 - x1) + (y0 - y1) * (y0 - y1));
-    }
-
-    // 计算投影点的比例t
-    double t = ((x0 - x1) * dx + (y0 - y1) * dy) / (segmentLength * segmentLength);
-    t = std::max(0.0, std::min(1.0, t));  // 限制t在0到1之间
-
-    // 计算投影点的坐标
-    double projection_x = x1 + t * dx;
-    double projection_y = y1 + t * dy;
-
-    // 计算并返回点到投影点的距离
-    return std::sqrt((x0 - projection_x) * (x0 - projection_x) + (y0 - projection_y) * (y0 - projection_y));
-}
-
-void douglasPeucker(QVector<QPointF>& points, double epsilon = 4) {
+void douglasPeucker(QVector<QPointF>& points, double epsilon = 5) {
     if (points.size() < 3) return;  // 点数少于3个，无法简化
 
     // 获取起点和终点
@@ -1412,13 +1382,12 @@ void douglasPeucker(QVector<QPointF>& points, double epsilon = 4) {
     double maxDist = 0.0;
     int index = 0;
     for (int i = 1; i < points.size() - 1; ++i) {
-        double dist = perpendicularDistance(points[i], start, end);
+        double dist = pointToSegmentDistance(points[i], start, end);
         if (dist > maxDist) {
             maxDist = dist;
             index = i;
         }
     }
-
     // 如果最大距离大于阈值epsilon，保留该点并递归简化两部分折线
     if (maxDist > epsilon) {
         // 递归左侧
@@ -1508,37 +1477,20 @@ bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, dou
     if (r < 0) return false; // 非法半径直接返回
 
     GridMap gridMap;
-    int k = 0;
 
     // 将二维点集合映射到网格
-    mapToGrid(pointss, r, k, gridMap);
+    mapToGrid(pointss, r, gridMap);
 
     GridMap boundaryGridMap;
 
     // 调用分界点标记函数
-    markBoundaryPointsBruteForce(gridMap, k, boundaryGridMap); // 使用暴力算法计算
+    markBoundaryPointsBruteForce(pointss, gridMap, r,boundaryGridMap); // 使用暴力算法计算
 
     // 从网格恢复二维边界点集合
     restoreFromGrid(boundaryGridMap, boundaryPointss);
 
     for (auto& points : boundaryPointss)
     {
-        //int step = 10; // 稀疏步长
-        //for (int i = 0; i < points.size(); i += step)
-        //{
-        //    v.push_back(points[i]);
-        //}
-        //if(points.size())v.push_back(points[0]); // 闭合
-        ////v.swap(points);
-        ////gaussianSmoothing(points);
-
-        //if (points.size())v.push_back(points[0]); // 闭合
-        //if (points.size())v.push_back(points[0]); // 闭合
-        //points.clear();
-        //calculateBSplineCurve(v, 3, v.size() * 3, points);
-
-        // 因为是闭合曲线起始和终点几乎在一起
-        // 分为两段
         int midIndex = points.size() / 2;
         QVector<QPointF> firstHalf(points.begin(), points.begin() + midIndex + 1);
         QVector<QPointF> secondHalf(points.mid(midIndex));
@@ -1560,192 +1512,3 @@ bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, dou
     }
     return true;
 }
-
-
-
-// ==========================================================================================
-
-// 判断点是否在所有折线的距离小于给定值
-bool isPointCloseToAnyPolyline(const QPointF& point, const QVector<QVector<QPointF>>& boundaryPointss, double distance)
-{
-    for (const QVector<QPointF>& polyline : boundaryPointss)
-    {
-        double minDistance = std::numeric_limits<double>::infinity();
-
-        // 遍历当前折线的每个线段
-        for (int i = 0; i < polyline.size() - 1; ++i)
-        {
-            const QPointF& start = polyline[i];
-            const QPointF& end = polyline[i + 1];
-
-            // 计算当前点到该线段的垂直距离
-            double distance = perpendicularDistance(point, start, end);
-
-            // 更新最小垂直距离
-            minDistance = std::min(minDistance, distance);
-
-            // 如果当前最小距离已经小于阈值，提前返回
-            if (minDistance < distance)
-            {
-                return true;
-            }
-        }
-    }
-
-    return false;
-}
-
-struct Rect
-{
-    // 左上角
-    double x;
-    double y;
-
-    double size;
-};
-
-// 判断矩形里在边界上（四个角有部分在缓冲区内，有部分在外）
-bool isRectOnBoundary(const Rect& rect, const QVector<QVector<QPointF>>& pointss, double distance)
-{
-    bool hasInBuffer = false;
-    bool hasOutBuffer = false;
-
-    // 矩形的四个角坐标
-    QPointF topLeft(rect.x, rect.y);
-    if (isPointCloseToAnyPolyline(topLeft, pointss, distance))hasInBuffer = true;
-    else hasOutBuffer = true;
-    QPointF topRight(rect.x + rect.size, rect.y);
-    if (isPointCloseToAnyPolyline(topRight, pointss, distance))hasInBuffer = true;
-    else hasOutBuffer = true;
-    if (hasInBuffer && hasOutBuffer)return true;
-    QPointF bottomLeft(rect.x, rect.y + rect.size);
-    if (isPointCloseToAnyPolyline(bottomLeft, pointss, distance))hasInBuffer = true;
-    else hasOutBuffer = true;
-    if (hasInBuffer && hasOutBuffer)return true;
-    QPointF bottomRight(rect.x + rect.size, rect.y + rect.size);
-    if (isPointCloseToAnyPolyline(bottomRight, pointss, distance))hasInBuffer = true;
-    else hasOutBuffer = true;
-    return hasInBuffer && hasOutBuffer;
-}
-
-/**
- * 计算缓冲区边界，使用栅格化算法
- * @param pointss 输入的矢量图
- * @param r 缓冲区的距离
- * @param epsilon 精度
- * @param boundaryPointss 输出的边界点集
- * @return 如果计算成功则返回 true，失败则返回 false
- */
-
- // 计算边界并填充到 boundaryPointss 中
-bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, double distance, double epsilon, QVector<QVector<QPointF>>& boundaryPointss)
-{
-    QRectF bounds = calculateBounds(pointss);  // 获取边界框
-
-    struct Rect 
-    {
-        double x;    // 左上角 x 坐标
-        double y;    // 左上角 y 坐标
-        double size; // 正方形的边长
-    };
-
-    std::queue<Rect> boundaryRect;  // 可能的区域（正方形好划分）
-
-    // 初始化边界区域
-    boundaryRect.push({ bounds.x() - distance - 5* epsilon, bounds.y() - distance - 5 * epsilon, std::max(bounds.height(), bounds.width()) + distance + 10 * epsilon });
-
-
-    struct QPointHash {
-        std::size_t operator()(const QPoint& point) const {
-            return std::hash<int>()(point.x()) ^ (std::hash<int>()(point.y()) << 1);
-        }
-    };
-
-    struct QPointEqual {
-        bool operator()(const QPoint& lhs, const QPoint& rhs) const {
-            return lhs.x() == rhs.x() && lhs.y() == rhs.y();
-        }
-    };
-
-    std::unordered_map<QPoint, bool, QPointHash, QPointEqual> boundarySet; // epsilon作为单位长度,本来可以使用unordered_set的，但是标识删除会迭代器失效，麻烦
-
-    while (!boundaryRect.empty()) {
-        Rect currentRect = boundaryRect.front();
-        boundaryRect.pop();
-
-        if (currentRect.size < epsilon) { // 小于精度视为点
-            // 将当前正方形的中心点加入 boundarySet
-            int xCenter = static_cast<int>((currentRect.x + currentRect.size / 2) / epsilon);
-            int yCenter = static_cast<int>((currentRect.y + currentRect.size / 2) / epsilon);
-            boundarySet[{ xCenter, yCenter }] = true;
-        }
-        else {
-            // 将当前正方形划分为四个子矩形，继续递归分割
-            double halfSize = currentRect.size / 2;
-
-            // 检查每个子矩形是否与边界相交
-            if (isRectOnBoundary({ currentRect.x, currentRect.y, halfSize }, pointss, distance))  // 左上
-                boundaryRect.push({ currentRect.x, currentRect.y, halfSize });
-            if (isRectOnBoundary({ currentRect.x + halfSize, currentRect.y, halfSize }, pointss, distance))  // 右上
-                boundaryRect.push({ currentRect.x + halfSize, currentRect.y, halfSize });
-            if (isRectOnBoundary({ currentRect.x, currentRect.y + halfSize, halfSize }, pointss, distance))  // 左下
-                boundaryRect.push({ currentRect.x, currentRect.y + halfSize, halfSize });
-            if (isRectOnBoundary({ currentRect.x + halfSize, currentRect.y + halfSize, halfSize }, pointss, distance))  // 右下
-                boundaryRect.push({ currentRect.x + halfSize, currentRect.y + halfSize, halfSize });
-        }
-    }
-
-    
-
-    const int dx[8] = { 0, 0, 1, -1 , 1, 1, -1, -1 };
-    const int dy[8] = { -1, 1, 0, 0 , 1, -1, 1, -1 };
-
-    // =========================================================== dfs搜索，排序点
-    // 因为都是闭合路径，且没有交点，dfs可以搜出
-    // 
-
-    std::function<void(int, int, QVector<QPointF>&)> dfs = [&](int startX, int startY, QVector<QPointF>& points)
-    {
-        std::stack<QPoint> stack;
-        stack.push(QPoint(startX, startY));
-
-        boundarySet[{startX, startY}] = 0;
-        points.push_back(QPoint(startX, startY));
-
-        while (!stack.empty()) 
-        {
-            QPoint current = stack.top();
-            stack.pop();
-
-            int x = current.x();
-            int y = current.y();
-
-            // 遍历 8 个方向
-            for (int i = 0; i < 8; i++) 
-            {
-                int x1 = x + dx[i];
-                int y1 = y + dy[i];
-                if (!boundarySet[{x1, y1 }]) 
-                {
-                    continue;
-                }
-                boundarySet[{x1,y1}] = 0;
-                stack.push(QPoint(x1, y1));
-                points.push_back(QPointF(x1*epsilon, y1* epsilon)); // 乘以单位长度还原原来坐标
-            }
-        }
-    };
-
-    boundaryPointss.clear();
-    for (auto & [point,flag] : boundarySet)
-    {
-        if(flag)
-        { 
-           boundaryPointss.push_back(QVector<QPointF>());
-           dfs(point.x(), point.y(), boundaryPointss.last());
-        }
-    }
-
-    return true;
-}
-

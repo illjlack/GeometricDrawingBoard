@@ -34,80 +34,9 @@
 
 
 
+emm，写了好久，发现不能分块，因为不能确定大的块里是否有没有边界。
 
-
-算法流程：
-
-1. 计算矢量图的范围
-
-2. 设置一个映射的比例, 用来映射矢量图到格栅图
-
-   ```cpp
-   struct GridMap
-   {
-       double scale;                            // 缩放比例
-       QPointF offset;                          // 偏移量（网格原点对应的原来坐标）
-   };
-   ```
-
-3. ~~映射矢量图到栅格里，Bresenham 直线算法连上相邻两个点~~    (我敲，是不是可以直接计算与矢量线段的距离)
-4. 遍历栅格，求出边界上的点。
-5. 不断提高映射比例，只计算边界上的点表示的块
-
-
-
-```cpp
-// 将原始坐标映射到网格坐标
-void mapToGrid(const GridMap& gridMap, const QPointF& worldPos, QPoint& gridPos)
-{
-    gridPos.setX((worldPos.x() - gridMap.offset.x()) / gridMap.scale);
-    gridPos.setY((worldPos.y() - gridMap.offset.y()) / gridMap.scale);
-}
-
-// 从网格坐标恢复到原始坐标
-void restoreFromGrid(const GridMap& gridMap, const QPoint& gridPos, QPointF& worldPos)
-{
-    worldPos.setX(gridPos.x() * gridMap.scale + gridMap.offset.x());
-    worldPos.setY(gridPos.y() * gridMap.scale + gridMap.offset.y());
-}
-
-
-// 计算点到线段的垂直距离
-double perpendicularDistance(const QPointF& point, const QPointF& start, const QPointF& end) 
-{
-    double x1 = start.x(), y1 = start.y();
-    double x2 = end.x(), y2 = end.y();
-    double x0 = point.x(), y0 = point.y();
-
-    // 计算线段的长度
-    double dx = x2 - x1;
-    double dy = y2 - y1;
-    double segmentLength = std::sqrt(dx * dx + dy * dy);
-
-    // 如果线段的长度为零，返回点到起点的距离
-    if (segmentLength == 0) 
-    {
-        return std::sqrt((x0 - x1) * (x0 - x1) + (y0 - y1) * (y0 - y1));
-    }
-
-    // 计算投影点的比例t
-    double t = ((x0 - x1) * dx + (y0 - y1) * dy) / (segmentLength * segmentLength);
-    t = std::max(0.0, std::min(1.0, t));  // 限制t在0到1之间
-
-    // 计算投影点的坐标
-    double projection_x = x1 + t * dx;
-    double projection_y = y1 + t * dy;
-
-    // 计算并返回点到投影点的距离
-    return std::sqrt((x0 - projection_x) * (x0 - projection_x) + (y0 - projection_y) * (y0 - projection_y));
-}
-```
-
-
-
-
-
-
+但是发现不用直线出来，可以直接计算与矢量线段的距离，精度还高一点。
 
 
 

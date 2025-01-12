@@ -119,14 +119,14 @@ void MainWindow::createToolBar()
     selectAction->setChecked(true);
 
     // 连接信号和槽
-    connect(selectAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); GlobalDrawMode = DrawMode::DrawSelect; });
-    connect(drawPointAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); GlobalDrawMode = DrawMode::DrawPoint; });
-    connect(drawSimpleLineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); GlobalDrawMode = DrawMode::DrawSimpleLine; });
-    connect(drawDoubleLineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); GlobalDrawMode = DrawMode::DrawDoubleLine; });
-    connect(drawParallelLineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); GlobalDrawMode = DrawMode::DrawParallelLine; });
-    connect(drawTwoPointCircleAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); GlobalDrawMode = DrawMode::DrawTwoPointCircle; });
-    connect(drawSimpleAreaAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); GlobalDrawMode = DrawMode::DrawSimpleArea; });
-    connect(drawComplexAreaAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); GlobalDrawMode = DrawMode::DrawComplexArea; });
+    connect(selectAction, &QAction::triggered, this, [this] { canvas->modeChange(); GlobalDrawMode = DrawMode::DrawSelect; });
+    connect(drawPointAction, &QAction::triggered, this, [this] { canvas->modeChange(); GlobalDrawMode = DrawMode::DrawPoint; });
+    connect(drawSimpleLineAction, &QAction::triggered, this, [this] { canvas->modeChange(); GlobalDrawMode = DrawMode::DrawSimpleLine; });
+    connect(drawDoubleLineAction, &QAction::triggered, this, [this] { canvas->modeChange(); GlobalDrawMode = DrawMode::DrawDoubleLine; });
+    connect(drawParallelLineAction, &QAction::triggered, this, [this] { canvas->modeChange(); GlobalDrawMode = DrawMode::DrawParallelLine; });
+    connect(drawTwoPointCircleAction, &QAction::triggered, this, [this] { canvas->modeChange(); GlobalDrawMode = DrawMode::DrawTwoPointCircle; });
+    connect(drawSimpleAreaAction, &QAction::triggered, this, [this] { canvas->modeChange(); GlobalDrawMode = DrawMode::DrawSimpleArea; });
+    connect(drawComplexAreaAction, &QAction::triggered, this, [this] { canvas->modeChange(); GlobalDrawMode = DrawMode::DrawComplexArea; });
 
     addToolBar(toolBar);
 }
@@ -160,11 +160,11 @@ void MainWindow::createNodeLineToolBar()
     polylineAction->setChecked(true);
 
     // 连接信号和槽
-    connect(polylineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); GlobalNodeLineStyle = NodeLineStyle::StylePolyline; });
-    connect(splineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); GlobalNodeLineStyle = NodeLineStyle::StyleSpline; });
-    connect(threePointArcAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); GlobalNodeLineStyle = NodeLineStyle::StyleThreePointArc; });
-    connect(arcAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); GlobalNodeLineStyle = NodeLineStyle::StyleArc; });
-    connect(streamlineAction, &QAction::triggered, this, [this] { canvas->CompleteDrawing(); GlobalNodeLineStyle = NodeLineStyle::StyleStreamline; });
+    connect(polylineAction, &QAction::triggered, this, [this] { canvas->modeChange(); GlobalNodeLineStyle = NodeLineStyle::StylePolyline; });
+    connect(splineAction, &QAction::triggered, this, [this] { canvas->modeChange(); GlobalNodeLineStyle = NodeLineStyle::StyleSpline; });
+    connect(threePointArcAction, &QAction::triggered, this, [this] { canvas->modeChange(); GlobalNodeLineStyle = NodeLineStyle::StyleThreePointArc; });
+    connect(arcAction, &QAction::triggered, this, [this] { canvas->modeChange(); GlobalNodeLineStyle = NodeLineStyle::StyleArc; });
+    connect(streamlineAction, &QAction::triggered, this, [this] { canvas->modeChange(); GlobalNodeLineStyle = NodeLineStyle::StyleStreamline; });
     
     addToolBar(nodeLineToolBar);
 }
@@ -197,6 +197,8 @@ Canvas::Canvas(QWidget* parent)
     : QWidget(parent)
 {
     setMouseTracking(true); // 启用鼠标跟踪
+
+    setFocusPolicy(Qt::StrongFocus); // 启用鼠标点击和键盘切换获取焦点
 }
 
 Canvas::~Canvas() {}
@@ -230,6 +232,9 @@ void Canvas::removeGeo(Geo* geo)
 void Canvas::paintEvent(QPaintEvent* event)
 {
     QPainter painter(this);
+    
+    painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+
     painter.setRenderHint(QPainter::Antialiasing); // 启用抗锯齿
     painter.fillRect(this->rect(), Qt::white);     // 绘制白色背景
 
@@ -246,6 +251,12 @@ void Canvas::paintEvent(QPaintEvent* event)
 
 void Canvas::keyPressEvent(QKeyEvent* event)
 {
+    if (currentSelectGeo &&(event->key() == Qt::Key_Delete|| event->key() == Qt::Key_Backspace))
+    {
+        removeGeo(currentSelectGeo);
+        currentSelectGeo = nullptr;
+        selectedGeo(nullptr);
+    }
 }
 
 void Canvas::keyReleaseEvent(QKeyEvent* event)
@@ -253,7 +264,7 @@ void Canvas::keyReleaseEvent(QKeyEvent* event)
 }
 
 // 强制完成绘制
-void Canvas::CompleteDrawing()
+void Canvas::modeChange()
 {
     if (currentSelectGeo)
     {
@@ -267,6 +278,12 @@ void Canvas::CompleteDrawing()
         {
             removeGeo(currentSelectGeo);
             currentSelectGeo = nullptr;
+        }
+ 
+        if (currentSelectGeo)
+        {
+            currentSelectGeo->setStateNotSelected();
+            emit selectedGeo(nullptr);
         }
     }
 }
@@ -282,7 +299,11 @@ void Canvas::mousePressEvent(QMouseEvent* event)
     // 如果是选择模式，做点击测试
     if (DrawMode::DrawSelect == GlobalDrawMode)
     {
-        if (currentSelectGeo)currentSelectGeo->setStateNotSelected();
+        if (currentSelectGeo)
+        {
+            currentSelectGeo->setStateNotSelected();
+            currentSelectGeo = nullptr;
+        }
         for (auto it = geoList.rbegin(); it != geoList.rend(); ++it)
         {
             Geo* geo = *it;
@@ -295,7 +316,6 @@ void Canvas::mousePressEvent(QMouseEvent* event)
                 selected = true;
                 break;
             }
-            if(geo)geo->setStateNotSelected();
         }
     }
     else
@@ -308,7 +328,10 @@ void Canvas::mousePressEvent(QMouseEvent* event)
         currentSelectGeo->mousePressEvent(event);
     }
     // 空表示没有选中对象
-    if(!selected)emit selectedGeo(nullptr);
+    if (!selected)
+    {
+        emit selectedGeo(nullptr);
+    }
     update();
 }
 
@@ -319,7 +342,7 @@ void Canvas::mouseMoveEvent(QMouseEvent* event)
     // 如果是选择模式，可以进行拖拽
     if (DrawMode::DrawSelect == GlobalDrawMode && isLeftButtonPressed)
     {
-        
+        currentSelectGeo->dragGeo(event->pos());
     }
     else
     {
@@ -477,7 +500,7 @@ void GeoPropertyEditor::setGeo(Geo* geo)
 }
 
 void GeoPropertyEditor::onColorButtonClicked() {
-    if (isSwitchingObject)return; // 处于切换对象期间,不处理
+    if (isSwitchingObject) return; // 处于切换对象期间,不处理
 
     QPushButton* senderButton = qobject_cast<QPushButton*>(sender());
     QColor* selectedColor = nullptr;
@@ -502,35 +525,48 @@ void GeoPropertyEditor::onColorButtonClicked() {
         return; // 未匹配到对应的按钮
     }
 
-    *selectedColor = QColorDialog::getColor(Qt::white, this, L("选择颜色"));
+    *selectedColor = QColorDialog::getColor(
+        *selectedColor,                // 初始颜色
+        this,                          // 父窗口
+        L("选择颜色"),                 // 对话框标题
+        QColorDialog::ShowAlphaChannel // 启用透明度选择
+    );
+
     if (!selectedColor->isValid()) {
         return; // 如果用户取消了颜色选择，则退出
     }
 
-    senderButton->setStyleSheet(QString("background-color: %1").arg(selectedColor->name()));
+    // 设置按钮背景颜色
+    senderButton->setStyleSheet(QString("background-color: rgba(%1, %2, %3, %4);")
+        .arg(selectedColor->red())
+        .arg(selectedColor->green())
+        .arg(selectedColor->blue())
+        .arg(selectedColor->alpha()));
 
-    if (currentGeo) {
+    if (currentGeo)
+    {
         currentGeo->setGeoParameters(getGeoParameters());
     }
     else {
         // 设置全局默认颜色
         if (senderButton == pointColorButton) {
-            GlobalPointColor = selectedColor->rgba();
+            GlobalPointColor = *selectedColor;
         }
         else if (senderButton == lineColorButton) {
-            GlobalLineColor = selectedColor->rgba();
+            GlobalLineColor = *selectedColor;
         }
         else if (senderButton == fillColorButton) {
-            GlobalFillColor = selectedColor->rgba();
+            GlobalFillColor = *selectedColor;        
         }
         else if (senderButton == bufferLineColorButton) {
-            GlobalBufferLineColor = selectedColor->rgba();
+            GlobalBufferLineColor = *selectedColor;
         }
         else if (senderButton == bufferFillColorButton) {
-            GlobalBufferFillColor = selectedColor->rgba();
+            GlobalBufferFillColor = *selectedColor;
         }
     }
 }
+
 
 
 void GeoPropertyEditor::onValueChanged()
@@ -564,11 +600,11 @@ void GeoPropertyEditor::onValueChanged()
         GlobalBufferLineDashPattern = bufferLineDashPatternSpinBox->value();  // 缓冲区虚线段长度
 
         // 颜色设置
-        GlobalPointColor = currentPointColor.rgba();  // 点颜色
-        GlobalLineColor = currentLineColor.rgba();  // 线颜色
-        GlobalFillColor = currentFillColor.rgba();  // 填充颜色
-        GlobalBufferLineColor = currentBufferLineColor.rgba();  // 缓冲区线颜色
-        GlobalBufferFillColor = currentBufferFillColor.rgba();  // 缓冲区填充颜色
+        GlobalPointColor = currentPointColor;  // 点颜色
+        GlobalLineColor = currentLineColor;  // 线颜色
+        GlobalFillColor = currentFillColor;  // 填充颜色
+        GlobalBufferLineColor = currentBufferLineColor;  // 缓冲区线颜色
+        GlobalBufferFillColor = currentBufferFillColor;  // 缓冲区填充颜色
     }
     emit updateGeo();
 }
@@ -578,21 +614,42 @@ void GeoPropertyEditor::applyGlobalSettings()
 {
     // 从全局变量中读取并应用到各组件
 
-    // 更新颜色相关属性和按钮样式
+// 更新颜色相关属性和按钮样式
     currentPointColor = QColor(GlobalPointColor); // 当前点颜色
-    pointColorButton->setStyleSheet(QString("background-color: %1;").arg(currentPointColor.name())); // 点颜色按钮
+    pointColorButton->setStyleSheet(QString("background-color: rgba(%1, %2, %3, %4);")
+        .arg(currentPointColor.red())
+        .arg(currentPointColor.green())
+        .arg(currentPointColor.blue())
+        .arg(currentPointColor.alpha()));
 
     currentLineColor = QColor(GlobalLineColor); // 当前线颜色
-    lineColorButton->setStyleSheet(QString("background-color: %1;").arg(currentLineColor.name())); // 线颜色按钮
+    lineColorButton->setStyleSheet(QString("background-color: rgba(%1, %2, %3, %4);")
+        .arg(currentLineColor.red())
+        .arg(currentLineColor.green())
+        .arg(currentLineColor.blue())
+        .arg(currentLineColor.alpha()));
 
     currentFillColor = QColor(GlobalFillColor); // 当前填充颜色
-    fillColorButton->setStyleSheet(QString("background-color: %1;").arg(currentFillColor.name())); // 填充颜色按钮
+    fillColorButton->setStyleSheet(QString("background-color: rgba(%1, %2, %3, %4);")
+        .arg(currentFillColor.red())
+        .arg(currentFillColor.green())
+        .arg(currentFillColor.blue())
+        .arg(currentFillColor.alpha()));
 
     currentBufferLineColor = QColor(GlobalBufferLineColor); // 当前缓冲区线颜色
-    bufferLineColorButton->setStyleSheet(QString("background-color: %1;").arg(currentBufferLineColor.name())); // 缓冲区线颜色按钮
+    bufferLineColorButton->setStyleSheet(QString("background-color: rgba(%1, %2, %3, %4);")
+        .arg(currentBufferLineColor.red())
+        .arg(currentBufferLineColor.green())
+        .arg(currentBufferLineColor.blue())
+        .arg(currentBufferLineColor.alpha()));
 
     currentBufferFillColor = QColor(GlobalBufferFillColor); // 当前缓冲区面颜色
-    bufferFillColorButton->setStyleSheet(QString("background-color: %1;").arg(currentBufferFillColor.name())); // 缓冲区面颜色按钮
+    bufferFillColorButton->setStyleSheet(QString("background-color: rgba(%1, %2, %3, %4);")
+        .arg(currentBufferFillColor.red())
+        .arg(currentBufferFillColor.green())
+        .arg(currentBufferFillColor.blue())
+        .arg(currentBufferFillColor.alpha()));
+
 
     // 点属性设置
     pointShapeComboBox->setCurrentText(pointShapeToString(GlobalPointShape)); // 点形状
@@ -647,16 +704,42 @@ void GeoPropertyEditor::setGeoParameters(const GeoParameters& params)
     bufferHasBorderCheckBox->setChecked(params.bufferHasBorder); // 是否有边框
 
     // 设置颜色按钮背景
-    currentPointColor = QColor(params.pointColor);
-    currentLineColor = QColor(params.lineColor);
-    currentFillColor = QColor(params.fillColor);
-    currentBufferLineColor = QColor(params.bufferLineColor);
-    currentBufferFillColor = QColor(params.bufferFillColor);
-    bufferLineColorButton->setStyleSheet(QString("background-color: %1").arg(currentBufferLineColor.name())); // 缓冲区线颜色
-    bufferFillColorButton->setStyleSheet(QString("background-color: %1").arg(currentBufferFillColor.name())); // 缓冲区面颜色
-    pointColorButton->setStyleSheet(QString("background-color: %1").arg(currentPointColor.name()));
-    lineColorButton->setStyleSheet(QString("background-color: %1").arg(currentLineColor.name()));
-    fillColorButton->setStyleSheet(QString("background-color: %1").arg(currentFillColor.name()));
+    currentPointColor = params.pointColor;
+    currentLineColor = params.lineColor;
+    currentFillColor = params.fillColor;
+    currentBufferLineColor = params.bufferLineColor;
+    currentBufferFillColor = params.bufferFillColor;
+
+    bufferLineColorButton->setStyleSheet(QString("background-color: rgba(%1, %2, %3, %4);")
+        .arg(currentBufferLineColor.red())
+        .arg(currentBufferLineColor.green())
+        .arg(currentBufferLineColor.blue())
+        .arg(currentBufferLineColor.alpha()));
+
+    bufferFillColorButton->setStyleSheet(QString("background-color: rgba(%1, %2, %3, %4);")
+        .arg(currentBufferFillColor.red())
+        .arg(currentBufferFillColor.green())
+        .arg(currentBufferFillColor.blue())
+        .arg(currentBufferFillColor.alpha()));
+
+    pointColorButton->setStyleSheet(QString("background-color: rgba(%1, %2, %3, %4);")
+        .arg(currentPointColor.red())
+        .arg(currentPointColor.green())
+        .arg(currentPointColor.blue())
+        .arg(currentPointColor.alpha()));
+
+    lineColorButton->setStyleSheet(QString("background-color: rgba(%1, %2, %3, %4);")
+        .arg(currentLineColor.red())
+        .arg(currentLineColor.green())
+        .arg(currentLineColor.blue())
+        .arg(currentLineColor.alpha()));
+
+    fillColorButton->setStyleSheet(QString("background-color: rgba(%1, %2, %3, %4);")
+        .arg(currentFillColor.red())
+        .arg(currentFillColor.green())
+        .arg(currentFillColor.blue())
+        .arg(currentFillColor.alpha()));
+
 }
 
 
@@ -666,11 +749,11 @@ GeoParameters GeoPropertyEditor::getGeoParameters() const
 
     // 从 UI 组件获取值
     // 获取颜色值
-    params.pointColor = currentPointColor.rgba();
-    params.lineColor = currentLineColor.rgba();
-    params.fillColor = currentFillColor.rgba();
-    params.bufferLineColor = currentBufferLineColor.rgba();
-    params.bufferFillColor = currentBufferFillColor.rgba();
+    params.pointColor = currentPointColor;
+    params.lineColor = currentLineColor;
+    params.fillColor = currentFillColor;
+    params.bufferLineColor = currentBufferLineColor;
+    params.bufferFillColor = currentBufferFillColor;
 
     // 获取点属性设置
     params.pointShape = stringToPointShape(pointShapeComboBox->currentText());

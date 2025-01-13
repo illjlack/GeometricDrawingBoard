@@ -414,7 +414,7 @@ void Point::drawBuffer(QPainter& painter)
         bufferPath = QPainterPath(); // 清空并重新生成路径
 
         QVector<QVector<QPointF>>pointss = { controlPoints };
-        if (computeBufferBoundaryWithGrid(pointss, geoParameters.bufferDistance, buffers))
+        if (computeBufferBoundary( geoParameters.bufferCalculationMode,pointss, geoParameters.bufferDistance, buffers))
         {
             for (auto& points : buffers)
             {
@@ -626,7 +626,7 @@ void SimpleLine::drawBuffer(QPainter& painter)
         bufferPath = QPainterPath(); // 清空并重新生成路径
 
         QVector<QVector<QPointF>>pointss = { points };
-        if (computeBufferBoundaryWithGrid(pointss, geoParameters.bufferDistance, buffers))
+        if (computeBufferBoundary( geoParameters.bufferCalculationMode,pointss, geoParameters.bufferDistance, buffers))
         {
             for (auto& points : buffers)
             {
@@ -882,7 +882,7 @@ void DoubleLine::drawBuffer(QPainter& painter)
         resetBufferChanged(); // 重置缓冲区状态
         bufferPath = QPainterPath(); // 清空并重新生成路径
 
-        if (computeBufferBoundaryWithGrid(pointss, geoParameters.bufferDistance, buffers))
+        if (computeBufferBoundary( geoParameters.bufferCalculationMode,pointss, geoParameters.bufferDistance, buffers))
         {
             for (auto& points : buffers)
             {
@@ -1144,7 +1144,7 @@ void ParallelLine::drawBuffer(QPainter& painter)
         resetBufferChanged(); // 重置缓冲区状态
         bufferPath = QPainterPath(); // 清空并重新生成路径
 
-        if (computeBufferBoundaryWithGrid(pointss, geoParameters.bufferDistance, buffers))
+        if (computeBufferBoundary( geoParameters.bufferCalculationMode,pointss, geoParameters.bufferDistance, buffers))
         {
             for (auto& points : buffers)
             {
@@ -1344,7 +1344,7 @@ void TwoPointCircle::drawBuffer(QPainter& painter)
         bufferPath = QPainterPath(); // 清空并重新生成路径
 
         QVector<QVector<QPointF>> pointss = { points };
-        if (computeBufferBoundaryWithGrid(pointss, geoParameters.bufferDistance, buffers))
+        if (computeBufferBoundary( geoParameters.bufferCalculationMode,pointss, geoParameters.bufferDistance, buffers))
         {
             for (auto& points : buffers)
             {
@@ -1560,7 +1560,7 @@ void SimpleArea::drawBuffer(QPainter& painter)
         bufferPath = QPainterPath(); // 清空并重新生成路径
 
         QVector<QVector<QPointF>> pointss = { points };
-        if (computeBufferBoundaryWithGrid(pointss, geoParameters.bufferDistance, buffers))
+        if (computeBufferBoundary( geoParameters.bufferCalculationMode,pointss, geoParameters.bufferDistance, buffers))
         {
             for (auto& points : buffers)
             {
@@ -1802,7 +1802,7 @@ void ComplexArea::drawBuffer(QPainter& painter)
         resetBufferChanged(); // 重置缓冲区状态
         bufferPath = QPainterPath(); // 清空并重新生成路径
 
-        if (computeBufferBoundaryWithGrid(pointss, geoParameters.bufferDistance, buffers))
+        if (computeBufferBoundary( geoParameters.bufferCalculationMode ,pointss, geoParameters.bufferDistance, buffers))
         {
             for (auto& points : buffers)
             {

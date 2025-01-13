@@ -307,6 +307,9 @@ int pointPositionRelativeToVector(const QPointF& point, const QPointF& vectorSta
  */
 bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<QPointF>& points);
 
+
+bool computeBufferBoundaryWithVector(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss);
+
 // ==========================================================================================
 // 基于栅格的缓冲区分析算法（暴力枚举所有点，深搜排序）
 // ==========================================================================================
@@ -394,3 +397,6 @@ void douglasPeucker(QVector<QPointF>& points, double epsilon = 4);
  * @return 如果成功，返回true
  */
 bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss);
+
+
+bool computeBufferBoundary(BufferCalculationMode mode, const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss);

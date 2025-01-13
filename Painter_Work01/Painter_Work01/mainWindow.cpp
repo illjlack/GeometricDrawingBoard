@@ -347,8 +347,8 @@ void Canvas::mouseMoveEvent(QMouseEvent* event)
         if (geoParameters.bufferVisible)
         {
             geoParameters.bufferVisible = false;
-            currentSelectGeo->setGeoParameters(geoParameters);
-            emit selectedGeo(currentSelectGeo); // 更新一下uis
+            //currentSelectGeo->setGeoParameters(geoParameters);
+            //emit selectedGeo(currentSelectGeo); // 更新一下uis
         }
 
         currentSelectGeo->dragGeo(event->pos());
@@ -847,8 +847,8 @@ BufferCalculationMode stringToBufferCalculationMode(const QString& modeText)
 {
     static const QMap<QString, BufferCalculationMode> bufferCalculationModeMap =
     {
-        {L("矢量模式"), BufferCalculationMode::Vector},
-        {L("栅格模式"), BufferCalculationMode::Raster}
+        {L("矢量"), BufferCalculationMode::Vector},
+        {L("栅格"), BufferCalculationMode::Raster}
     };
     return bufferCalculationModeMap.value(modeText, BufferCalculationMode::Vector); // 默认返回 Vector
 }
@@ -859,9 +859,9 @@ QString bufferCalculationModeToString(BufferCalculationMode mode)
     switch (mode)
     {
     case BufferCalculationMode::Vector:
-        return L("矢量模式");
+        return L("矢量");
     case BufferCalculationMode::Raster:
-        return L("栅格模式");
+        return L("栅格");
     default:
         return L("未知");
     }

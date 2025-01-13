@@ -8,6 +8,8 @@
 #include <QApplication>
 #include "comm.h"
 #include <unordered_map>
+#include <QPainterPath>
+
 
 // ==========================================================================
 // 计算线段上的点
@@ -997,9 +999,39 @@ int pointPositionRelativeToVector(const QPointF& point, const QPointF& vectorSta
  * @return 如果计算成功则返回 true，失败则返回 false
  */
 // 参考：https://zhuanlan.zhihu.com/p/539904045
-
 bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<QPointF>& points)
 {
+    //// 插入点,使矢量图密集,避免交点越界
+    //QVector<QPointF> newPolyline;
+    //for (int i = 0; i < polyline.size(); i++)
+    //{
+    //    if (!i)newPolyline.push_back(polyline[i]);
+    //    else
+    //    {
+    //        double step = dis/20; // 步长
+    //        // 当前点和前一个点的位移
+    //        double dx = polyline[i].x() - polyline[i - 1].x();
+    //        double dy = polyline[i].y() - polyline[i - 1].y();
+    //        double length = std::sqrt(dx * dx + dy * dy);
+    //        // 单位向量方向
+    //        double ux = dx / length;
+    //        double uy = dy / length;
+
+    //        // 按照步长插入点
+    //        for (double dist = step; dist < length; dist += step)
+    //        {
+    //            QPointF newPoint = QPointF(
+    //                polyline[i - 1].x() + ux * dist,
+    //                polyline[i - 1].y() + uy * dist
+    //            );
+    //            newPolyline.push_back(newPoint);
+    //        }
+
+    //        // 加入当前点
+    //        newPolyline.push_back(polyline[i]);
+    //    }
+    //}
+
     // 思路：做折线的平行线，大于PI的角做圆弧处理，先从左往右画
 
     int plLen = polyline.size();
@@ -1047,7 +1079,10 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
 
             if (sgn(cross(x01, y01, x02, y02)) == 0)
             {
-                continue;  // 如果共线，跳过该点
+                // 如果前后线段的方向向量共线,直接用法向量加入点
+                auto [vx, vy] = normalize(y01, -x01);// （dy, -dx） = p1 - p2 方向是指向p1
+                //points.append(QPointF(x0 - vx * dis, y0 - vy * dis));
+                continue;
             }
 
             // 计算角平分线的单位向量（两个向量的平均）
@@ -1085,7 +1120,10 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
 
         if (sgn(cross(x01, y01, x02, y02)) == 0)
         {
-            continue;  // 如果共线，跳过该点
+            // 如果前后线段的方向向量共线,直接用法向量加入点
+            auto [vx, vy] = normalize(y01, -x01);// （dy, -dx） = p1 - p2 方向是指向p1
+            //points.append(QPointF(x0 - vx * dis, y0 - vy * dis));
+            continue;
         }
 
         // 计算角平分线的单位向量（两个向量的平均）
@@ -1111,6 +1149,158 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
 
     return true;
 }
+
+void simpleLine(QVector<QPointF>& points)
+{
+    int midIndex = points.size() / 2;
+
+    // 将边界点集拆分为前后两半
+    QVector<QPointF> firstHalf(points.begin(), points.begin() + midIndex + 1);
+    QVector<QPointF> secondHalf(points.mid(midIndex));
+
+    // 使用Douglas-Peucker简化两半点集
+    douglasPeucker(firstHalf, 1);
+    douglasPeucker(secondHalf, 1);
+
+    // 清空当前集合，并将简化后的前后两半合并
+    points.clear();
+    points.append(firstHalf);
+    points.append(secondHalf.mid(1));
+}
+
+bool computeBufferBoundaryWithVector(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss)
+{
+
+    QPainterPath combinedPath;
+
+    for (auto& points1 : pointss)
+    {
+        QVector<QPointF>points = points1;
+        simpleLine(points);
+        QVector<QPointF> tempPoints;
+        if (points.size() < 2)continue;
+        tempPoints.push_back(points[0]);
+        tempPoints.push_back(points[1]);
+
+        for (int i = 1; i < points.size() - 1; ++i)
+        {
+            double x0 = points[i].x(), y0 = points[i].y();
+            double x1 = points[i + 1].x(), y1 = points[i + 1].y();
+            double x2 = points[i - 1].x(), y2 = points[i - 1].y();
+
+            // 计算前后两段向量的向量
+            auto x01 = x1 - x0, y01 = y1 - y0;
+            auto x02 = x2 - x0, y02 = y2 - y0;
+
+
+            auto computeHalfAngleTan = [](double x1, double y1, double x2, double y2)
+            {
+                // 计算向量模长
+                double len1 = std::sqrt(x1 * x1 + y1 * y1);
+                double len2 = std::sqrt(x2 * x2 + y2 * y2);
+
+                // 计算点积和叉积
+                double dotProduct = x1 * x2 + y1 * y2;          // 点积
+                double crossProduct = x1 * y2 - y1 * x2;        // 叉积
+
+                // 计算 sin 和 cos
+                double cosTheta = dotProduct / (len1 * len2);
+                double sinTheta = std::fabs(crossProduct) / (len1 * len2);
+
+                // 计算 tan(θ / 2)
+                return sinTheta / (1 + cosTheta);
+            };
+
+            double needLen = r / computeHalfAngleTan(x01, y01, x02, y02); // 小于这个长度会出现自相交
+            if (std::sqrt(x01 * x01 + y01 * y01) < needLen || std::sqrt(x02 * x02 + y02 * y02) < needLen)
+            {
+                // 一段
+                QPainterPath path;
+                QVector<QPointF>outPoints;
+                calculateLineBuffer(tempPoints, r, outPoints);
+
+                simpleLine(outPoints);//简化
+
+                path.moveTo(outPoints[0]);
+                for (auto& point : outPoints)
+                {
+                    path.lineTo(point);
+                }
+                path.closeSubpath();
+
+                combinedPath = combinedPath.united(path);
+
+                tempPoints.clear();
+                tempPoints.push_back(points[i]);
+                tempPoints.push_back(points[i + 1]);
+            }
+            else
+            {
+                tempPoints.push_back(points[i+1]);
+            }
+        }
+        {
+            // 一段
+            QPainterPath path;
+            QVector<QPointF>outPoints;
+            calculateLineBuffer(tempPoints, r, outPoints);
+
+            path.moveTo(outPoints[0]);
+            for (auto& point : outPoints)
+            {
+                path.lineTo(point);
+            }
+            path.closeSubpath();
+
+            combinedPath = combinedPath.united(path);
+        }
+    }
+    
+    // 将合并后的路径转换为多边形点集
+    boundaryPointss.clear();
+    for (int i = 0; i < combinedPath.elementCount(); ++i)
+    {
+        if (combinedPath.elementAt(i).isMoveTo())
+        {
+            boundaryPointss.push_back({}); // 开始新的点集
+        }
+        boundaryPointss.last().append(QPointF(combinedPath.elementAt(i).x, combinedPath.elementAt(i).y));
+    }
+    
+    return !boundaryPointss.isEmpty();
+
+    for (auto& points : pointss)
+    {
+        boundaryPointss.push_back({});
+        calculateLineBuffer(points,r,boundaryPointss.last());
+    }
+    return true;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -1398,54 +1588,120 @@ void douglasPeucker(QVector<QPointF>& points, double epsilon) {
     }
 }
 
-// 求解三次样条的解
-void solveCubicSpline(const QVector<QPointF>& controlPoints, QVector<QPointF>& result)
-{
-    int n = controlPoints.size() - 1;
-    if (n < 1) return;
+#include <Eigen/Dense>
+// 计算样条插值的系数
+struct SplineCoefficients {
+    QVector<double> a; // 常数项
+    QVector<double> b; // 一次项
+    QVector<double> c; // 二次项
+    QVector<double> d; // 三次项
+};
 
-    QVector<double> h(n), a(n), l(n + 1, 1.0), mu(n), z(n + 1);
-
-    // 计算 h 和 a
-    for (int i = 0; i < n; ++i)
-    {
-        h[i] = controlPoints[i + 1].x() - controlPoints[i].x();
-        a[i] = (controlPoints[i + 1].y() - controlPoints[i].y()) / h[i];
+SplineCoefficients calculateSplineCoefficients(const QVector<QPointF>& controlPoints) {
+    int n = controlPoints.size();
+    if (n < 2) {
+        return {};
     }
 
-    // 解三对角方程
-    for (int i = 1; i < n; ++i)
-    {
-        l[i] = 2 * (controlPoints[i + 1].x() - controlPoints[i - 1].x()) - h[i - 1] * mu[i - 1];
-        mu[i] = h[i] / l[i];
-        z[i] = (a[i] - h[i - 1] * z[i - 1]) / l[i];
+    QVector<double> x(n), y(n);
+    for (int i = 0; i < n; ++i) {
+        x[i] = controlPoints[i].x();
+        y[i] = controlPoints[i].y();
     }
 
-    l[n] = 1.0;
-    z[n] = 0.0;
+    QVector<double> dx(n - 1), dy(n - 1);
+    QVector<QPointF> validPoints;
 
-    // 回代
-    QVector<double> c(n + 1), b(n), d(n);
-    c[n] = 0.0;
-    for (int j = n - 1; j >= 0; --j)
-    {
-        c[j] = z[j] - mu[j] * c[j + 1];
-        b[j] = (controlPoints[j + 1].y() - controlPoints[j].y()) / h[j] - h[j] * (c[j + 1] + 2 * c[j]) / 3;
-        d[j] = (c[j + 1] - c[j]) / (3 * h[j]);
+    // 处理重复点
+    for (int i = 0; i < n - 1; ++i) {
+        if (x[i] == x[i + 1] && y[i] != y[i + 1]) {
+             continue;
+        }
+        validPoints.append(controlPoints[i]);
+    }
+    validPoints.append(controlPoints.last());  // 确保最后一个点加入
+
+    n = validPoints.size();
+    for (int i = 0; i < n - 1; ++i) {
+        dx[i] = validPoints[i + 1].x() - validPoints[i].x();
+        dy[i] = validPoints[i + 1].y() - validPoints[i].y();
     }
 
-    // 生成样条曲线
-    result.clear();
-    for (int i = 0; i < n; ++i)
+    Eigen::MatrixXd A = Eigen::MatrixXd::Zero(n, n);
+    Eigen::VectorXd r = Eigen::VectorXd::Zero(n);
+
+    // 构造矩阵 A 和向量 r
+    for (int i = 1; i < n - 1; ++i) {
+        A(i, i - 1) = dx[i - 1];
+        A(i, i) = 2 * (dx[i - 1] + dx[i]);
+        A(i, i + 1) = dx[i];
+        r[i] = 3 * (dy[i] / dx[i] - dy[i - 1] / dx[i - 1]);
+    }
+
+    // 边界条件
+    A(0, 0) = 1;
+    A(n - 1, n - 1) = 1;
+
+    // 解方程
+    Eigen::VectorXd c = A.colPivHouseholderQr().solve(r);
+
+    SplineCoefficients coeff;
+    coeff.a = QVector<double>(y.begin(), y.end());
+    coeff.b.resize(n - 1);
+    coeff.c = QVector<double>(c.data(), c.data() + c.size());
+    coeff.d.resize(n - 1);
+
+    // 计算 b 和 d
+    for (int i = 0; i < n - 1; ++i) {
+        coeff.d[i] = (coeff.c[i + 1] - coeff.c[i]) / (3 * dx[i]);
+        coeff.b[i] = dy[i] / dx[i] - dx[i] * (2 * coeff.c[i] + coeff.c[i + 1]) / 3;
+    }
+
+    return coeff;
+}
+
+
+// 解算三次样条插值
+void solveCubicSpline(const QVector<QPointF>& controlPoints, QVector<QPointF>& result, int samplesPerSegment = 100) {
+    if (controlPoints.size() < 2) {
+        result.clear();
+        return; // 至少需要两个控制点
+    }
+
+    QVector<QPointF> newControlPoints;
+    for (int i = 0; i < controlPoints.size(); i++)
     {
-        for (int j = 0; j < 100; ++j)  // 每段生成100个插值点
+        if (!i)
         {
-            double t = j / 100.0;
-            double x = controlPoints[i].x() + t * h[i];
-            double y = controlPoints[i].y() + b[i] * t + c[i] * t * t + d[i] * t * t * t;
+            newControlPoints.push_back(controlPoints[i]);
+        }
+        else if (controlPoints[i].x() != controlPoints[i - 1].x())
+        {
+            newControlPoints.push_back(controlPoints[i]);
+        }
+    }
+
+    SplineCoefficients coeff = calculateSplineCoefficients(newControlPoints);
+    result.clear();
+
+    if (coeff.a.isEmpty())return;
+
+    // 遍历每个区间，生成插值点
+    for (int i = 0; i < newControlPoints.size() - 1; ++i) {
+        double x0 = newControlPoints[i].x();
+        double x1 = newControlPoints[i + 1].x();
+        double step = (x1 - x0) / samplesPerSegment;
+
+        for (int j = 0; j < samplesPerSegment; ++j) {
+            double dx = j * step;
+            double x = x0 + dx;
+            double y = coeff.a[i] + coeff.b[i] * dx + coeff.c[i] * dx * dx + coeff.d[i] * dx * dx * dx;
             result.append(QPointF(x, y));
         }
     }
+
+    // 添加最后一个控制点
+    result.append(newControlPoints.last());
 }
 
 // 计算缓冲区边界，使用栅格化算法
@@ -1496,12 +1752,12 @@ bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, dou
         if (points.size())
             points.push_back(points[0]); // 保证闭合
 
-        //calculateBSplineCurve(points, 3, points.size() * 100, smoothedPoints);
+        calculateBSplineCurve(points, 3, points.size() * 100, smoothedPoints);
 
         //solveCubicSpline(points, smoothedPoints);
 
         // 替换原始点集为平滑后的点集
-        //points.swap(smoothedPoints);
+        points.swap(smoothedPoints);
 
         // 保证闭合
         if (points.size())
@@ -1509,4 +1765,11 @@ bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, dou
     }
 
     return true;
+}
+
+bool computeBufferBoundary(BufferCalculationMode mode, const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss)
+{
+    boundaryPointss.clear();
+    if (mode == BufferCalculationMode::Raster)return computeBufferBoundaryWithGrid(pointss, r, boundaryPointss);
+    else return computeBufferBoundaryWithVector(pointss, r, boundaryPointss);
 }

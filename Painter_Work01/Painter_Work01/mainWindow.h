@@ -10,6 +10,7 @@
 #include <QSpinBox>
 #include <QComboBox>
 #include <QCheckBox>
+#include <QTransform>
 #include "Geo.h"
 
 
@@ -51,6 +52,11 @@ public:
 
     void modeChange();         // 强制完成绘制
 
+    // 设置视图矩阵
+    void resetView();                         // 重置视图矩阵为单位矩阵
+    void scaleView(qreal scaleFactor);        // 视图缩放
+    void translateView(qreal dx, qreal dy);   // 视图平移
+
 protected:
     void pushGeo(Geo* shape);           // 加入对象
     void removeGeo(Geo* geo);           // 移除对象
@@ -64,6 +70,8 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void wheelEvent(QWheelEvent* event) override;
 
+    QPointF mapPoint(const QPointF& pos) const;
+
 signals:
     void selectedGeo(Geo* geo);
 
@@ -75,6 +83,10 @@ private:
     std::list<Geo*> geoList;
     // 映射 Geo 指针到链表中对应元素的迭代器
     std::map<Geo*, std::list<Geo*>::iterator> geoMap;
+
+    QTransform view; // 视图矩阵（用于缩放和平移）
+
+    QPointF hitPoint;
 };
 
 

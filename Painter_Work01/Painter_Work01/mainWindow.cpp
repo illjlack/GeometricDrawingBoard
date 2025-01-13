@@ -203,6 +203,28 @@ Canvas::Canvas(QWidget* parent)
 
 Canvas::~Canvas() {}
 
+void Canvas::resetView()
+{
+    view.reset(); // 重置为单位矩阵
+    update();     // 触发重绘
+}
+
+void Canvas::scaleView(qreal scaleFactor)
+{
+    QTransform scale;
+    scale.scale(scaleFactor, scaleFactor);
+    view *= scale; // 累积缩放
+    update();      // 触发重绘
+}
+
+void Canvas::translateView(qreal dx, qreal dy)
+{
+    QTransform translation;
+    translation.translate(dx, dy);
+    view *= translation; // 累积平移
+    update();            // 触发重绘
+}
+
 // 添加对象到链表和映射表
 void Canvas::pushGeo(Geo* geo)
 {
@@ -232,11 +254,20 @@ void Canvas::removeGeo(Geo* geo)
 void Canvas::paintEvent(QPaintEvent* event)
 {
     QPainter painter(this);
+
+    painter.setTransform(view); // 应用视图矩阵
     
     painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
 
     painter.setRenderHint(QPainter::Antialiasing); // 启用抗锯齿
-    painter.fillRect(this->rect(), Qt::white);     // 绘制白色背景
+    
+    // 无限白色背景：绘制一个大于视口范围的矩形作为背景
+    QRectF extendedRect = QRectF(
+        view.inverted().map(QPointF(0, 0)),                        // 左上角
+        view.inverted().map(QPointF(width(), height()))           // 右下角
+    ).adjusted(-10000, -10000, 10000, 10000);                     // 延伸范围
+    painter.fillRect(extendedRect, Qt::white);
+
 
     // 遍历链表中的所有形状并绘制
     for (const auto& shape : geoList)
@@ -256,6 +287,29 @@ void Canvas::keyPressEvent(QKeyEvent* event)
         removeGeo(currentSelectGeo);
         currentSelectGeo = nullptr;
         selectedGeo(nullptr);
+    }
+
+    qreal step = 50.0; // 平移步长
+    switch (event->key())
+    {
+    case Qt::Key_R:
+        resetView();
+        break;
+    case Qt::Key_Left:
+        translateView(-step, 0);
+        break;
+    case Qt::Key_Right:
+        translateView(step, 0);
+        break;
+    case Qt::Key_Up:
+        translateView(0, -step);
+        break;
+    case Qt::Key_Down:
+        translateView(0, step);
+        break;
+    default:
+        QWidget::keyPressEvent(event);
+        break;
     }
 }
 
@@ -290,9 +344,12 @@ void Canvas::modeChange()
 
 void Canvas::mousePressEvent(QMouseEvent* event)
 {
+    QPointF pos = mapPoint(event->pos());
+
     if (event->button() == Qt::LeftButton) // 检测是否是左键
     {
         isLeftButtonPressed = true;
+        hitPoint = pos;
     }
 
     int selected = false;
@@ -307,7 +364,7 @@ void Canvas::mousePressEvent(QMouseEvent* event)
         for (auto it = geoList.rbegin(); it != geoList.rend(); ++it)
         {
             Geo* geo = *it;
-            if (geo && geo->hitTesting(event->pos()))
+            if (geo && geo->hitTesting(pos))
             {
                 currentSelectGeo = geo;
                 currentSelectGeo->setStateSelected();
@@ -325,7 +382,7 @@ void Canvas::mousePressEvent(QMouseEvent* event)
             currentSelectGeo = createGeo(GlobalDrawMode);
             pushGeo(currentSelectGeo);
         }
-        currentSelectGeo->mousePressEvent(event);
+        currentSelectGeo->mousePressEvent(event, pos);
     }
     // 空表示没有选中对象
     if (!selected)
@@ -337,32 +394,49 @@ void Canvas::mousePressEvent(QMouseEvent* event)
 
 void Canvas::mouseMoveEvent(QMouseEvent* event)
 {
-    if (!currentSelectGeo)return;
+    QPointF pos = mapPoint(event->pos());
+    QString coordinateText = QString("X: %1, Y: %2")
+        .arg(pos.x(), 0, 'f', 2)  // 'f' 表示固定点格式，2 表示显示小数点后两位
+        .arg(pos.y(), 0, 'f', 2);
+    GlobalStatusBar->showMessage(coordinateText);
 
-    // 如果是选择模式，可以进行拖拽
-    if (DrawMode::DrawSelect == GlobalDrawMode && isLeftButtonPressed)
+    if (currentSelectGeo)
     {
-        // 为了避免拖拽的时候一直算缓冲区，这里先关了
-        GeoParameters geoParameters = currentSelectGeo->getGeoParameters();
-        if (geoParameters.bufferVisible)
+        // 如果是选择模式，可以进行拖拽
+        if (DrawMode::DrawSelect == GlobalDrawMode && isLeftButtonPressed)
         {
-            geoParameters.bufferVisible = false;
-            //currentSelectGeo->setGeoParameters(geoParameters);
-            //emit selectedGeo(currentSelectGeo); // 更新一下uis
+            // 为了避免拖拽的时候一直算缓冲区，这里先关了
+            GeoParameters geoParameters = currentSelectGeo->getGeoParameters();
+            if (geoParameters.bufferVisible)
+            {
+                geoParameters.bufferVisible = false;
+                //currentSelectGeo->setGeoParameters(geoParameters);
+                //emit selectedGeo(currentSelectGeo); // 更新一下uis
+            }
+            currentSelectGeo->dragGeo(pos);
         }
-
-        currentSelectGeo->dragGeo(event->pos());
+        else
+        {
+            currentSelectGeo->mouseMoveEvent(event, pos);
+        }
     }
     else
     {
-        currentSelectGeo->mouseMoveEvent(event);
+        if (DrawMode::DrawSelect == GlobalDrawMode && isLeftButtonPressed)
+        {
+            QPointF d = pos - hitPoint;
+            translateView(d.x(), d.y());
+            hitPoint = pos;
+        }
     }
+    
     update();
-        
 }
 
 void Canvas::mouseReleaseEvent(QMouseEvent* event)
 {
+    QPointF pos = mapPoint(event->pos());
+
     if (event->button() == Qt::LeftButton) // 检测是否是左键
     {
         isLeftButtonPressed = false;
@@ -377,6 +451,18 @@ void Canvas::mouseReleaseEvent(QMouseEvent* event)
 
 void Canvas::wheelEvent(QWheelEvent* event)
 {
+    qreal scaleFactor = 1.1;
+    if (event->angleDelta().y() < 0)
+    {
+        scaleFactor = 1.0 / scaleFactor;
+    }
+    scaleView(scaleFactor);
+}
+
+QPointF Canvas::mapPoint(const QPointF& pos) const
+{
+    // 使用视图矩阵的逆变换将事件位置映射为浮动坐标
+    return view.inverted().map(pos);
 }
 
 

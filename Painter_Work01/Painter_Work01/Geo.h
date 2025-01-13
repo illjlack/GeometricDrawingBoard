@@ -24,8 +24,8 @@ public:
     // 接受鼠标和键盘事件进行绘制或修改（基类仅维护状态）
     virtual void keyPressEvent(QKeyEvent* event);
     virtual void keyReleaseEvent(QKeyEvent* event);
-    virtual void mouseMoveEvent(QMouseEvent* event);
-    virtual void mousePressEvent(QMouseEvent* event);
+    virtual void mouseMoveEvent(QMouseEvent* event, const QPointF& pos);
+    virtual void mousePressEvent(QMouseEvent* event, const QPointF& pos);
     virtual void mouseReleaseEvent(QMouseEvent* event);
     virtual void wheelEvent(QWheelEvent* event);
 
@@ -63,9 +63,9 @@ protected:
     QPointF tempControlPoints;          // 临时控制点
     GeoParameters geoParameters;        // 几何参数
 
-    virtual void updateTempPoint(const QPoint& pos);   // 更新临时点
+    virtual void updateTempPoint(const QPointF& pos);   // 更新临时点
     virtual void endSegmentDrawing();   // 结束段绘制
-    virtual void pushControlPoint(const QPoint& pos);  // 添加控制点
+    virtual void pushControlPoint(const QPointF& pos);  // 添加控制点
 
     bool isMouseLeftButtonPressed();
 
@@ -99,8 +99,8 @@ class Point : public Geo
 public:
     Point();
 
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
+    void mousePressEvent(QMouseEvent* event, const QPointF& pos) override;
+    void mouseMoveEvent(QMouseEvent* event, const QPointF& pos) override;
     void completeDrawing() override;
 
     void draw(QPainter& painter) override;
@@ -118,8 +118,8 @@ class SimpleLine : public Geo
 public:
     SimpleLine();
 
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
+    void mousePressEvent(QMouseEvent* event, const QPointF& pos) override;
+    void mouseMoveEvent(QMouseEvent* event, const QPointF& pos) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void completeDrawing() override;
 
@@ -142,12 +142,12 @@ public:
     DoubleLine();
     void initialize() override;
 
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
+    void mousePressEvent(QMouseEvent* event, const QPointF& pos) override;
+    void mouseMoveEvent(QMouseEvent* event, const QPointF& pos) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void completeDrawing() override;
 
-    void pushControlPoint(const QPoint& pos) override;
+    void pushControlPoint(const QPointF& pos) override;
     void endSegmentDrawing() override;
 
     bool hitTesting(const QPointF& point) override;
@@ -172,15 +172,15 @@ public:
     ParallelLine();
     void initialize() override;
 
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
+    void mousePressEvent(QMouseEvent* event, const QPointF& pos) override;
+    void mouseMoveEvent(QMouseEvent* event, const QPointF& pos) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void completeDrawing() override;
 
     bool hitTesting(const QPointF& point) override;
 
     void endSegmentDrawing() override;
-    void pushControlPoint(const QPoint& pos) override;
+    void pushControlPoint(const QPointF& pos) override;
 
     void draw(QPainter& painter) override;
     void drawBuffer(QPainter& painter) override;
@@ -200,11 +200,11 @@ class TwoPointCircle : public Geo
 public:
     TwoPointCircle();
 
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
+    void mousePressEvent(QMouseEvent* event, const QPointF& pos) override;
+    void mouseMoveEvent(QMouseEvent* event, const QPointF& pos) override;
     void completeDrawing() override;
 
-    void pushControlPoint(const QPoint& pos) override;
+    void pushControlPoint(const QPointF& pos) override;
 
     bool hitTesting(const QPointF& point) override;
 
@@ -225,8 +225,8 @@ class SimpleArea : public Geo
 public:
     SimpleArea();
 
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
+    void mousePressEvent(QMouseEvent* event, const QPointF& pos) override;
+    void mouseMoveEvent(QMouseEvent* event, const QPointF& pos) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void completeDrawing() override;
 
@@ -250,13 +250,13 @@ public:
     ComplexArea();
     void initialize() override;
 
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
+    void mousePressEvent(QMouseEvent* event, const QPointF& pos) override;
+    void mouseMoveEvent(QMouseEvent* event, const QPointF& pos) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void completeDrawing() override;
 
     void endSegmentDrawing() override;
-    void pushControlPoint(const QPoint& pos) override;
+    void pushControlPoint(const QPointF& pos) override;
 
     bool hitTesting(const QPointF& point) override;
 

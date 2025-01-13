@@ -237,11 +237,11 @@ void Geo::keyReleaseEvent(QKeyEvent* event)
 }
 
 // 如果选中
-void Geo::mouseMoveEvent(QMouseEvent* event)
+void Geo::mouseMoveEvent(QMouseEvent* event, const QPointF& pos)
 {
 }
 
-void Geo::mousePressEvent(QMouseEvent* event)
+void Geo::mousePressEvent(QMouseEvent* event, const QPointF& pos)
 {
     if (event->button() == Qt::LeftButton)
     {
@@ -261,7 +261,7 @@ void Geo::wheelEvent(QWheelEvent* event)
 {
 }
 
-void Geo::updateTempPoint(const QPoint& pos)
+void Geo::updateTempPoint(const QPointF& pos)
 {
     tempControlPoints = pos;
 }
@@ -271,7 +271,7 @@ void Geo::endSegmentDrawing()
     completeDrawing();
 }
 
-void Geo::pushControlPoint(const QPoint& pos)
+void Geo::pushControlPoint(const QPointF& pos)
 {
     markControlPointsChanged();
     controlPoints.push_back(pos);
@@ -286,7 +286,7 @@ Point::Point()
 }
 
 
-void Point::mousePressEvent(QMouseEvent* event)
+void Point::mousePressEvent(QMouseEvent* event, const QPointF& pos)
 {
     if (!isStateInitialized()) initialize();
     if (isStateComplete()) return;
@@ -297,18 +297,18 @@ void Point::mousePressEvent(QMouseEvent* event)
     }
     else if (event->button() == Qt::LeftButton)
     {
-        pushControlPoint(event->pos());
+        pushControlPoint(pos);
         endSegmentDrawing();
     }
 
-    Geo::mousePressEvent(event);
+    Geo::mousePressEvent(event,pos);
 }
 
-void Point::mouseMoveEvent(QMouseEvent* event)
+void Point::mouseMoveEvent(QMouseEvent* event, const QPointF& pos)
 {
     if (!isStateComplete())
     {
-        updateTempPoint(event->pos());
+        updateTempPoint(pos);
     }
 }
 
@@ -442,7 +442,7 @@ SimpleLine::SimpleLine()
     setStateSelected(); // 还在绘制中，是当前选中
 }
 
-void SimpleLine::mousePressEvent(QMouseEvent* event)
+void SimpleLine::mousePressEvent(QMouseEvent* event, const QPointF& pos)
 {
     if (!isStateInitialized()) initialize();
     if (isStateComplete()) return;
@@ -453,21 +453,21 @@ void SimpleLine::mousePressEvent(QMouseEvent* event)
     }
     else if (event->button() == Qt::LeftButton)
     {
-        pushControlPoint(event->pos());
+        pushControlPoint(pos);
     }
 
-    Geo::mousePressEvent(event);
+    Geo::mousePressEvent(event,pos);
 }
 
-void SimpleLine::mouseMoveEvent(QMouseEvent* event)
+void SimpleLine::mouseMoveEvent(QMouseEvent* event, const QPointF& pos)
 {
     if (isStateComplete()) return;
 
-    updateTempPoint(event->pos());
+    updateTempPoint(pos);
 
     if (geoParameters.nodeLineStyle == NodeLineStyle::StyleStreamline && isMouseLeftButtonPressed())
     {
-        pushControlPoint(event->pos());
+        pushControlPoint(pos);
     }
 }
 
@@ -662,7 +662,7 @@ void DoubleLine::initialize()
     Geo::initialize();
 }
 
-void DoubleLine::mousePressEvent(QMouseEvent* event)
+void DoubleLine::mousePressEvent(QMouseEvent* event, const QPointF& pos)
 {
     if (!isStateInitialized()) initialize();
     if (isStateComplete()) return;
@@ -673,22 +673,22 @@ void DoubleLine::mousePressEvent(QMouseEvent* event)
     }
     else if (event->button() == Qt::LeftButton)
     {
-        pushControlPoint(event->pos());
+        pushControlPoint(pos);
     }
 
-    Geo::mousePressEvent(event);
+    Geo::mousePressEvent(event,pos);
 }
 
-void DoubleLine::mouseMoveEvent(QMouseEvent* event)
+void DoubleLine::mouseMoveEvent(QMouseEvent* event, const QPointF& pos)
 {
     if (!isStateComplete())
     {
-        updateTempPoint(event->pos());
+        updateTempPoint(pos);
 
         // 如果是流线,按下移动的时候就绘制
         if (isDrawing && component.last().nodeLineStyle == NodeLineStyle::StyleStreamline && isMouseLeftButtonPressed())
         {
-            pushControlPoint(event->pos());
+            pushControlPoint(pos);
         }
     }
 }
@@ -703,7 +703,7 @@ void DoubleLine::mouseReleaseEvent(QMouseEvent* event)
     Geo::mouseReleaseEvent(event);
 }
 
-void DoubleLine::pushControlPoint(const QPoint& pos)
+void DoubleLine::pushControlPoint(const QPointF& pos)
 {
     markControlPointsChanged();
 
@@ -920,7 +920,7 @@ void ParallelLine::initialize()
     Geo::initialize();
 }
 
-void ParallelLine::mousePressEvent(QMouseEvent* event)
+void ParallelLine::mousePressEvent(QMouseEvent* event, const QPointF& pos)
 {
     if (!isStateInitialized()) initialize();
     if (isStateComplete()) return;
@@ -932,23 +932,23 @@ void ParallelLine::mousePressEvent(QMouseEvent* event)
 
     if (event->button() == Qt::LeftButton)
     {
-        pushControlPoint(event->pos());
+        pushControlPoint(pos);
     }
 
-    Geo::mousePressEvent(event);
+    Geo::mousePressEvent(event, pos);
 }
 
-void ParallelLine::mouseMoveEvent(QMouseEvent* event)
+void ParallelLine::mouseMoveEvent(QMouseEvent* event, const QPointF& pos)
 {
     if (!isStateComplete())
     {
-        updateTempPoint(event->pos());
+        updateTempPoint(pos);
     }
 
     // 如果是流线, 按下移动的时候就绘制
     if (!isStateComplete() && component.last().nodeLineStyle == NodeLineStyle::StyleStreamline && isMouseLeftButtonPressed())
     {
-        pushControlPoint(event->pos());
+        pushControlPoint(pos);
     }
 }
 
@@ -974,7 +974,7 @@ void ParallelLine::endSegmentDrawing()
     }
 }
 
-void ParallelLine::pushControlPoint(const QPoint& pos)
+void ParallelLine::pushControlPoint(const QPointF& pos)
 {
     markControlPointsChanged();
 
@@ -1172,7 +1172,7 @@ TwoPointCircle::TwoPointCircle()
 }
 
 
-void TwoPointCircle::mousePressEvent(QMouseEvent* event)
+void TwoPointCircle::mousePressEvent(QMouseEvent* event, const QPointF& pos)
 {
     if (!isStateInitialized())initialize();
     if (isStateComplete())return;
@@ -1183,21 +1183,21 @@ void TwoPointCircle::mousePressEvent(QMouseEvent* event)
     }
     if (event->button() == Qt::LeftButton)
     {
-        pushControlPoint(event->pos());
+        pushControlPoint(pos);
     }
 
-    Geo::mousePressEvent(event);
+    Geo::mousePressEvent(event, pos);
 }
 
-void TwoPointCircle::mouseMoveEvent(QMouseEvent* event)
+void TwoPointCircle::mouseMoveEvent(QMouseEvent* event, const QPointF& pos)
 {
     if (!isStateComplete())
     {
-        tempControlPoints = event->pos();
+        tempControlPoints = pos;
     }
 }
 
-void TwoPointCircle::pushControlPoint(const QPoint& pos)
+void TwoPointCircle::pushControlPoint(const QPointF& pos)
 {
     markControlPointsChanged();
 
@@ -1374,7 +1374,7 @@ SimpleArea::SimpleArea()
     setStateSelected(); // 还在绘制中，是当前选中
 }
 
-void SimpleArea::mousePressEvent(QMouseEvent* event)
+void SimpleArea::mousePressEvent(QMouseEvent* event, const QPointF& pos)
 {
     if (!isStateInitialized())initialize();
     if (isStateComplete())return;
@@ -1385,23 +1385,23 @@ void SimpleArea::mousePressEvent(QMouseEvent* event)
     }
     if (event->button() == Qt::LeftButton)
     {
-        pushControlPoint(event->pos());
+        pushControlPoint(pos);
     }
 
-    Geo::mousePressEvent(event);
+    Geo::mousePressEvent(event,pos);
 }
 
-void SimpleArea::mouseMoveEvent(QMouseEvent* event)
+void SimpleArea::mouseMoveEvent(QMouseEvent* event, const QPointF& pos)
 {
     if (!isStateComplete())
     {
-        tempControlPoints = event->pos();
+        tempControlPoints = pos;
     }
 
     // 如果是流线, 按下移动的时候就绘制
     if (!isStateComplete() && geoParameters.nodeLineStyle == NodeLineStyle::StyleStreamline && isMouseLeftButtonPressed())
     {
-        pushControlPoint(event->pos());
+        pushControlPoint(pos);
     }
 }
 
@@ -1598,7 +1598,7 @@ void ComplexArea::initialize()
     Geo::initialize();
 }
 
-void ComplexArea::mousePressEvent(QMouseEvent* event)
+void ComplexArea::mousePressEvent(QMouseEvent* event, const QPointF& pos)
 {
     if (!isStateInitialized())initialize();
     if (isStateComplete())return;
@@ -1609,21 +1609,21 @@ void ComplexArea::mousePressEvent(QMouseEvent* event)
     }
     if (event->button() == Qt::LeftButton)
     {
-        pushControlPoint(event->pos());
+        pushControlPoint(pos);
     }
 
-    Geo::mousePressEvent(event);
+    Geo::mousePressEvent(event, pos);
 }
 
-void ComplexArea::mouseMoveEvent(QMouseEvent* event)
+void ComplexArea::mouseMoveEvent(QMouseEvent* event, const QPointF& pos)
 {
     if (!isStateComplete())
     {
-        tempControlPoints = event->pos();
+        tempControlPoints = pos;
     }
     if (isDrawing && component.last().nodeLineStyle == NodeLineStyle::StyleStreamline && isMouseLeftButtonPressed())
     {
-        pushControlPoint(event->pos());
+        pushControlPoint(pos);
     }
 }
 
@@ -1637,7 +1637,7 @@ void ComplexArea::mouseReleaseEvent(QMouseEvent* event)
     Geo::mouseReleaseEvent(event);
 }
 
-void ComplexArea::pushControlPoint(const QPoint& pos)
+void ComplexArea::pushControlPoint(const QPointF& pos)
 {
     markControlPointsChanged();
 

@@ -1888,7 +1888,6 @@ void sweepLineFindIntersections(const QVector<QVector<QPointF>>& pointss, QVecto
 
     struct Event {
         QPointF point;                          // 当前事件的坐标
-        std::pair<double, double> key1, key2;   // 查找所属线段和相交线段的 key 值
         int segmentIndex;                       // 所属线段的索引
         int intersecIndex;                      // 相交线段的索引
         EventType type;                         // 事件类型
@@ -1909,48 +1908,63 @@ void sweepLineFindIntersections(const QVector<QVector<QPointF>>& pointss, QVecto
 
     // 用于记录每个闭合曲线的索引区间（用来判断段的向量关系）
     std::vector<std::pair<int, int>> ringRanges;
+
+    int cnt = 0;
     // 闭合曲线
     for (const auto& points : pointss) {
         
-        int startIndex = segments.size();
+        int startIndex = cnt;
         for (int i = 0; i < points.size() - 1; ++i) {
             // 创建线段
             Segment segment(points[i], points[i + 1]);
             segments.push_back(segment);
-
+            cnt++;
 
 
             // 生成起点和终点事件
             Event startEvent{
-                segment.start,                                // 起点坐标
-                {segment.start.y(), segment.slope},         // 起点 key (y + 斜率)
-                {},                                           // 没有交点时的 key2
-                i,                                            // 线段索引
-                -1,                                           // 交点索引（起点没有交点）
-                Start                                          // 事件类型
+                segment.start,                                  // 起点坐标
+                cnt - 1,                                        // 线段索引
+                -1,                                             // 交点索引（起点没有交点）
+                Start                                           // 事件类型
             };
 
             Event endEvent{
-                segment.end,                                  // 终点坐标
-                {segment.end.y(), segment.slope},           // 终点 key (y + 斜率)
-                {},                                           // 没有交点时的 key2
-                i,                                            // 线段索引
-                -1,                                           // 交点索引（终点没有交点）
-                End                                            // 事件类型
+                segment.end,                                    // 终点坐标
+                cnt - 1,                                        // 线段索引
+                -1,                                             // 交点索引（终点没有交点）
+                End                                             // 事件类型
             };
 
             // 将事件插入优先队列
             events.push(startEvent);
             events.push(endEvent);
         }
-        int endIndex = segments.size() - 1; // 最后一个线段索引
+        int endIndex = cnt - 1; // 最后一个线段索引
         ringRanges.push_back({ startIndex, endIndex });
     }
 
     // Step 2: 扫描事件点
-    // 维护y的顺序对应的段 (y + 斜率 ,段号)
+    // 维护y的顺序对应的段 (y + x + 斜率 ,段号)
+    struct CustomComparator {
+        bool operator()(const std::pair<QPointF, double>& a, const std::pair<QPointF, double>& b) const {
+            // 确定比较的 x 值（较大值）
+            double x_target = std::max(a.first.x(), b.first.x());
 
-    std::multimap<std::pair<double, double>, int, std::less<std::pair<double, double>>>statusTree;
+            // 计算 a 和 b 在 x = x_target 处的 y 值
+            double y_a = a.first.y() + a.second * (x_target - a.first.x()); // y = y0 + k * (x - x0)
+            double y_b = b.first.y() + b.second * (x_target - b.first.x());
+
+            // 比较 y 值
+            if (y_a != y_b) {
+                return y_a < y_b;
+            }
+          
+            // 如果相同，按斜率进行比较
+            return a.second < b.second;
+        }
+    };
+    std::multimap<std::pair<QPointF, double>, int, CustomComparator >statusTree;
 
     auto isAdjacentSegments = [&](int segIndex1, int segIndex2) {
 
@@ -1974,13 +1988,12 @@ void sweepLineFindIntersections(const QVector<QVector<QPointF>>& pointss, QVecto
     };
 
     auto addIntersectionEvent = [&](int seg1, int seg2) {
-        if (isAdjacentSegments(seg1, seg2))return; // 如果两段相邻，忽略计算交点(因为逻辑上会重复放线，判断线是否相同，还要判断起点是否相同)
+        if (isAdjacentSegments(seg1, seg2))return; // 如果两段相邻，忽略计算交点(因为逻辑上会重复放线等待到交点位置，判断线是否相同，还要判断起点是否相同)
 
         if (doIntersect(segments[seg1], segments[seg2])) {
             QPointF intersecPoint = calculateIntersection(segments[seg1], segments[seg2]);
             intersections.push_back(intersecPoint);
-            events.push({ intersecPoint,{segments[seg1].start.y(),segments[seg1].slope},
-                {segments[seg2].start.y(),segments[seg2].slope} ,seg1, seg2, Intersection });
+            events.push({ intersecPoint ,seg1, seg2, Intersection });
         }
     };
 
@@ -1992,7 +2005,7 @@ void sweepLineFindIntersections(const QVector<QVector<QPointF>>& pointss, QVecto
 
         if (event.type == Start) {
             // 计算线段的 key 值
-            std::pair<double, double> key = { segments[segmentIdx].start.y(), segments[segmentIdx].slope };
+            std::pair<QPointF, double> key = { segments[segmentIdx].start, segments[segmentIdx].slope };
 
             // 插入线段到状态树
             auto inserted = statusTree.insert({ key, segmentIdx });
@@ -2008,7 +2021,7 @@ void sweepLineFindIntersections(const QVector<QVector<QPointF>>& pointss, QVecto
         }
         else if (event.type == End) {
             // 计算线段的 key 值
-            std::pair<double, double> key = { segments[segmentIdx].start.y(), segments[segmentIdx].slope };
+            std::pair<QPointF, double> key = { segments[segmentIdx].start, segments[segmentIdx].slope };
 
             // 查找要移除的线段
             auto it = statusTree.find(key);
@@ -2031,8 +2044,8 @@ void sweepLineFindIntersections(const QVector<QVector<QPointF>>& pointss, QVecto
             int seg2 = event.intersecIndex;
 
             // 计算线段的 key 值
-            std::pair<double, double> key1 = { segments[seg1].start.y(), segments[seg1].slope };
-            std::pair<double, double> key2 = { segments[seg2].start.y(), segments[seg2].slope };
+            std::pair<QPointF, double> key1 = { segments[seg1].start, segments[seg1].slope };
+            std::pair<QPointF, double> key2 = { segments[seg2].start, segments[seg2].slope };
 
             // 删除原有线段
             // 使用 find 方法确认是否在状态树中存在相同 key 对应的段
@@ -2056,32 +2069,43 @@ void sweepLineFindIntersections(const QVector<QVector<QPointF>>& pointss, QVecto
             segments[seg1].start = event.point;
             segments[seg2].start = event.point;
 
-            key1 = { segments[seg1].start.y(), segments[seg1].slope};
-            key2 = { segments[seg2].start.y(), segments[seg2].slope};
-
-            // 更新后重新插入线段（更新状态树）
-            statusTree.insert({ key1, seg1 });
-            statusTree.insert({ key2, seg2 });
-
+            // 到交点了，继续插入检查
             // 把开始加入event
             events.push({
                 segments[seg1].start,                                   // 起点坐标
-                {segments[seg1].start.y(), segments[seg1].slope},     // 起点 key (y + 斜率)
-                {},                                                     // 没有交点时的 key2
                 seg1,                                                   // 线段索引
                 -1,                                                     // 交点索引（起点没有交点）
                 Start                                                   // 事件类型
                 });
             events.push({
                 segments[seg2].start,                                   // 起点坐标
-                {segments[seg2].start.y(), segments[seg2].slope},     // 起点 key (y + 斜率)
-                {},                                                     // 没有交点时的 key2
                 seg2,                                                   // 线段索引
                 -1,                                                     // 交点索引（起点没有交点）
                 Start                                                   // 事件类型
                 });
         }
     }
+
+    struct QPointFComparator {
+        bool operator()(const QPointF& a, const QPointF& b) const {
+            if (a.x() != b.x()) {
+                return a.x() < b.x();
+            }
+            return a.y() < b.y();
+        }
+    };
+
+    struct QPointFEqual {
+        bool operator()(const QPointF& a, const QPointF& b) const {
+            // 定义相等的条件：x 和 y 均相等
+            return qFuzzyCompare(a.x(), b.x()) && qFuzzyCompare(a.y(), b.y());
+        }
+    };
+
+    // 排序
+    std::sort(intersections.begin(), intersections.end(), QPointFComparator());
+    // 去重
+    intersections.erase(std::unique(intersections.begin(), intersections.end(), QPointFEqual()), intersections.end());
 }
 
 
@@ -2329,4 +2353,13 @@ void mergePolygons(const QVector<QVector<QPointF>>& pointss, QVector<QVector<QPo
 
     // Step 4: 重建拓扑结构并合并多边形
     //reconstructPolygons(splitLines, outputPointss); // 处理多边形的合并与裁剪
+}
+
+
+void test()
+{
+    //QVector<QVector<QPointF>> pointss = { {{1,1}, {10,1}} ,{{0,5},{10,5}},{{3,0},{3,10}},{{9,10},{10,0}} },x;
+    QVector<QVector<QPointF>> pointss = { {{0,0}, {16,12}} ,{{6,0},{22,12}},{{6,9},{12,0}},{{10,12},{18,0}} }, x;
+    mergePolygons(pointss, x);
+
 }

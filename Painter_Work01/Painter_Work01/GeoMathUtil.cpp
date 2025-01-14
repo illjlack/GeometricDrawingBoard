@@ -2355,9 +2355,13 @@ void mergePolygons(const QVector<QVector<QPointF>>& pointss, QVector<QVector<QPo
 
     // Step 3: 过滤位于多边形内部的线段
     QVector<QVector<QPointF>> filteredSplitLines;
-   // filterSplitLinesInsidePolygons(splitLines, pointss, filteredSplitLines); // 点集 pointss 表示原始多边形
-    
-
+    filterSplitLinesInsidePolygons(splitLines, pointss, filteredSplitLines); // 点集 pointss 表示原始多边形
+  
+    qDebug() << L("过滤后段数: %1").arg(filteredSplitLines.size());
+    for (const auto& points : filteredSplitLines)
+    {
+        qDebug() << points[0] << ' ' << points.last();
+    }
 
 
     // Step 4: 重建拓扑结构并合并多边形

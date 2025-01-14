@@ -296,16 +296,16 @@ void Canvas::keyPressEvent(QKeyEvent* event)
         resetView();
         break;
     case Qt::Key_Left:
-        translateView(-step, 0);
-        break;
-    case Qt::Key_Right:
         translateView(step, 0);
         break;
+    case Qt::Key_Right:
+        translateView(-step, 0);
+        break;
     case Qt::Key_Up:
-        translateView(0, -step);
+        translateView(0, step);
         break;
     case Qt::Key_Down:
-        translateView(0, step);
+        translateView(0, -step);
         break;
     default:
         QWidget::keyPressEvent(event);
@@ -349,7 +349,7 @@ void Canvas::mousePressEvent(QMouseEvent* event)
     if (event->button() == Qt::LeftButton) // 检测是否是左键
     {
         isLeftButtonPressed = true;
-        hitPoint = pos;
+        hitPoint = event -> pos(); //  屏幕坐标，因为移动的时候已经缩放了（移动和缩放操作是一起累积的）
     }
 
     int selected = false;
@@ -395,6 +395,7 @@ void Canvas::mousePressEvent(QMouseEvent* event)
 void Canvas::mouseMoveEvent(QMouseEvent* event)
 {
     QPointF pos = mapPoint(event->pos());
+
     QString coordinateText = QString("X: %1, Y: %2")
         .arg(pos.x(), 0, 'f', 2)  // 'f' 表示固定点格式，2 表示显示小数点后两位
         .arg(pos.y(), 0, 'f', 2);
@@ -424,12 +425,11 @@ void Canvas::mouseMoveEvent(QMouseEvent* event)
     {
         if (DrawMode::DrawSelect == GlobalDrawMode && isLeftButtonPressed)
         {
-            QPointF d = pos - hitPoint;
+            QPointF d = event->pos() - hitPoint;
             translateView(d.x(), d.y());
-            hitPoint = pos;
         }
     }
-    
+    hitPoint = event->pos();
     update();
 }
 

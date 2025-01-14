@@ -2173,6 +2173,9 @@ void splitLineByIntersections(const QVector<QVector<QPointF>>& polygons,
                 splitLines.push_back({ pointsOnSegment[j] });
             }
         }
+        splitLines.last().append(polygon.last());
+
+
     }
 }
 
@@ -2343,6 +2346,12 @@ void mergePolygons(const QVector<QVector<QPointF>>& pointss, QVector<QVector<QPo
     // Step 2: 根据交点分割线段
     QVector<QVector<QPointF>> splitLines;
     splitLineByIntersections(pointss, intersectionPoints, splitLines); // 分割线段
+
+    qDebug() << L("分割段数: %1").arg(splitLines.size());
+    for (const auto& points : splitLines)
+    {
+        qDebug() << points[0]<< ' '<<points.last();
+    }
 
     // Step 3: 过滤位于多边形内部的线段
     QVector<QVector<QPointF>> filteredSplitLines;

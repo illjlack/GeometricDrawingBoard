@@ -2,8 +2,6 @@
 #include <QtWidgets/QApplication>
 #include "comm.h"
 
-#include "GeoMathUtil.h"
-
 int main(int argc, char *argv[])
 {
     QApplication a(argc, argv);
@@ -11,8 +9,6 @@ int main(int argc, char *argv[])
 
     MainWindow w;
     w.show();
-
-    test();
 
     return a.exec();
 }

@@ -10,6 +10,7 @@
 #include <QSplitter>
 #include <QCheckBox>
 #include "comm.h"
+#include <QElapsedTimer>
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent),
@@ -394,6 +395,19 @@ void Canvas::mousePressEvent(QMouseEvent* event)
 
 void Canvas::mouseMoveEvent(QMouseEvent* event)
 {
+    static QElapsedTimer timer;
+    if (!timer.isValid())
+    {
+        timer.start(); // 初始化计时器
+    }
+
+    // 时间节流：控制事件处理频率
+    if (timer.elapsed() < 30) // 30 毫秒内不处理
+    {
+        return;
+    }
+    timer.restart(); // 重置计时器
+
     QPointF pos = mapPoint(event->pos());
 
     QString coordinateText = QString("X: %1, Y: %2")

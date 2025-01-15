@@ -4,6 +4,7 @@
 #include <stdexcept>
 #include "Geo.h"
 #include "comm.h"
+#include <QRandomGenerator>
 
 #define M_PI 3.14159265358979323846
 
@@ -620,7 +621,7 @@ void SimpleLine::drawBuffer(QPainter& painter)
     painter.setBrush(bufferBrush);
 
     // 如果缓冲区变化或路径为空，重新计算缓冲区路径
-    if (isBufferChanged() || bufferPath.isEmpty())
+    if (isBufferChanged() || bufferPath.isEmpty() || true)
     {
         resetBufferChanged(); // 重置缓冲区状态
         bufferPath = QPainterPath(); // 清空并重新生成路径
@@ -628,14 +629,39 @@ void SimpleLine::drawBuffer(QPainter& painter)
         QVector<QVector<QPointF>>pointss = { points };
         if (computeBufferBoundary( geoParameters.bufferCalculationMode,pointss, geoParameters.bufferDistance, buffers))
         {
+            int cnt = 50;
             for (auto& points : buffers)
             {
+                
+                // 生成随机颜色（也可以根据需求设置颜色规则）
+                QColor lineColor = QColor::fromHsv(cnt % 360, 255, 255); // 随机色
+                lineColor.setAlpha(255); // 设置完全不透明
+                QPen pen;
+                pen.setColor(lineColor);
+                painter.setPen(pen);
+                QPainterPath singlePath;
+                painter.setBrush(bufferBrush);
+
+
                 if (points.size() < 2) continue; // 跳过无效分图
                 bufferPath.moveTo(points.first());
+
+                singlePath.moveTo(points.first());
+
                 for (int i = 1; i < points.size(); ++i)
                 {
                     bufferPath.lineTo(points[i]);
+
+                    singlePath.lineTo(points[i]);
                 }
+                painter.setBrush(Qt::red);
+                painter.drawEllipse(points.first(), 2.0, 2.0);
+                painter.drawEllipse(points.last(), 2.0, 2.0);
+                painter.setBrush(bufferBrush);
+
+                painter.drawPath(singlePath); // 绘制单条路径
+
+                cnt += 50;
             }
         }
     }

@@ -8,22 +8,25 @@
 #include <QApplication>
 #include "comm.h"
 #include <unordered_map>
+#include <unordered_set>
 #include <QPainterPath>
 #include <set>
 
+const double EPSILON = 1e-3;
+
 // 比较器（给std容器用）
 struct QPointFComparator {
-    bool operator()(const QPointF& a, const QPointF& b) const {
-        if (a.x() != b.x()) {
-            return a.x() < b.x();
+    bool operator()(const QPointF& p1, const QPointF& p2) const {
+        if (std::fabs(p1.x() - p2.x()) > EPSILON) {
+            return p1.x() < p2.x();
         }
-        return a.y() < b.y();
+        return p1.y() < p2.y();
     }
 };
 
 struct QPointFEqual {
-    bool operator()(const QPointF& a, const QPointF& b) const {
-        return qFuzzyCompare(a.x(), b.x()) && qFuzzyCompare(a.y(), b.y());
+    bool operator()(const QPointF& p1, const QPointF& p2) const {
+        return std::fabs(p1.x() - p2.x()) < EPSILON && std::fabs(p1.y() - p2.y()) < EPSILON;
     }
 };
 
@@ -441,7 +444,7 @@ bool calculateBSplineCurve(const QVector<QPointF>& controlPoints, int degree, in
 // ==========================================================================
 
 /**
- * 规范化角度，确保角度在[0, 2π)范围内
+ * 规范化角度，确保角度在[0, 2π)范围内，并支持顺时针为正
  * @param angle 输入角度（弧度制）
  * @return 规范化后的角度（弧度制）
  */
@@ -457,7 +460,6 @@ double normalizeAngle(double angle)
     }
     return angle;
 }
-
 /**
  * 根据三个点计算圆心和半径
  * @param p1 圆上的第一个点
@@ -543,7 +545,7 @@ bool calculateCircle(const QPointF& p1, const QPointF& p2, QPointF& center, doub
 }
 
 /**
- * 根据圆心、半径、起始角度、角度差值和步数计算弧线上的点
+ * 根据圆心、半径、起始角度、角度差值和步数计算弧线上的点(正的逆时针)
  * @param center 圆心坐标
  * @param radius 圆的半径
  * @param startAngle 起始角度（弧度制）
@@ -1722,12 +1724,12 @@ struct Segment
 };
 
 // 检查两条线段是否相交
-bool doIntersect(const Segment& s1, const Segment& s2) 
+bool doIntersect(const Segment& s1, const Segment& s2)
 {
-    auto orientation = [](const QPointF& p, const QPointF& q, const QPointF& r) 
+    auto orientation = [](const QPointF& p, const QPointF& q, const QPointF& r)
     {
         double val = (q.y() - p.y()) * (r.x() - q.x()) - (q.x() - p.x()) * (r.y() - q.y());
-        if (val == 0.0) return 0;   // 共线
+        if (std::abs(val) < EPSILON) return 0; // 共线（考虑误差）
         return (val > 0.0) ? 1 : 2; // 顺时针（右侧） or 逆时针（左侧）
     };
 
@@ -1742,34 +1744,53 @@ bool doIntersect(const Segment& s1, const Segment& s2)
         return true;
     }
 
-    return false; // 没有相交
+    // 检查共线情况（使用误差处理）
+    auto onSegment = [](const QPointF& p, const QPointF& q, const QPointF& r)
+    {
+        return std::min(p.x(), r.x()) - EPSILON <= q.x() && q.x() <= std::max(p.x(), r.x()) + EPSILON &&
+            std::min(p.y(), r.y()) - EPSILON <= q.y() && q.y() <= std::max(p.y(), r.y()) + EPSILON;
+    };
 
+    // 如果线段共线，检查它们是否重叠
+    if (o1 == 0 && onSegment(s1.start, s2.start, s1.end)) return true;
+    if (o2 == 0 && onSegment(s1.start, s2.end, s1.end)) return true;
+    if (o3 == 0 && onSegment(s2.start, s1.start, s2.end)) return true;
+    if (o4 == 0 && onSegment(s2.start, s1.end, s2.end)) return true;
+
+    return false; // 没有相交
 }
 
-// 计算两条线段的交点(必须确保相交)
-QPointF calculateIntersection(const Segment& s1, const Segment& s2)
-{
+// 计算两条线段的交点
+bool calculateIntersection(const Segment& s1, const Segment& s2, QPointF& point) {
     // 线段起点向量
-    QPointF A = s1.start;
-    QPointF B = s1.end;
-    QPointF C = s2.start;
-    QPointF D = s2.end;
+    const QPointF& A = s1.start;
+    const QPointF& B = s1.end;
+    const QPointF& C = s2.start;
+    const QPointF& D = s2.end;
 
     // 计算向量 AB 和 CD
-    QPointF AB = QPointF(B.x() - A.x(), B.y() - A.y());
-    QPointF CD = QPointF(D.x() - C.x(), D.y() - C.y());
+    QPointF AB(B.x() - A.x(), B.y() - A.y());
+    QPointF CD(D.x() - C.x(), D.y() - C.y());
 
     // 计算叉乘
     double cross1 = AB.x() * CD.y() - AB.y() * CD.x(); // AB 与 CD 的叉积
 
-    // 计算 AC 和 AB 的叉积
-    QPointF AC = QPointF(C.x() - A.x(), C.y() - A.y());
+    // 精度控制，避免浮点数误差导致问题
+    const double epsilon = 1e-10; // 自定义精度阈值
+    if (std::fabs(cross1) < epsilon) {
+        return false;
+    }
+
+    // 计算 AC 和 CD 的叉积
+    QPointF AC(C.x() - A.x(), C.y() - A.y());
     double t = (AC.x() * CD.y() - AC.y() * CD.x()) / cross1;
 
     // 根据参数 t 计算交点
     double x = A.x() + t * AB.x();
     double y = A.y() + t * AB.y();
-    return QPointF(x, y);
+    
+    point = { x,y };
+    return true;
 }
 
 
@@ -1887,13 +1908,27 @@ void sweepLineFindIntersections(const QVector<QVector<QPointF>>& pointss, QVecto
         }
     };
 
-    auto addIntersectionEvent = [&](int seg1, int seg2) {
-        if (isAdjacentSegments(seg1, seg2))return; // 如果两段相邻，忽略计算交点(因为逻辑上会重复放线等待到交点位置，判断线是否相同，还要判断起点是否相同)
+    // 一个交点算一次就行，太容易死锁了
+    std::unordered_set<QPointF, QPointFHash , QPointFEqual> recordedIntersections;
 
+    auto addIntersectionEvent = [&](int seg1, int seg2) 
+    {
+        if (isAdjacentSegments(seg1, seg2)) 
+        {
+            return; // 如果两段相邻，忽略计算交点
+        }
         if (doIntersect(segments[seg1], segments[seg2])) {
-            QPointF intersecPoint = calculateIntersection(segments[seg1], segments[seg2]);
+            QPointF intersecPoint;
+            if (!calculateIntersection(segments[seg1], segments[seg2], intersecPoint))return;
+
+            if (recordedIntersections.count(intersecPoint))return;
+            else recordedIntersections.insert(intersecPoint);
+
+            // 如果通过所有判断，记录交点和事件
             intersections.push_back(intersecPoint);
-            events.push({ intersecPoint ,seg1, seg2, Intersection });
+            events.push({ intersecPoint, seg1, seg2, Intersection });
+
+            
         }
     };
 
@@ -1985,11 +2020,6 @@ void sweepLineFindIntersections(const QVector<QVector<QPointF>>& pointss, QVecto
                 });
         }
     }
-
-    // 排序
-    std::sort(intersections.begin(), intersections.end(), QPointFComparator());
-    // 去重
-    intersections.erase(std::unique(intersections.begin(), intersections.end(), QPointFEqual()), intersections.end());
 }
 
 
@@ -2006,8 +2036,6 @@ void sweepLineFindIntersections(const QVector<QVector<QVector<QPointF>>>& points
     }
     sweepLineFindIntersections(polygons, intersections);
 }
-
-
 
 // 判断一个点是否在线段上
 bool isPointOnSegment(const QPointF& p, const QPointF& start, const QPointF& end, double epsilon = 1e-6)
@@ -2175,29 +2203,25 @@ void reconstructPolygons(const QVector<QVector<QPointF>>& splitLines,
     }
 }
 
-
-
-bool isPointInsidePolygon(const QPointF& point, const QVector<QVector<QPointF>>& polygons)
+bool isPointInsidePolygonDirection(const QPointF& point, const QVector<QPointF>& polygon, bool horizontal)
 {
-    int totalIntersections = 0;
+    int intersections = 0;
+    int n = polygon.size();
 
-    for (const auto& polygon : polygons)
+    if (n < 3)
     {
-        int intersections = 0;
-        int n = polygon.size();
+        return false; // 非法多边形（少于3个点）
+    }
 
-        if (n < 3)
+    for (int i = 0; i < n; ++i)
+    {
+        const QPointF& p1 = polygon[i];
+        const QPointF& p2 = polygon[(i + 1) % n];
+
+        if (horizontal)
         {
-            continue; // 非法多边形（少于3个点）
-        }
-
-        for (int i = 0; i < n; ++i)
-        {
-            const QPointF& p1 = polygon[i];
-            const QPointF& p2 = polygon[(i + 1) % n];
-
-            // 检查射线是否与边相交
-            if ((p1.y() > point.y()) != (p2.y() > point.y())) // 判断点是否在边的上下范围之间
+            // 水平射线检测
+            if ((p1.y() > point.y()) != (p2.y() > point.y()))
             {
                 double xIntersect = p1.x() + (point.y() - p1.y()) * (p2.x() - p1.x()) / (p2.y() - p1.y());
                 if (xIntersect > point.x())
@@ -2206,52 +2230,39 @@ bool isPointInsidePolygon(const QPointF& point, const QVector<QVector<QPointF>>&
                 }
             }
         }
-
-        // 累计交点数（外部区域加，内部洞减）
-        if (intersections % 2 == 1)
+        else
         {
-            ++totalIntersections;
-        }
-    }
-
-    // 如果交点总数为奇数，点在区域内部；否则在区域外部
-    return (totalIntersections % 2 == 1);
-}
-
-bool isPointInsideComplexPolygon(const QPointF& point, const QVector<QPointF>& polygon)
-{
-    int intersections = 0;
-    int n = polygon.size();
-
-    for (int i = 0; i < n; ++i)
-    {
-        QPointF p1 = polygon[i];
-        QPointF p2 = polygon[(i + 1) % n];
-
-        // 检查点是否在线段上（边界处理）
-        if ((point.y() - p1.y()) * (point.y() - p2.y()) <= 0)
-        {
-            double xIntersect = p1.x() + (point.y() - p1.y()) * (p2.x() - p1.x()) / (p2.y() - p1.y());
-            if (fabs(point.x() - xIntersect) < 1e-9)
+            // 垂直射线检测
+            if ((p1.x() > point.x()) != (p2.x() > point.x()))
             {
-                return true; // 点位于边界上
-            }
-        }
-
-        // 检查射线是否与边相交
-        if ((p1.y() > point.y()) != (p2.y() > point.y()))
-        {
-            double xIntersect = p1.x() + (point.y() - p1.y()) * (p2.x() - p1.x()) / (p2.y() - p1.y());
-            if (xIntersect > point.x())
-            {
-                ++intersections;
+                double yIntersect = p1.y() + (point.x() - p1.x()) * (p2.y() - p1.y()) / (p2.x() - p1.x());
+                if (yIntersect > point.y())
+                {
+                    ++intersections;
+                }
             }
         }
     }
 
-    // 如果交点数是奇数，则点在多边形内部（修正自相交多边形的规则）
     return (intersections % 2 == 1);
 }
+
+bool isPointInsidePolygon(const QPointF& point, const QVector<QVector<QPointF>>& polygons)
+{
+    int totalVotes = 0;
+
+    for (const auto& polygon : polygons)
+    {
+        int horizontalResult = isPointInsidePolygonDirection(point, polygon, true) ? 1 : -1;
+        int verticalResult = isPointInsidePolygonDirection(point, polygon, false) ? 1 : -1;
+
+        totalVotes += horizontalResult + verticalResult;
+    }
+
+    // 总投票结果 > 0 表示内部，<= 0 表示外部
+    return totalVotes > 0;
+}
+
 
 void filterSplitLinesInsidePolygons(const QVector<QVector<QPointF>>& splitLines,
     const QVector<int>& belong,
@@ -2307,45 +2318,8 @@ bool isClockwise(const QVector<QPointF>& polygon) {
     return sum > 0.0; // >0 表示顺时针，<0 表示逆时针
 }
 
-//// 搜索构建无自相交的子图（遇到同一个交点两次，就终止）
-//void constructSubPolygons(const QVector<QVector<QPointF>>& splitLines, QVector<QVector<QPointF>>& subPolygons)
-//{
-//    // table:交点-出向边，入向边
-//    std::unordered_map<QPointF, std::pair<std::vector<int>, std::vector<int>>, QPointFEqual> table;
-//
-//    for (int i = 0; i < splitLines.size(); i++)
-//    {
-//        table[splitLines[i].first()].first.push_back(i);
-//        table[splitLines[i].last()].second.push_back(i);
-//    }
-//
-//    // 必须全搜一遍（子图也可能自相交,要靠融合）
-//    std::vector<std::vector<int>> lines;
-//    auto dfs = [&](QPointF start, QPointF pos)
-//    {
-//        
-//        
-//
-//        return polygon;
-//    };
-//
-//    // 遍历所有线段，构造所有子多边形
-//    for (int i = 0; i < splitLines.size(); ++i) {
-//        if (visitedEdges.find(i) == visitedEdges.end()) {
-//            QVector<QPointF> subPolygon = dfs(i, dfs);
-//            if (!subPolygon.isEmpty()) {
-//                subPolygons.push_back(subPolygon);
-//            }
-//        }
-//    }
-//}
-
-
-
-
 void breakLineOnLen(const QVector<QPointF>& points, double r, QVector<QVector<QPointF>>& segments) 
 {
-
     if (points.size() < 2) {
         return ;
     }
@@ -2401,7 +2375,6 @@ void breakLineOnLen(const QVector<QPointF>& points, double r, QVector<QVector<QP
     return;
 }
 
-
 bool computeBufferBoundaryWithVector(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss)
 {
     // 自相交在前面在生成缓冲区前判断
@@ -2414,7 +2387,7 @@ bool computeBufferBoundaryWithVector(const QVector<QVector<QPointF>>& pointss, d
     {
         QVector<QVector<QPointF>> lines;
 
-        //因为长度不够
+        //因为长度不够而打断
         breakLineOnLen(points, r, lines);
 
         // 使用扫描线算法找到交点
@@ -2446,36 +2419,24 @@ bool computeBufferBoundaryWithVector(const QVector<QVector<QPointF>>& pointss, d
     QVector<QPointF> intersectionPoints; // 存储所有交点
     sweepLineFindIntersections(polygons, intersectionPoints); // 自定义扫描线算法函数
 
-    qDebug() << L("所有交点:%1").arg(intersectionPoints.size());
-    for (const auto& point : intersectionPoints)
-    {
-        qDebug() << point;
-    }
+    qDebug() << L("交点个数：%1").arg(intersectionPoints.size());
 
     // Step 2: 根据交点分割线段
     QVector<QVector<QPointF>> splitLines;
     QVector<int> belong;
     splitLineByIntersections(polygons, intersectionPoints, splitLines, belong); // 分割线段  
 
+    qDebug() << L("线段个数：%1").arg(splitLines.size());
 
-    //qDebug() << L("分割段数: %1").arg(splitLines.size());
-    //for (const auto& points : splitLines)
-    //{
-    //    qDebug() << points[0] << ' ' << points.last();
-    //}
-
-    //boundaryPointss = splitLines;
-    //return true;
+    boundaryPointss = splitLines;
+    return true;
 
     // Step 3: 过滤位于多边形内部的线段
     QVector<QVector<QPointF>> filteredSplitLines;
     filterSplitLinesInsidePolygons(splitLines, belong, polygons, filteredSplitLines); // 点集 pointss 表示原始多边形
 
-    qDebug() << L("过滤后段数: %1").arg(filteredSplitLines.size());
-    for (const auto& points : filteredSplitLines)
-    {
-        qDebug() << points[0] << ' ' << points.last();
-    }
+    boundaryPointss = filteredSplitLines;
+    return true;
 
     // Step 4: 重建拓扑结构并合并多边形
     reconstructPolygons(filteredSplitLines, boundaryPointss);

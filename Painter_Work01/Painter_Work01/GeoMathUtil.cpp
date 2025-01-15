@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <QPainterPath>
 #include <set>
+#include <QVector2D>
 
 // 比较器（给std容器用）
 struct QPointFComparator {
@@ -1017,17 +1018,16 @@ int pointPositionRelativeToVector(const QPointF& point, const QPointF& vectorSta
 }
 
 
-// 计算线段长度是否满足条件，如果不满足则返回true表示需要打断
-bool isLengthEnough(double x1, double y1, double x2, double y2, double r) {
-    
-    auto computeHalfAngleTan = [](double x1, double y1, double x2, double y2) {
-        // 计算向量模长
-        double len1 = std::sqrt(x1 * x1 + y1 * y1);
-        double len2 = std::sqrt(x2 * x2 + y2 * y2);
+// 判断两向量长度是否满足缓冲区条件
+bool isLengthEnough(const QVector2D& v1, const QVector2D& v2, double r) {
+    auto computeHalfAngleTan = [](const QVector2D& v1, const QVector2D& v2) {
+        // 计算两向量的模长
+        double len1 = v1.length();
+        double len2 = v2.length();
 
         // 计算点积和叉积
-        double dotProduct = x1 * x2 + y1 * y2;          // 点积
-        double crossProduct = x1 * y2 - y1 * x2;        // 叉积
+        double dotProduct = QVector2D::dotProduct(v1, v2);  // 点积
+        double crossProduct = v1.x() * v2.y() - v1.y() * v2.x();  // 叉积
 
         // 计算 sin 和 cos
         double cosTheta = dotProduct / (len1 * len2);
@@ -1036,11 +1036,155 @@ bool isLengthEnough(double x1, double y1, double x2, double y2, double r) {
         // 计算 tan(θ / 2)
         return sinTheta / (1 + cosTheta);
     };
-    double needLen = r / computeHalfAngleTan(x1, y1, x2, y2);
-    // 计算线段长度
-    double len1 = std::sqrt(x1 * x1 + y1 * y1);
-    double len2 = std::sqrt(x2 * x2 + y2 * y2);
-    return len1 >= needLen && len2 >= needLen;
+
+    double needLen = r / computeHalfAngleTan(v1, v2);
+    // 检查两向量的长度是否足够
+    return v1.length() >= needLen && v2.length() >= needLen;
+}
+
+double crossProduct(const QVector2D& a, const QVector2D& b) 
+{
+    return a.x() * b.y() - a.y() * b.x();
+}
+
+// 判断三点的方向（顺时针，逆时针，或共线）
+int orientation(const QPointF& p, const QPointF& q, const QPointF& r)
+{
+    double val = (q.y() - p.y()) * (r.x() - q.x()) - (q.x() - p.x()) * (r.y() - q.y());
+    if (val == 0.0) return 0;   // 共线
+    return (val > 0.0) ? 1 : 2; // 顺时针（右侧） or 逆时针（左侧）
+}
+
+// 判断点q是否在线段pr上
+bool onSegment(const QPointF& p, const QPointF& q, const QPointF& r)
+{
+    return (q.x() <= std::max(p.x(), r.x()) && q.x() >= std::min(p.x(), r.x()) &&
+        q.y() <= std::max(p.y(), r.y()) && q.y() >= std::min(p.y(), r.y()));
+}
+
+// 计算两条线段的交点
+bool segmentsIntersect(const QPointF& p1Start, const QPointF& p1End,
+    const QPointF& p2Start, const QPointF& p2End,
+    QPointF& intersection)
+{
+    // 计算方向
+    int o1 = orientation(p1Start, p1End, p2Start);
+    int o2 = orientation(p1Start, p1End, p2End);
+    int o3 = orientation(p2Start, p2End, p1Start);
+    int o4 = orientation(p2Start, p2End, p1End);
+
+    // 通用相交条件（两线段在对方两侧）
+    if (o1 != o2 && o3 != o4)
+    {
+        // 计算交点
+        double a1 = p1End.y() - p1Start.y();
+        double b1 = p1Start.x() - p1End.x();
+        double c1 = a1 * p1Start.x() + b1 * p1Start.y();
+
+        double a2 = p2End.y() - p2Start.y();
+        double b2 = p2Start.x() - p2End.x();
+        double c2 = a2 * p2Start.x() + b2 * p2Start.y();
+
+        double determinant = a1 * b2 - a2 * b1;
+
+        if (determinant == 0) {
+            return false;  // 平行线段
+        }
+
+        // 计算交点坐标
+        intersection.setX((b2 * c1 - b1 * c2) / determinant);
+        intersection.setY((a1 * c2 - a2 * c1) / determinant);
+        return true;
+    }
+
+    // 特殊情况：线段共线且有重叠
+    if (o1 == 0 && onSegment(p1Start, p2Start, p1End)) {
+        intersection = p2Start;
+        return true;
+    }
+    if (o2 == 0 && onSegment(p1Start, p2End, p1End)) {
+        intersection = p2End;
+        return true;
+    }
+    if (o3 == 0 && onSegment(p2Start, p1Start, p2End)) {
+        intersection = p1Start;
+        return true;
+    }
+    if (o4 == 0 && onSegment(p2Start, p1End, p2End)) {
+        intersection = p1End;
+        return true;
+    }
+
+    return false;  // 没有相交
+}
+
+// 计算夹角缓冲区交点
+QVector2D computeAngleBufferIntersection(const QVector2D& v1, const QVector2D& v2, double r)
+{
+    if (isLengthEnough(v1, v2, r))
+    {
+        // 计算单位向量
+        QVector2D u1 = v1.normalized();
+        QVector2D u2 = v2.normalized();
+
+        // 计算角平分线方向
+        QVector2D bisector = (u1 + u2).normalized();
+
+        // 计算角平分线的长度（通过正弦值调整）
+
+        double sinTheta = std::fabs(crossProduct(bisector, u2));  // 叉乘的绝对值代表 sin(θ)
+        double length = r / sinTheta;
+
+        // 计算交点坐标
+        QVector2D intersection = bisector * length;
+        return intersection;
+    }
+    else
+    {
+        // 如果线段长度不够，计算交点
+        QVector<QPointF>p1, p2;
+
+        QVector2D u1 = v1.normalized();
+        QVector2D u2 = v2.normalized();
+
+        QVector2D normal1(-u1.y(), u1.x());
+        QVector2D normal2(-u2.y(), u2.x());
+
+        // 计算圆弧的起点和终点
+        QVector2D arcStart1 = u1 + u1 * r;
+        QVector2D arcEnd1 = u1 - normal1 * r;
+
+        QVector2D end1 = - normal1 * r;
+
+        calculateArcPointsFromStartEndCenter(arcStart1.toPointF(), arcEnd1.toPointF(), v1.toPointF(), 20, p1);
+        p1.push_back(end1.toPointF());
+
+        // 计算圆弧 p2 的起点和终点
+        QVector2D arcStart2 = u2 + u2 * r;
+        QVector2D arcEnd2 = u2 + normal2 * r;
+        QVector2D end2 = normal2 * r;
+
+        p2.push_back(end2.toPointF());
+        calculateArcPointsFromStartEndCenter(arcEnd2.toPointF(), arcStart2.toPointF(), v2.toPointF(), 20, p2);
+        
+
+        // 计算 p1 和 p2 的交点
+        QPointF intersection;
+        for (int i = 0; i < p1.size() - 1; ++i)
+        {
+            for (int j = 0; j < p2.size() - 1; ++j)
+            {
+                QPointF p1Start = p1[i], p1End = p1[i + 1];
+                QPointF p2Start = p2[j], p2End = p2[j + 1];
+
+                if (segmentsIntersect(p1Start, p1End, p2Start, p2End, intersection))
+                {
+                    return QVector2D(intersection);
+                }
+            }
+        }
+        return;
+    }
 }
 
 
@@ -1071,9 +1215,16 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
             double x1 = polyline[i].x(), y1 = polyline[i].y();
             double x2 = polyline[i + 1].x(), y2 = polyline[i + 1].y();
 
+
+            auto [dx, dy] = normalize(x1 - x2, y1 - y2);
             auto [vx, vy] = normalize(y1 - y2, x2 - x1);// （dy, -dx） = p1 - p2 方向是指向p1
 
-            calculateArcPointsFromStartEndCenter(QPointF(x1 + vx * dis, y1 + vy * dis), QPointF(x1 - vx * dis, y1 - vy * dis), polyline[i], 20, points);
+
+
+            // 半圆处画到交点
+            calculateArcPointsFromStartEndCenter(QPointF(x1 - dx * dis, y1 - vy * dis), QPointF(x1 - vx * dis, y1 - vy * dis), polyline[i], 20, points);
+
+
         }
         else if (i == plLen - 1)
         {
@@ -1743,7 +1894,6 @@ bool doIntersect(const Segment& s1, const Segment& s2)
     }
 
     return false; // 没有相交
-
 }
 
 // 计算两条线段的交点(必须确保相交)
@@ -2410,22 +2560,23 @@ bool computeBufferBoundaryWithVector(const QVector<QVector<QPointF>>& pointss, d
     // 三维,点组成线,多线组成面（正负缓冲区），多面
     QVector<QVector<QVector<QPointF>>> polygons;
     
+    QVector<QVector<QPointF>> lines;
     for (auto& points : pointss)
     {
-        QVector<QVector<QPointF>> lines;
-
-        //因为长度不够
+        //因为长度不够分割（照成了共点圆）
         breakLineOnLen(points, r, lines);
-
+    }
+    // 打断自相交
+    {
         // 使用扫描线算法找到交点
         QVector<QPointF> intersectionPoints; // 存储所有交点
-        sweepLineFindIntersections(lines, intersectionPoints, false); // 自定义扫描线算法函数
+        sweepLineFindIntersections(lines, intersectionPoints, false);
 
         QVector<QVector<QPointF>> splitLines;
         QVector<int> belong;
 
         splitLineByIntersections(lines, intersectionPoints, splitLines, belong); // 分割线段
-        
+
         for (auto& points : splitLines)
         {
             polygons.push_back({});
@@ -2433,7 +2584,7 @@ bool computeBufferBoundaryWithVector(const QVector<QVector<QPointF>>& pointss, d
             {
                 calculateClosedLineBuffer(points, r, polygons.last());
             }
-            else 
+            else
             {
                 polygons.last().push_back({});
                 calculateLineBuffer(points, r, polygons.last().last());

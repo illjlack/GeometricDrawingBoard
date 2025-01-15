@@ -399,8 +399,6 @@ void douglasPeucker(QVector<QPointF>& points, double epsilon = 4);
 bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss);
 
 
+
+
 bool computeBufferBoundary(BufferCalculationMode mode, const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss);
-
-
-
-void test();

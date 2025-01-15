@@ -10,7 +10,6 @@
 #include <unordered_map>
 #include <QPainterPath>
 #include <set>
-#include <QVector2D>
 
 // 比较器（给std容器用）
 struct QPointFComparator {
@@ -1018,16 +1017,17 @@ int pointPositionRelativeToVector(const QPointF& point, const QPointF& vectorSta
 }
 
 
-// 判断两向量长度是否满足缓冲区条件
-bool isLengthEnough(const QVector2D& v1, const QVector2D& v2, double r) {
-    auto computeHalfAngleTan = [](const QVector2D& v1, const QVector2D& v2) {
-        // 计算两向量的模长
-        double len1 = v1.length();
-        double len2 = v2.length();
+// 计算线段长度是否满足条件，如果不满足则返回true表示需要打断
+bool isLengthEnough(double x1, double y1, double x2, double y2, double r) {
+    
+    auto computeHalfAngleTan = [](double x1, double y1, double x2, double y2) {
+        // 计算向量模长
+        double len1 = std::sqrt(x1 * x1 + y1 * y1);
+        double len2 = std::sqrt(x2 * x2 + y2 * y2);
 
         // 计算点积和叉积
-        double dotProduct = QVector2D::dotProduct(v1, v2);  // 点积
-        double crossProduct = v1.x() * v2.y() - v1.y() * v2.x();  // 叉积
+        double dotProduct = x1 * x2 + y1 * y2;          // 点积
+        double crossProduct = x1 * y2 - y1 * x2;        // 叉积
 
         // 计算 sin 和 cos
         double cosTheta = dotProduct / (len1 * len2);
@@ -1036,150 +1036,11 @@ bool isLengthEnough(const QVector2D& v1, const QVector2D& v2, double r) {
         // 计算 tan(θ / 2)
         return sinTheta / (1 + cosTheta);
     };
-
-    double needLen = r / computeHalfAngleTan(v1, v2);
-    // 检查两向量的长度是否足够
-    return v1.length() >= needLen && v2.length() >= needLen;
-}
-
-double crossProduct(const QVector2D& a, const QVector2D& b) 
-{
-    return a.x() * b.y() - a.y() * b.x();
-}
-
-// 判断三点的方向（顺时针，逆时针，或共线）
-int orientation(const QPointF& p, const QPointF& q, const QPointF& r)
-{
-    double val = (q.y() - p.y()) * (r.x() - q.x()) - (q.x() - p.x()) * (r.y() - q.y());
-    if (val == 0.0) return 0;   // 共线
-    return (val > 0.0) ? 1 : 2; // 顺时针（右侧） or 逆时针（左侧）
-}
-
-// 判断点q是否在线段pr上
-bool onSegment(const QPointF& p, const QPointF& q, const QPointF& r)
-{
-    return (q.x() <= std::max(p.x(), r.x()) && q.x() >= std::min(p.x(), r.x()) &&
-        q.y() <= std::max(p.y(), r.y()) && q.y() >= std::min(p.y(), r.y()));
-}
-
-// 计算两条线段的交点
-bool segmentsIntersect(const QPointF& p1Start, const QPointF& p1End,
-    const QPointF& p2Start, const QPointF& p2End,
-    QPointF& intersection)
-{
-    // 计算方向
-    int o1 = orientation(p1Start, p1End, p2Start);
-    int o2 = orientation(p1Start, p1End, p2End);
-    int o3 = orientation(p2Start, p2End, p1Start);
-    int o4 = orientation(p2Start, p2End, p1End);
-
-    // 通用相交条件（两线段在对方两侧）
-    if (o1 != o2 && o3 != o4)
-    {
-        // 计算交点
-        double a1 = p1End.y() - p1Start.y();
-        double b1 = p1Start.x() - p1End.x();
-        double c1 = a1 * p1Start.x() + b1 * p1Start.y();
-
-        double a2 = p2End.y() - p2Start.y();
-        double b2 = p2Start.x() - p2End.x();
-        double c2 = a2 * p2Start.x() + b2 * p2Start.y();
-
-        double determinant = a1 * b2 - a2 * b1;
-
-        if (determinant == 0) {
-            return false;  // 平行线段
-        }
-
-        // 计算交点坐标
-        intersection.setX((b2 * c1 - b1 * c2) / determinant);
-        intersection.setY((a1 * c2 - a2 * c1) / determinant);
-        return true;
-    }
-
-    // 特殊情况：线段共线且有重叠
-    if (o1 == 0 && onSegment(p1Start, p2Start, p1End)) {
-        intersection = p2Start;
-        return true;
-    }
-    if (o2 == 0 && onSegment(p1Start, p2End, p1End)) {
-        intersection = p2End;
-        return true;
-    }
-    if (o3 == 0 && onSegment(p2Start, p1Start, p2End)) {
-        intersection = p1Start;
-        return true;
-    }
-    if (o4 == 0 && onSegment(p2Start, p1End, p2End)) {
-        intersection = p1End;
-        return true;
-    }
-
-    return false;  // 没有相交
-}
-
-// 计算夹角出缓冲区
-QVector<QPointF> computeAngleBufferIntersection(const QVector2D& v1, const QVector2D& v2, double r, QPointF o, QVector<QPointF>& joinedPath)
-{
-    QVector<QPointF> p1, p2;
-
-    // 计算单位向量和法向量
-    QVector2D u1 = v1.normalized();
-    QVector2D u2 = v2.normalized();
-    QVector2D normal1(-u1.y(), u1.x());
-    QVector2D normal2(-u2.y(), u2.x());
-
-    // 计算 p1 的圆弧和起终点
-    QVector2D arcStart1 = v1 + u1 * r;
-    QVector2D arcEnd1 = v1 + normal1 * r;
-    QVector2D end1 = normal1 * r;
-    calculateArcPointsFromStartEndCenter(arcStart1.toPointF(), arcEnd1.toPointF(), v1.toPointF(), 20, p1);
-    p1.push_back(end1.toPointF());
-
-    // 计算 p2 的圆弧和起终点
-    QVector2D arcStart2 = v2 + u2 * r;
-    QVector2D arcEnd2 = v2 - normal2 * r;
-    QVector2D end2 = - normal2 * r;
-    p2.push_back(end2.toPointF());
-    calculateArcPointsFromStartEndCenter(arcEnd2.toPointF(), arcStart2.toPointF(), v2.toPointF(), 20, p2);
-
-    // 寻找交点
-    QPointF intersection;
-    int p1IntersectIndex = -1, p2IntersectIndex = -1;
-    for (int i = 0; i < p1.size() - 1; ++i)
-    {
-        for (int j = 0; j < p2.size() - 1; ++j)
-        {
-            QPointF p1Start = p1[i], p1End = p1[i + 1];
-            QPointF p2Start = p2[j], p2End = p2[j + 1];
-
-            if (segmentsIntersect(p1Start, p1End, p2Start, p2End, intersection))
-            {
-                p1IntersectIndex = i;
-                p2IntersectIndex = j;
-                break;
-            }
-        }
-        if (p1IntersectIndex != -1) break;
-    }
-
-    // 如果找到交点，截断并连接路径
-    if (p1IntersectIndex != -1 && p2IntersectIndex != -1)
-    {
-        // 将 p1 截断到交点
-        for (int i = 0; i <= p1IntersectIndex; ++i)
-        {
-            joinedPath.push_back(p1[i] + o);
-        }
-        joinedPath.push_back(intersection + o);
-
-        // 将 p2 从交点开始添加
-        for (int j = p2IntersectIndex + 1; j < p2.size(); ++j)
-        {
-            joinedPath.push_back(p2[j] + o);
-        }
-        return joinedPath;
-    }
+    double needLen = r / computeHalfAngleTan(x1, y1, x2, y2);
+    // 计算线段长度
+    double len1 = std::sqrt(x1 * x1 + y1 * y1);
+    double len2 = std::sqrt(x2 * x2 + y2 * y2);
+    return len1 >= needLen && len2 >= needLen;
 }
 
 
@@ -1201,41 +1062,66 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
         return false; // 折线至少需要两个点
     }
 
-
-
     // 遍历折线的每个点
-    for (int i = 1; i < plLen - 1; ++i)
+    for (int i = 0; i < plLen; ++i)
     {
-        // 对于折线的中间点
-        float x0 = polyline[i].x(), y0 = polyline[i].y();
-        float x1 = polyline[i - 1].x(), y1 = polyline[i - 1].y();
-        float x2 = polyline[i + 1].x(), y2 = polyline[i + 1].y();
-
-        // 计算前后两段向量的单位向量
-        auto [x01, y01] = normalize(x1 - x0, y1 - y0);
-        auto [x02, y02] = normalize(x2 - x0, y2 - y0);
-
-        if (sgn(cross(x01, y01, x02, y02)) == 0)
+        if (i == 0)
         {
-            // 如果前后线段的方向向量共线,直接用法向量加入点
-            auto [vx, vy] = normalize(y01, -x01);// （dy, -dx） = p1 - p2 方向是指向p1
-            points.append(QPointF(x0 - vx * dis, y0 - vy * dis));
-            continue;
+            // 如果是折线的起点
+            double x1 = polyline[i].x(), y1 = polyline[i].y();
+            double x2 = polyline[i + 1].x(), y2 = polyline[i + 1].y();
+
+            auto [vx, vy] = normalize(y1 - y2, x2 - x1);// （dy, -dx） = p1 - p2 方向是指向p1
+
+            calculateArcPointsFromStartEndCenter(QPointF(x1 + vx * dis, y1 + vy * dis), QPointF(x1 - vx * dis, y1 - vy * dis), polyline[i], 20, points);
         }
-
-        // 选择左侧或右侧的平行线
-        if (cross(x1 - x0, y1 - y0, x2 - x0, y2 - y0) > 0) // p2在左侧，直线方向是指向p1的，在画右边（角度大于PI）
+        else if (i == plLen - 1)
         {
-            QVector2D v1 = { x1 - x0, y1 - y0 }, v2 = { x2 - x0, y2 - y0 };
-            QPointF o = { x0,y0 };
-            computeAngleBufferIntersection(v1, v2, dis, o, points);
+            // 如果是折线的终点
+            double x1 = polyline[i - 1].x(), y1 = polyline[i - 1].y();
+            double x2 = polyline[i].x(), y2 = polyline[i].y();
+
+            auto [vx, vy] = normalize(y1 - y2, x2 - x1);
+
+            calculateArcPointsFromStartEndCenter( QPointF(x2 - vx * dis, y2 - vy * dis), QPointF(x2 + vx * dis, y2 + vy * dis), polyline[i], 20, points);
         }
         else
         {
+            // 对于折线的中间点
+            double x0 = polyline[i].x(), y0 = polyline[i].y();
+            double x1 = polyline[i - 1].x(), y1 = polyline[i - 1].y();
+            double x2 = polyline[i + 1].x(), y2 = polyline[i + 1].y();
 
-            auto [vx01, vy01] = normalize(y0 - y1, x1 - x0);
-            auto [vx20, vy20] = normalize(y2 - y0, x0 - x2);
-            calculateArcPointsFromStartEndCenter(QPointF(x0 + vx01 * dis, y0 + vy01 * dis), QPointF(x0 + vx20 * dis, y0 + vy20 * dis), polyline[i], 20, points);
+            // 计算前后两段向量的单位向量
+            auto [x01, y01] = normalize(x1 - x0, y1 - y0);
+            auto [x02, y02] = normalize(x2 - x0, y2 - y0);
+
+            if (sgn(cross(x01, y01, x02, y02)) == 0)
+            {
+                // 如果前后线段的方向向量共线,直接用法向量加入点
+                auto [vx, vy] = normalize(y01, -x01);// （dy, -dx） = p1 - p2 方向是指向p1
+                points.append(QPointF(x0 - vx * dis, y0 - vy * dis));
+                continue;
+            }
+
+            // 计算角平分线的单位向量（两个向量的平均）
+            auto [vx, vy] = normalize((x01 + x02) / 2, (y01 + y02) / 2);
+
+            // 计算角平分线的长度，用于确定平行线的偏移量
+            double sinX = std::fabs(cross(vx, vy, x02, y02));
+            double disBisector = dis / sinX;  // 使用叉乘来确定夹角的大小，得出平行线的距离
+
+            // 选择左侧或右侧的平行线
+            if (cross(x1 - x0, y1 - y0, x2 - x0, y2 - y0) > 0) // p2在左侧，直线方向是指向p1的，在画右边（角度大于PI）
+            {
+                points.append(QPointF(x0 + vx * disBisector, y0 + vy * disBisector));
+            }
+            else
+            {
+                auto [vx01, vy01] = normalize(y0 - y1, x1 - x0);
+                auto [vx20, vy20] = normalize(y2 - y0, x0 - x2);
+                calculateArcPointsFromStartEndCenter(QPointF(x0 + vx01 * dis, y0 + vy01 * dis), QPointF(x0 + vx20 * dis, y0 + vy20 * dis), polyline[i], 20, points);
+            }
         }
     }
 
@@ -1243,9 +1129,9 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
     for (int i = plLen - 2; i > 0; --i)
     {
         // 对于折线的中间点
-        float x0 = polyline[i].x(), y0 = polyline[i].y();
-        float x1 = polyline[i + 1].x(), y1 = polyline[i + 1].y();
-        float x2 = polyline[i - 1].x(), y2 = polyline[i - 1].y();
+        double x0 = polyline[i].x(), y0 = polyline[i].y();
+        double x1 = polyline[i + 1].x(), y1 = polyline[i + 1].y();
+        double x2 = polyline[i - 1].x(), y2 = polyline[i - 1].y();
 
         // 计算前后两段向量的单位向量
         auto [x01, y01] = normalize(x1 - x0, y1 - y0);
@@ -1255,16 +1141,20 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
         {
             // 如果前后线段的方向向量共线,直接用法向量加入点
             auto [vx, vy] = normalize(y01, -x01);// （dy, -dx） = p1 - p2 方向是指向p1
-            points.append(QPointF(x0 - vx * dis, y0 - vy * dis));
             continue;
         }
+
+        // 计算角平分线的单位向量（两个向量的平均）
+        auto [vx, vy] = normalize((x01 + x02) / 2, (y01 + y02) / 2);
+
+        // 计算角平分线的长度，用于确定平行线的偏移量
+        double sinX = std::fabs(cross(vx, vy, x02, y02));
+        double disBisector = dis / sinX;  // 使用叉乘来确定夹角的大小，得出平行线的距离
 
         // 选择左侧或右侧的平行线
         if (cross(x1 - x0, y1 - y0, x2 - x0, y2 - y0) > 0) // p2在左侧，直线方向是指向p1的，在画右边（角度大于PI）
         {
-            QVector2D v1 = { x1 - x0, y1 - y0 }, v2 = { x2 - x0, y2 - y0 };
-            QPointF o = { x0,y0 };
-            computeAngleBufferIntersection(v1, v2, dis, o, points);
+            points.append(QPointF(x0 + vx * disBisector, y0 + vy * disBisector));
         }
         else
         {
@@ -1853,6 +1743,7 @@ bool doIntersect(const Segment& s1, const Segment& s2)
     }
 
     return false; // 没有相交
+
 }
 
 // 计算两条线段的交点(必须确保相交)
@@ -2518,18 +2409,23 @@ bool computeBufferBoundaryWithVector(const QVector<QVector<QPointF>>& pointss, d
 
     // 三维,点组成线,多线组成面（正负缓冲区），多面
     QVector<QVector<QVector<QPointF>>> polygons;
-   
-    // 打断自相交
+    
+    for (auto& points : pointss)
     {
+        QVector<QVector<QPointF>> lines;
+
+        //因为长度不够
+        breakLineOnLen(points, r, lines);
+
         // 使用扫描线算法找到交点
         QVector<QPointF> intersectionPoints; // 存储所有交点
-        sweepLineFindIntersections(pointss, intersectionPoints, false);
+        sweepLineFindIntersections(lines, intersectionPoints, false); // 自定义扫描线算法函数
 
         QVector<QVector<QPointF>> splitLines;
         QVector<int> belong;
 
-        splitLineByIntersections(pointss, intersectionPoints, splitLines, belong); // 分割线段
-
+        splitLineByIntersections(lines, intersectionPoints, splitLines, belong); // 分割线段
+        
         for (auto& points : splitLines)
         {
             polygons.push_back({});
@@ -2537,7 +2433,7 @@ bool computeBufferBoundaryWithVector(const QVector<QVector<QPointF>>& pointss, d
             {
                 calculateClosedLineBuffer(points, r, polygons.last());
             }
-            else
+            else 
             {
                 polygons.last().push_back({});
                 calculateLineBuffer(points, r, polygons.last().last());

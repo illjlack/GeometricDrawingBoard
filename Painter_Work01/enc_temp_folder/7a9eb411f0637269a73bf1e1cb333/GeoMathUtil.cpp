@@ -1201,8 +1201,6 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
         return false; // 折线至少需要两个点
     }
 
-
-
     // 遍历折线的每个点
     for (int i = 1; i < plLen - 1; ++i)
     {
@@ -1232,7 +1230,6 @@ bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<Q
         }
         else
         {
-
             auto [vx01, vy01] = normalize(y0 - y1, x1 - x0);
             auto [vx20, vy20] = normalize(y2 - y0, x0 - x2);
             calculateArcPointsFromStartEndCenter(QPointF(x0 + vx01 * dis, y0 + vy01 * dis), QPointF(x0 + vx20 * dis, y0 + vy20 * dis), polyline[i], 20, points);

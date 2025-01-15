@@ -22,9 +22,8 @@ struct QPointFComparator {
 };
 
 struct QPointFEqual {
-    bool operator()(const QPointF& p1, const QPointF& p2) const {
-        // 判断两个 QPointF 的坐标是否完全相等
-        return p1.x() == p2.x() && p1.y() == p2.y();
+    bool operator()(const QPointF& a, const QPointF& b) const {
+        return qFuzzyCompare(a.x(), b.x()) && qFuzzyCompare(a.y(), b.y());
     }
 };
 
@@ -2402,44 +2401,6 @@ void breakLineOnLen(const QVector<QPointF>& points, double r, QVector<QVector<QP
     return;
 }
 
-bool calculateSegLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<QVector<QPointF>>& pointss)
-{
-    pointss.push_back({});
-    for (int i = 0; i < polyline.size() - 1; i++)
-    {
-        double x1 = polyline[i].x(), y1 = polyline[i].y();
-        double x2 = polyline[i + 1].x(), y2 = polyline[i + 1].y();
-
-        auto [vx, vy] = normalize(y1 - y2, x2 - x1);// （dy, -dx） = p1 - p2 方向是指向p1
-        pointss.last() .append(QPointF(x1 + vx * dis, y1 + vy * dis));
-        if(i == polyline.size() - 2)pointss.last().append(QPointF(x2 + vx * dis, y2 + vy * dis));
-    }
-
-    // 负方向
-    for (int i = polyline.size() - 1; i >  0; i--)
-    {
-        double x1 = polyline[i].x(), y1 = polyline[i].y();
-        double x2 = polyline[i - 1].x(), y2 = polyline[i - 1].y();
-
-        auto [vx, vy] = normalize(y1 - y2, x2 - x1);// （dy, -dx） = p1 - p2 方向是指向p1
-        pointss.last().append(QPointF(x1 + vx * dis, y1 + vy * dis));
-        if (i == 1)pointss.last().append(QPointF(x2 + vx * dis, y2 + vy * dis));
-    }
-
-    pointss.last().append(pointss.last().first());
-    return true;
-}
-
-bool calculatePointBuffer(const QVector<QPointF>& polyline, double dis, QVector<QVector<QPointF>>& pointss)
-{
-    int n = polyline.size();
-    if (n < 2) {
-        return false; // 至少需要两个点来形成折线
-    }
-
-
-    return true;
-}
 
 bool computeBufferBoundaryWithVector(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss)
 {
@@ -2449,68 +2410,36 @@ bool computeBufferBoundaryWithVector(const QVector<QVector<QPointF>>& pointss, d
     // 三维,点组成线,多线组成面（正负缓冲区），多面
     QVector<QVector<QVector<QPointF>>> polygons;
     
-    //for (auto& points : pointss)
-    //{
-    //    // 使用扫描线算法找到交点
-    //    QVector<QPointF> intersectionPoints; // 存储所有交点
-    //    sweepLineFindIntersections(pointss, intersectionPoints, false); // 自定义扫描线算法函数
-
-    //    QVector<QVector<QPointF>> splitLines;
-    //    QVector<int> belong;
-
-    //    splitLineByIntersections(pointss, intersectionPoints, splitLines, belong); // 分割线段
-    //    
-    //    for (auto& points : splitLines)
-    //    {
-    //        /*polygons.push_back({});
-    //        if (points.first() == points.last())
-    //        {
-    //            calculateClosedLineBuffer(points, r, polygons.last());
-    //        }
-    //        else 
-    //        {
-    //            polygons.last().push_back({});
-    //            calculateLineBuffer(points, r, polygons.last().last());
-    //        }*/
-
-    //        polygons.push_back({});
-    //        calculateSegLineBuffer(points, r, polygons.last());
-    //    }
-
-    //    std::set<QPointF,QPointFEqual>st;
-    //    for (auto& points : splitLines)
-    //    {
-    //        for (auto& point : points)
-    //        {
-    //            st.insert(point);
-    //        }
-    //    }
-    //    for (auto& point : st)
-    //    {
-    //        polygons.push_back({});
-    //        polygons.last().push_back({});// 一个图一个圆
-    //        calculateArcPoints(point, r, 0, 2 * M_PI, 20, polygons.last().last());
-    //    }
-    //}
-
-    std::set<QPointF, QPointFComparator>st;
     for (auto& points : pointss)
     {
-        polygons.push_back({});
-        calculateSegLineBuffer(points, r, polygons.last());
-        for (auto& point : points)
+        QVector<QVector<QPointF>> lines;
+
+        //因为长度不够
+        breakLineOnLen(points, r, lines);
+
+        // 使用扫描线算法找到交点
+        QVector<QPointF> intersectionPoints; // 存储所有交点
+        sweepLineFindIntersections(lines, intersectionPoints, false); // 自定义扫描线算法函数
+
+        QVector<QVector<QPointF>> splitLines;
+        QVector<int> belong;
+
+        splitLineByIntersections(lines, intersectionPoints, splitLines, belong); // 分割线段
+        
+        for (auto& points : splitLines)
         {
-            st.insert(point);
+            polygons.push_back({});
+            if (points.first() == points.last())
+            {
+                calculateClosedLineBuffer(points, r, polygons.last());
+            }
+            else 
+            {
+                polygons.last().push_back({});
+                calculateLineBuffer(points, r, polygons.last().last());
+            }
         }
     }
-
-    for (auto& point : st)
-    {
-        polygons.push_back({});
-        polygons.last().push_back({});// 一个图一个圆
-        calculateArcPoints(point, r, 0, 2 * M_PI, 20, polygons.last().last());
-    }
-
 
 
     // Step 1: 使用扫描线算法找到交点
@@ -2529,13 +2458,14 @@ bool computeBufferBoundaryWithVector(const QVector<QVector<QPointF>>& pointss, d
     splitLineByIntersections(polygons, intersectionPoints, splitLines, belong); // 分割线段  
 
 
-
     //qDebug() << L("分割段数: %1").arg(splitLines.size());
     //for (const auto& points : splitLines)
     //{
     //    qDebug() << points[0] << ' ' << points.last();
     //}
 
+    //boundaryPointss = splitLines;
+    //return true;
 
     // Step 3: 过滤位于多边形内部的线段
     QVector<QVector<QPointF>> filteredSplitLines;

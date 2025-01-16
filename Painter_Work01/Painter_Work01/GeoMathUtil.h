@@ -220,7 +220,7 @@ bool calculateArcPoints(const QPointF& center, double radius, double startAngle,
 // 参考：https://zhuanlan.zhihu.com/p/536948720
 
 // 精度常量
-const double EPS = 1e-8;
+const double EPS = 1e-3;
 
 // 精度处理
 int sgn(double x);

@@ -219,9 +219,6 @@ bool calculateArcPoints(const QPointF& center, double radius, double startAngle,
 // ==========================================================================
 // 参考：https://zhuanlan.zhihu.com/p/536948720
 
-// 精度常量
-const double EPS = 1e-3;
-
 // 精度处理
 int sgn(double x);
 // 向量标准化
@@ -296,7 +293,7 @@ bool calculateArcPointsFromStartEndCenter(const QPointF& startPoint, const QPoin
  *         - -1：点在向量的右侧
  *         - 0：点在向量的同一直线上
  */
-int pointPositionRelativeToVector(const QPointF& point, const QPointF& vectorStart, const QPointF& vectorEnd);
+int pointRelativeToVector(const QPointF& point, const QPointF& vectorStart, const QPointF& vectorEnd);
 
 /**
  * 计算折线的缓存区
@@ -345,15 +342,6 @@ void getGridMap(const QVector<QVector<QPointF>>& pointss, double r, GridMap& gri
  */
 void restoreFromGrid(const QVector<QVector<QPoint>>& gridPointss, const GridMap& gridMap, QVector<QVector<QPointF>>& pointss);
 
-/**
- * 计算欧几里得距离的平方
- * @param x1 第一个点的x坐标
- * @param y1 第一个点的y坐标
- * @param x2 第二个点的x坐标
- * @param y2 第二个点的y坐标
- * @return 欧几里得距离的平方
- */
-int euclideanDistance2(int x1, int y1, int x2, int y2);
 
 /**
  * 计算点到线段的垂直距离

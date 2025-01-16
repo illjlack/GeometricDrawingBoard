@@ -621,7 +621,7 @@ void SimpleLine::drawBuffer(QPainter& painter)
     painter.setBrush(bufferBrush);
 
     // 如果缓冲区变化或路径为空，重新计算缓冲区路径
-    if (isBufferChanged() || bufferPath.isEmpty())
+    if (isBufferChanged() || bufferPath.isEmpty() || true) // debug
     {
         resetBufferChanged(); // 重置缓冲区状态
         bufferPath = QPainterPath(); // 清空并重新生成路径
@@ -639,33 +639,55 @@ void SimpleLine::drawBuffer(QPainter& painter)
                 }
             }
 
-            //int cnt = 50;
-            //for (auto& points : buffers)
-            //{
+            // debug:
+            int cnt = 50;
+            
+            for (auto& points : buffers)
+            {
+                painter.setBrush(Qt::NoBrush);
+                // 如果线条点数小于 2，跳过
+                if (points.size() < 2)
+                    continue;
 
-            //    // 生成随机颜色（也可以根据需求设置颜色规则）
-            //    QColor lineColor = QColor::fromHsv(cnt % 360, 255, 255); // 随机色
-            //    lineColor.setAlpha(255); // 设置完全不透明
-            //    QPen pen;
-            //    pen.setColor(lineColor);
-            //    painter.setPen(pen);
-            //    QPainterPath singlePath;
-            //    painter.setBrush(bufferBrush);
-            //    if (points.size() < 2) continue; // 跳过无效分图
-            //    bufferPath.moveTo(points.first());
-            //    singlePath.moveTo(points.first());
-            //    for (int i = 1; i < points.size(); ++i)
-            //    {
-            //        bufferPath.lineTo(points[i]);
-            //        singlePath.lineTo(points[i]);
-            //    }
-            //    painter.setBrush(Qt::red);
-            //    painter.drawEllipse(points.first(), 2.0, 2.0);
-            //    painter.drawEllipse(points.last(), 2.0, 2.0);
-            //    painter.setBrush(bufferBrush);
-            //    painter.drawPath(singlePath); // 绘制单条路径
-            //    cnt += 50;
-            //}
+                // 设置线条颜色（根据 cnt 生成不同颜色）
+                QColor lineColor = QColor::fromHsv(cnt % 360, 255, 255);
+                lineColor.setAlpha(255); // 设置完全不透明
+                QPen pen;
+                pen.setColor(lineColor);
+                painter.setPen(pen);
+
+                QPainterPath singlePath; // 单条线的路径
+
+                // 偏移向量
+                QPointF offset(cnt*3, 0); // 固定偏移量，根据需求调整
+
+                // 偏移后的路径
+                QVector<QPointF> offsetPoints;
+                for (const auto& point : points)
+                {
+                    offsetPoints.append(point + offset);
+                }
+
+                // 绘制偏移后的路径
+                singlePath.moveTo(offsetPoints.first());
+                for (int i = 1; i < offsetPoints.size(); ++i)
+                {
+                    singlePath.lineTo(offsetPoints[i]);
+                }
+
+                // 绘制路径
+                painter.drawPath(singlePath);
+
+                // 绘制起点和终点的标记（可选）
+                painter.setBrush(Qt::red);
+                painter.drawEllipse(offsetPoints.first(), 2.0, 2.0); // 起点
+                painter.drawEllipse(offsetPoints.last(), 2.0, 2.0);  // 终点
+
+                // 更新颜色计数
+                cnt += 50;
+            }
+            painter.setBrush(bufferBrush);
+
         }
     }
 

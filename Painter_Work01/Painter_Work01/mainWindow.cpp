@@ -40,12 +40,10 @@ MainWindow::MainWindow(QWidget* parent)
     createNodeLineToolBar();
     createStatusBar();
 
-
     connect(canvas, &Canvas::selectedGeo, propertyEditor, &GeoPropertyEditor::setGeo);
     connect(propertyEditor, &GeoPropertyEditor::updateGeo, canvas, [this]() {
         canvas->update();
         });
-
 
     // 设置窗口标题和大小
     setWindowTitle(QStringLiteral("几何图形绘制与缓冲区分析"));

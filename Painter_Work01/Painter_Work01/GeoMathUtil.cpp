@@ -137,8 +137,8 @@ bool pointOnSegment(const Point& q, const Point& p, const Point& r)
     if(pointRelativeToVector(p, q, r))return false; 
 
     // 检查 q 是否在点 p 和点 r 的范围内
-    return (q.x() <= std::max(p.x(), r.x()) && q.x() >= std::min(p.x(), r.x()) &&
-        q.y() <= std::max(p.y(), r.y()) && q.y() >= std::min(p.y(), r.y()));
+    return (q.x() <= std::max(p.x(), r.x() + EPSILON) && q.x() >= std::min(p.x(), r.x() - EPSILON) &&
+        q.y() <= std::max(p.y(), r.y() + EPSILON) && q.y() >= std::min(p.y(), r.y()) - EPSILON);
 }
 
 // 线段是否相交和计算坐标
@@ -213,6 +213,12 @@ bool isPointInsidePolygon(const Point& point, const Polygon& polygon)
         {
             Point p1 = ring[i];
             Point p2 = ring[(i + 1) % ring.size()]; // 下一条边
+
+            // 判断点是否在边框上
+            if (pointOnSegment(point, p1, p2))
+            {
+                return false;
+            }
 
             // 判断点在边的上下关系
             if (p1.y() <= point.y())
@@ -1689,9 +1695,6 @@ void sweepLineFindIntersections(const Polygon& pointss, Line& intersections, boo
     auto isAdjacentSegments = [&](int segIndex1, int segIndex2) {
 
         if (segIndex2 == segIndex1)return true;
-        if (segments[segIndex2].start == segments[segIndex1].start)return true;
-
-
 
         // 使用 std::lower_bound 查找第一个区间的终点大于 segIndex 的位置
         auto it = std::lower_bound(ringRanges.begin(), ringRanges.end(), segIndex1,
@@ -2090,7 +2093,7 @@ void breakLineOnLen(const Line& points, double r, Polygon& segments)
     {
         if (tempSegment.size() && vis[i])
         {
-            Point midPoint1 = (points[i - 1] + points[i]) / 2;
+            Point midPoint1 = (tempSegment.last() + points[i]) / 2;
             tempSegment.push_back(midPoint1);
             segments.push_back(tempSegment);
             tempSegment.clear();
@@ -2107,6 +2110,14 @@ void breakLineOnLen(const Line& points, double r, Polygon& segments)
     }
     if(tempSegment.size() > 1)segments.push_back(tempSegment);
     return;
+}
+
+void breakLineOnLen(const Polygon& pointss, double r, Polygon& segments)
+{
+    for (auto& points : pointss)
+    {
+        breakLineOnLen(points, r, segments);
+    }
 }
 
 void breakLineOnIntersections(const Polygon& polygons,
@@ -2159,8 +2170,12 @@ void breakLineOnIntersections(const Polygon& polygons,
                 Point midPoint = (pointsOnSegment[j] + splitLines.last().last()) / 2;
                 splitLines.last().append(midPoint);
 
-                if (QPointFEqual()(midPoint, pointsOnSegment[j]))continue;
+                if (splitLines.last().size() == 2 && QPointFEqual()(splitLines.last()[0], splitLines.last()[1]))
+                {
+                    splitLines.last().pop_back();
+                }
 
+                if (QPointFEqual()(midPoint, pointsOnSegment[j]))continue;
                 splitLines.push_back({ midPoint, pointsOnSegment[j] });
             }
         }
@@ -2177,24 +2192,18 @@ bool computeBufferBoundaryWithVector(const Polygon& pointss, double r, Polygon& 
 
     // 三维,点组成线,多线组成面（正负缓冲区），多面
     Polygons polygons;
-
-    for (auto& points : pointss)
     {
-        Polygon lines;
-
-        //因为长度不够而打断
-        breakLineOnLen(points, r, lines);
-
         // 使用扫描线算法找到交点
         Line intersectionPoints; // 存储所有交点
-        sweepLineFindIntersections(lines, intersectionPoints, false); // 自定义扫描线算法函数
+        sweepLineFindIntersections(pointss, intersectionPoints, false); // 自定义扫描线算法函数
 
         Polygon splitLines;
+        breakLineOnIntersections(pointss, intersectionPoints, splitLines); // 分割线段
 
-        breakLineOnIntersections(lines, intersectionPoints, splitLines); // 分割线段
+        Polygon splitLines2;
+        breakLineOnLen(splitLines, r, splitLines2);
 
-
-        for (auto& points : splitLines)
+        for (auto& points : splitLines2)
         {
             polygons.push_back({});
             if (points.size() == 3)
@@ -2212,8 +2221,6 @@ bool computeBufferBoundaryWithVector(const Polygon& pointss, double r, Polygon& 
                 calculateLineBuffer(points, r, polygons.last().last());
             }
         }
-
-
     }
 
 
@@ -2248,45 +2255,55 @@ bool computeBufferBoundaryWithVector(const Polygon& pointss, double r, Polygon& 
         return true;
     }
 
-    qDebug() << L("子图个数：%1").arg(polygons.size());
-    for (auto& polygon : polygons)
-        for (auto& line : polygon)
-        boundaryPointss.push_back(line);
-
-
     // Step 1: 使用扫描线算法找到交点
     Line intersectionPoints; // 存储所有交点
     sweepLineFindIntersections(polygons, intersectionPoints); // 自定义扫描线算法函数
-
-    qDebug() << L("交点数：%1").arg(intersectionPoints.size());
 
     // Step 2: 根据交点分割线段
     Polygon splitLines;
     QVector<int> belong;
     splitLineByIntersections(polygons, intersectionPoints, splitLines, belong); // 分割线段  
 
-    qDebug() << L("线段数：%1").arg(splitLines.size());
-
-    for (auto& line : splitLines)
-        boundaryPointss.push_back(line);
 
     // Step 3: 过滤位于多边形内部的线段
     Polygon filteredSplitLines;
     filterSplitLinesInsidePolygons(splitLines, belong, polygons, filteredSplitLines); // 点集 pointss 表示原始多边形
 
-
-    qDebug() << L("过滤后线段数：%1").arg(filteredSplitLines.size());
-
-
-    boundaryPointss.push_back({});
-    boundaryPointss.push_back({});
-    for(auto& line : filteredSplitLines)
-    boundaryPointss.push_back(line);
-
     // Step 4: 重建拓扑结构并合并多边形
     reconstructPolygons(filteredSplitLines, boundaryPointss);
 
-    qDebug() << L("闭合曲线数：%1").arg(boundaryPointss.size());
+
+
+    if (openDebug)
+    {
+        qDebug() << L("子图个数：%1").arg(polygons.size());
+        Gpolygon.clear();
+        for (auto& polygon : polygons)
+            for (auto& line : polygon)
+                Gpolygon.push_back(line);
+
+        Gpoints.clear();
+        qDebug() << L("交点数：%1").arg(intersectionPoints.size());
+        for (auto& point : intersectionPoints)
+            Gpoints.push_back({ point });
+
+        qDebug() << L("线段数：%1").arg(splitLines.size());
+        GsplitLines.clear();
+        for (auto& line : splitLines)
+            GsplitLines.push_back(line);
+
+        qDebug() << L("过滤后线段数：%1").arg(filteredSplitLines.size());
+
+        GfilteredSplitLines.clear();
+        for (auto& line : filteredSplitLines)
+            GfilteredSplitLines.push_back(line);
+
+        qDebug() << L("闭合曲线数：%1").arg(boundaryPointss.size());
+        GboundaryPointss.clear();
+        for (auto& line : boundaryPointss)
+            GboundaryPointss.push_back(line);
+    }
+
     return true;
 }
 

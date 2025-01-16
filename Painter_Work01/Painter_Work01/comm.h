@@ -123,3 +123,29 @@ struct GeoParameters {
         bufferFillColor = GlobalBufferFillColor;       // 缓冲区填充颜色
     }
 };
+
+
+
+// debug
+#define openDebug true
+#include <QVector>
+#include <QPointF>
+extern QVector<QVector<QPointF>> Gpolygon;
+extern QVector<QVector<QPointF>> Gpoints;
+extern QVector<QVector<QPointF>> GsplitLines;
+extern QVector<QVector<QPointF>> GfilteredSplitLines;
+extern QVector<QVector<QPointF>> GboundaryPointss;
+#include <QPainter>
+#include <QPainterPath>
+#include <QVector>
+#include <QPointF>
+#include <QString>
+#include <QColor>
+#include <QPen>
+#include <QFont>
+#include <cmath> // 用于数学计算
+
+void drawPolygons(QPainter& painter,
+    const QVector<QVector<QPointF>>& polygons,
+    const QString& title,
+    int baseOffset);

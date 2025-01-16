@@ -76,3 +76,152 @@ void initializeGlobalDrawSettings()
     GlobalStatusBar = new QStatusBar();                 // 创建状态栏实例
 }
 
+
+// debug
+
+QVector<QVector<QPointF>> Gpolygon;
+QVector<QVector<QPointF>> GsplitLines;
+QVector<QVector<QPointF>> GfilteredSplitLines;
+QVector<QVector<QPointF>> GboundaryPointss;
+QVector<QVector<QPointF>> Gpoints;
+
+void drawPolygons(QPainter& painter,
+    const QVector<QVector<QPointF>>& polygons,
+    const QString& title,
+    int baseOffset)
+{
+    int cnt = 50;
+    int pathIndex = 0; // 分图索引
+
+    // 计算所有顶点的平均高度
+    double totalHeight = 0;
+    int totalPoints = 0;
+
+    for (const auto& points : polygons)
+    {
+        for (const auto& point : points)
+        {
+            totalHeight += point.y();
+            ++totalPoints;
+        }
+    }
+
+    // 避免除零
+    double averageHeight = (totalPoints > 0) ? (totalHeight / totalPoints) : 0;
+
+    // 遍历所有多边形并绘制
+    for (const auto& points : polygons)
+    {
+        painter.setBrush(Qt::NoBrush);
+
+        // 设置线条颜色（根据 cnt 生成不同颜色）
+        QColor lineColor = QColor::fromHsv(cnt % 255, 255, 255);
+        lineColor.setAlpha(255); // 设置完全不透明
+        QPen pen;
+        pen.setColor(lineColor);
+        painter.setPen(pen);
+
+        QPainterPath singlePath; // 单条线的路径
+
+        // 偏移向量
+        QPointF offset(cnt * 6, baseOffset); // 固定偏移量，根据需求调整
+
+        // 偏移后的路径
+        QVector<QPointF> offsetPoints;
+        for (const auto& point : points)
+        {
+            offsetPoints.append(point + offset);
+        }
+
+        // 绘制偏移后的路径
+        singlePath.moveTo(offsetPoints.first());
+        for (int i = 1; i < offsetPoints.size(); ++i)
+        {
+            singlePath.lineTo(offsetPoints[i]);
+        }
+
+        // 绘制路径
+        painter.drawPath(singlePath);
+
+        // 绘制起点和终点的标记（可选）
+        painter.setBrush(Qt::red);
+        painter.drawEllipse(offsetPoints.first(), 2.0, 2.0); // 起点
+        painter.drawEllipse(offsetPoints.last(), 2.0, 2.0);  // 终点
+
+        // 绘制每个点的坐标标记
+        QFont font = painter.font();
+        font.setPointSize(10); // 设置字体大小
+        painter.setFont(font);
+
+        painter.setPen(Qt::black);
+        painter.drawText(
+            offsetPoints.first(),
+            QString("(%1, %2)").arg(QString::number(points.first().x(), 'f', 2),
+                QString::number(points.first().y(), 'f', 2))
+        );
+        painter.drawText(
+            offsetPoints.last(),
+            QString("(%1, %2)").arg(QString::number(points.last().x(), 'f', 2),
+                QString::number(points.last().y(), 'f', 2))
+        );
+
+        // 计算路径的中心点
+        QPointF pathCenter(0, 0);
+        for (const auto& point : offsetPoints)
+        {
+            pathCenter += point;
+        }
+        pathCenter /= offsetPoints.size(); // 取平均值
+
+        // 在平均高度位置添加分图下标
+        QString pathLabel = QString("%1 %2").arg(title).arg(pathIndex); // 构造路径下标
+        QPointF labelPos(pathCenter.x(), averageHeight + baseOffset + 150);   // 使用平均高度作为标签位置
+        painter.drawText(labelPos, pathLabel);
+
+        // 更新颜色计数和路径索引
+        cnt += 50;
+        ++pathIndex;
+    }
+
+    if(polygons.size())
+    {
+        // 绘制叠加状态的图
+        painter.setBrush(Qt::NoBrush);
+        QPen overlayPen;
+        overlayPen.setColor(Qt::blue); // 设置叠加图的线条颜色为蓝色
+        overlayPen.setWidth(1);        // 设置线宽
+        painter.setPen(overlayPen);
+
+        QPointF offset(-300, baseOffset);
+
+        QPainterPath overlayPath;
+        for (const auto& points : polygons)
+        {
+            if (points.isEmpty())
+                continue;
+
+            overlayPath.moveTo(points.first() + offset);
+            for (int i = 1; i < points.size(); ++i)
+            {
+                overlayPath.lineTo(points[i]+ offset);
+            }
+
+            painter.setBrush(Qt::red);
+            painter.drawEllipse(points.first() + offset, 2.0, 2.0); // 起点
+            painter.drawEllipse(points.last() + offset, 2.0, 2.0);  // 终点
+            painter.setBrush(Qt::NoBrush);
+        }
+
+        painter.drawPath(overlayPath);
+
+        // 添加叠加图标题
+        QFont font = painter.font();
+        font.setPointSize(12); // 设置字体大小
+        font.setBold(true);    // 设置加粗字体
+        painter.setFont(font);
+
+        QPointF overlayTitlePos(-200, averageHeight + baseOffset + 200); // 调整叠加标题位置
+        painter.setPen(Qt::black);
+        painter.drawText(overlayTitlePos, QString("%1").arg(title));
+    }
+}

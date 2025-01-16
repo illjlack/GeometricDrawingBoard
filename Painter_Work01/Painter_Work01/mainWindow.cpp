@@ -276,6 +276,15 @@ void Canvas::paintEvent(QPaintEvent* event)
             shape->draw(painter);
         }
     }
+
+    if (openDebug)
+    {
+        drawPolygons(painter, Gpolygon, L("打散分图"), -800);
+        drawPolygons(painter, Gpoints, L("交点"), -400);
+        drawPolygons(painter, GsplitLines, L("分割线段"), 0);
+        drawPolygons(painter, GfilteredSplitLines, L("过滤后线段"), 400);
+        drawPolygons(painter, GboundaryPointss, L("闭合曲线"), 800);
+    }
 }
 
 

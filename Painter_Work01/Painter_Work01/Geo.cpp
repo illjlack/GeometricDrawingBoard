@@ -621,7 +621,7 @@ void SimpleLine::drawBuffer(QPainter& painter)
     painter.setBrush(bufferBrush);
 
     // 如果缓冲区变化或路径为空，重新计算缓冲区路径
-    if (isBufferChanged() || bufferPath.isEmpty() || true) // debug
+    if (isBufferChanged() || bufferPath.isEmpty()) 
     {
         resetBufferChanged(); // 重置缓冲区状态
         bufferPath = QPainterPath(); // 清空并重新生成路径
@@ -638,56 +638,6 @@ void SimpleLine::drawBuffer(QPainter& painter)
                     bufferPath.lineTo(points[i]);
                 }
             }
-
-            // debug:
-            int cnt = 50;
-            
-            for (auto& points : buffers)
-            {
-                painter.setBrush(Qt::NoBrush);
-                // 如果线条点数小于 2，跳过
-                if (points.size() < 2)
-                    continue;
-
-                // 设置线条颜色（根据 cnt 生成不同颜色）
-                QColor lineColor = QColor::fromHsv(cnt % 360, 255, 255);
-                lineColor.setAlpha(255); // 设置完全不透明
-                QPen pen;
-                pen.setColor(lineColor);
-                painter.setPen(pen);
-
-                QPainterPath singlePath; // 单条线的路径
-
-                // 偏移向量
-                QPointF offset(cnt*3, 0); // 固定偏移量，根据需求调整
-
-                // 偏移后的路径
-                QVector<QPointF> offsetPoints;
-                for (const auto& point : points)
-                {
-                    offsetPoints.append(point + offset);
-                }
-
-                // 绘制偏移后的路径
-                singlePath.moveTo(offsetPoints.first());
-                for (int i = 1; i < offsetPoints.size(); ++i)
-                {
-                    singlePath.lineTo(offsetPoints[i]);
-                }
-
-                // 绘制路径
-                painter.drawPath(singlePath);
-
-                // 绘制起点和终点的标记（可选）
-                painter.setBrush(Qt::red);
-                painter.drawEllipse(offsetPoints.first(), 2.0, 2.0); // 起点
-                painter.drawEllipse(offsetPoints.last(), 2.0, 2.0);  // 终点
-
-                // 更新颜色计数
-                cnt += 50;
-            }
-            painter.setBrush(bufferBrush);
-
         }
     }
 

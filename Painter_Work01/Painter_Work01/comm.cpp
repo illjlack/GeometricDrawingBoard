@@ -54,8 +54,8 @@ void initializeGlobalDrawSettings()
 
     // 样条曲线相关初始化
     GlobalSplineOrder = 3;                              // 样条曲线阶数
-    GlobalSplineNodeCount = 500;                        // 默认样条节点数为 500
-    GlobalSteps = 500;                                  // 细分步数设为 500
+    GlobalSplineNodeCount = 20;                        // 默认样条节点数为 500
+    GlobalSteps = 20;                                  // 细分步数设为 500
 
     // 缓冲区属性初始化
     GlobalBufferVisible = false;                                    // 默认不显示缓冲区
@@ -77,13 +77,14 @@ void initializeGlobalDrawSettings()
 }
 
 
-// debug
 
+#ifdef DEBUG
 QVector<QVector<QPointF>> Gpolygon;
 QVector<QVector<QPointF>> GsplitLines;
 QVector<QVector<QPointF>> GfilteredSplitLines;
 QVector<QVector<QPointF>> GboundaryPointss;
 QVector<QVector<QPointF>> Gpoints;
+QVector<QVector<QPointF>> GsplitLines2;
 
 void drawPolygons(QPainter& painter,
     const QVector<QVector<QPointF>>& polygons,
@@ -183,7 +184,7 @@ void drawPolygons(QPainter& painter,
         ++pathIndex;
     }
 
-    if(polygons.size())
+    if (polygons.size())
     {
         // 绘制叠加状态的图
         painter.setBrush(Qt::NoBrush);
@@ -203,7 +204,7 @@ void drawPolygons(QPainter& painter,
             overlayPath.moveTo(points.first() + offset);
             for (int i = 1; i < points.size(); ++i)
             {
-                overlayPath.lineTo(points[i]+ offset);
+                overlayPath.lineTo(points[i] + offset);
             }
 
             painter.setBrush(Qt::red);
@@ -225,3 +226,5 @@ void drawPolygons(QPainter& painter,
         painter.drawText(overlayTitlePos, QString("%1").arg(title));
     }
 }
+
+#endif // DEBUG

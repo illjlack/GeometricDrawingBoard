@@ -25,7 +25,7 @@
  * @param steps 步数，决定计算多少个中间点
  * @return 如果成功计算则返回 true，失败则返回 false
  */
-bool calculateLinePoints(NodeLineStyle nodeLineStyle, const QVector<QPointF>& controlPoints, QVector<QPointF>& linePoints, int steps = 200);
+bool calculateLinePoints(NodeLineStyle nodeLineStyle, const QVector<QPointF>& controlPoints, QVector<QPointF>& linePoints, int steps = 20);
 
 /**
  * 根据节点类型和控制点计算闭合线上的点（多做了一下闭合）
@@ -35,7 +35,7 @@ bool calculateLinePoints(NodeLineStyle nodeLineStyle, const QVector<QPointF>& co
  * @param steps 步数，决定计算多少个中间点
  * @return 如果成功计算则返回 true，失败则返回 false
  */
-bool calculateCloseLinePoints(NodeLineStyle lineStyle, const QVector<QPointF>& controlPoints, QVector<QPointF>& linePoints, int steps = 200);
+bool calculateCloseLinePoints(NodeLineStyle lineStyle, const QVector<QPointF>& controlPoints, QVector<QPointF>& linePoints, int steps = 20);
 
 // 多个线一起计算的结构体
 struct Component {
@@ -51,7 +51,7 @@ struct Component {
  * @param steps 步数，决定计算多少个中间点
  * @return 返回成功绘制分图的个数
  */
-int calculateLinePoints(const QVector<Component>& component, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps = 200);
+int calculateLinePoints(const QVector<Component>& component, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps = 20);
 
 /**
  * 根据多个线段的组件和控制点计算闭合线上的点
@@ -61,7 +61,7 @@ int calculateLinePoints(const QVector<Component>& component, const QVector<QPoin
  * @param steps 步数，决定计算多少个中间点
  * @return 返回成功绘制分图的个数
  */
-int calculateCloseLinePoints(const QVector<Component>& component, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps = 200);
+int calculateCloseLinePoints(const QVector<Component>& component, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps = 20);
 
 
 /**
@@ -72,7 +72,7 @@ int calculateCloseLinePoints(const QVector<Component>& component, const QVector<
  * @param steps 步数，决定计算多少个中间点
  * @return 返回成功绘制分图的个数
  */
-int calculateParallelLinePoints(const QVector<Component>& components, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps = 200);
+int calculateParallelLinePoints(const QVector<Component>& components, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps = 20);
 
 // ==========================================================================
 // 样条计算

@@ -226,6 +226,8 @@ void  Geo::setGeoParameters(const GeoParameters& params)
     if (geoParameters.bufferDistance != params.bufferDistance || 
         geoParameters.bufferCalculationMode!= params.bufferCalculationMode)markBufferChanged();
 
+    if (geoParameters.steps != params.steps)markControlPointsChanged(); // 重算
+
     geoParameters = params;
 }
 
@@ -484,7 +486,7 @@ void SimpleLine::mouseReleaseEvent(QMouseEvent* event)
 
 void SimpleLine::completeDrawing()
 {
-    if (!calculateLinePoints(geoParameters.nodeLineStyle, controlPoints, points))
+    if (!calculateLinePoints(geoParameters.nodeLineStyle, controlPoints, points, geoParameters.steps))
     {
         setStateInvalid();
     }
@@ -522,6 +524,32 @@ void SimpleLine::draw(QPainter& painter)
         return;
     }
 
+    // 动态添加临时控制点
+    if (isStateDrawing() && !tempControlPoints.isNull())
+    {
+        controlPoints.push_back(tempControlPoints);
+        markControlPointsChanged(); // 标记控制点发生了变化
+    }
+
+    // 如果控制点发生变化或路径为空，则重新计算路径
+    if (isControlPointsChanged())
+    {
+        resetControlPointsChanged(); // 重置控制点状态
+        path = QPainterPath();       // 清空并重新生成路径
+
+        if (calculateLinePoints(geoParameters.nodeLineStyle, controlPoints, points, geoParameters.steps))
+        {
+            if (!points.isEmpty())
+            {
+                path.moveTo(points.first());
+                for (int i = 1; i < points.size(); ++i)
+                {
+                    path.lineTo(points[i]);
+                }
+            }
+        }
+    }
+
     // 如果状态完成且缓冲区可见，绘制缓冲区
     if (isStateComplete() && geoParameters.bufferVisible)
     {
@@ -533,6 +561,7 @@ void SimpleLine::draw(QPainter& painter)
     {
         drawControlPoints(painter);
     }
+
 
     // 设置画笔
     QPen pen;
@@ -548,32 +577,6 @@ void SimpleLine::draw(QPainter& painter)
         pen.setStyle(Qt::SolidLine);
     }
     painter.setPen(pen);
-
-    // 动态添加临时控制点
-    if (isStateDrawing() && !tempControlPoints.isNull())
-    {
-        controlPoints.push_back(tempControlPoints);
-        markControlPointsChanged(); // 标记控制点发生了变化
-    }
-
-    // 如果控制点发生变化或路径为空，则重新计算路径
-    if (isControlPointsChanged())
-    {
-        resetControlPointsChanged(); // 重置控制点状态
-        path = QPainterPath();       // 清空并重新生成路径
-
-        if (calculateLinePoints(geoParameters.nodeLineStyle, controlPoints, points))
-        {
-            if (!points.isEmpty())
-            {
-                path.moveTo(points.first());
-                for (int i = 1; i < points.size(); ++i)
-                {
-                    path.lineTo(points[i]);
-                }
-            }
-        }
-    }
 
     // 绘制路径
     painter.drawPath(path);
@@ -757,7 +760,7 @@ bool DoubleLine::hitTesting(const QPointF& point)
 
 void DoubleLine::completeDrawing()
 {
-    if (calculateLinePoints(component, controlPoints, pointss) != 2)
+    if (calculateLinePoints(component, controlPoints, pointss, geoParameters.steps) != 2)
     {
         setStateInvalid();
     }
@@ -773,6 +776,34 @@ void DoubleLine::draw(QPainter& painter)
         return;
     }
 
+    // 动态添加临时控制点
+    if (isDrawing && isStateDrawing() && !tempControlPoints.isNull())
+    {
+        controlPoints.push_back(tempControlPoints);
+        component.last().len++;
+        markControlPointsChanged(); // 标记控制点发生了变化
+    }
+
+    // 如果控制点发生变化，重新计算路径
+    if (isControlPointsChanged())
+    {
+        resetControlPointsChanged(); // 重置控制点状态
+        path = QPainterPath();       // 清空并重新生成路径
+
+        if (calculateLinePoints(component, controlPoints, pointss, geoParameters.steps))
+        {
+            for (const auto& points : pointss)
+            {
+                if (points.size() < 2) continue; // 忽略无效分图
+
+                path.moveTo(points.first());
+                for (int i = 1; i < points.size(); ++i)
+                {
+                    path.lineTo(points[i]);
+                }
+            }
+        }
+    }
 
     // 如果状态完成且缓冲区可见，绘制缓冲区
     if (isStateComplete() && geoParameters.bufferVisible)
@@ -785,7 +816,6 @@ void DoubleLine::draw(QPainter& painter)
     {
         drawControlPoints(painter);
     }
-
 
     // 设置画笔
     QPen pen;
@@ -801,35 +831,6 @@ void DoubleLine::draw(QPainter& painter)
         pen.setStyle(Qt::SolidLine);
     }
     painter.setPen(pen);
-
-    // 动态添加临时控制点
-    if (isDrawing && isStateDrawing() && !tempControlPoints.isNull())
-    {
-        controlPoints.push_back(tempControlPoints);
-        component.last().len++;
-        markControlPointsChanged(); // 标记控制点发生了变化
-    }
-
-    // 如果控制点发生变化，重新计算路径
-    if (isControlPointsChanged())
-    {
-        resetControlPointsChanged(); // 重置控制点状态
-        path = QPainterPath();       // 清空并重新生成路径
-
-        if (calculateLinePoints(component, controlPoints, pointss))
-        {
-            for (const auto& points : pointss)
-            {
-                if (points.size() < 2) continue; // 忽略无效分图
-
-                path.moveTo(points.first());
-                for (int i = 1; i < points.size(); ++i)
-                {
-                    path.lineTo(points[i]);
-                }
-            }
-        }
-    }
 
     // 绘制路径
     painter.drawPath(path);
@@ -999,7 +1000,7 @@ void ParallelLine::pushControlPoint(const QPointF& pos)
 
 void ParallelLine::completeDrawing()
 {
-    if (calculateParallelLinePoints(component, controlPoints, pointss) != 2)
+    if (calculateParallelLinePoints(component, controlPoints, pointss, geoParameters.steps) != 2)
     {
         setStateInvalid();
     }
@@ -1037,6 +1038,35 @@ void ParallelLine::draw(QPainter& painter)
         return;
     }
 
+    // 动态添加临时控制点
+    if (isStateDrawing() && !tempControlPoints.isNull())
+    {
+        controlPoints.push_back(tempControlPoints);
+        component.last().len++;
+        markControlPointsChanged(); // 标记控制点发生了变化
+    }
+
+    // 如果控制点发生变化，重新计算路径
+    if (isControlPointsChanged())
+    {
+        resetControlPointsChanged(); // 重置控制点状态
+        path = QPainterPath();       // 清空并重新生成路径
+
+        if (calculateParallelLinePoints(component, controlPoints, pointss, geoParameters.steps))
+        {
+            for (const auto& points : pointss)
+            {
+                if (points.size() < 2) continue; // 忽略无效分图
+
+                path.moveTo(points.first());
+                for (int i = 1; i < points.size(); ++i)
+                {
+                    path.lineTo(points[i]);
+                }
+            }
+        }
+    }
+
     // 如果状态完成且缓冲区可见，绘制缓冲区
     if (isStateComplete() && geoParameters.bufferVisible)
     {
@@ -1048,6 +1078,7 @@ void ParallelLine::draw(QPainter& painter)
     {
         drawControlPoints(painter);
     }
+
 
     // 设置画笔
     QPen pen;
@@ -1063,35 +1094,6 @@ void ParallelLine::draw(QPainter& painter)
         pen.setStyle(Qt::SolidLine);
     }
     painter.setPen(pen);
-
-    // 动态添加临时控制点
-    if (isStateDrawing() && !tempControlPoints.isNull())
-    {
-        controlPoints.push_back(tempControlPoints);
-        component.last().len++;
-        markControlPointsChanged(); // 标记控制点发生了变化
-    }
-
-    // 如果控制点发生变化，重新计算路径
-    if (isControlPointsChanged())
-    {
-        resetControlPointsChanged(); // 重置控制点状态
-        path = QPainterPath();       // 清空并重新生成路径
-
-        if (calculateParallelLinePoints(component, controlPoints, pointss))
-        {
-            for (const auto& points : pointss)
-            {
-                if (points.size() < 2) continue; // 忽略无效分图
-
-                path.moveTo(points.first());
-                for (int i = 1; i < points.size(); ++i)
-                {
-                    path.lineTo(points[i]);
-                }
-            }
-        }
-    }
 
     // 绘制路径
     painter.drawPath(path);
@@ -1216,7 +1218,7 @@ bool TwoPointCircle::hitTesting(const QPointF& point)
 
 void TwoPointCircle::completeDrawing()
 {
-    if (!calculateCloseLinePoints(NodeLineStyle::StyleTwoPointCircle, controlPoints, points))
+    if (!calculateCloseLinePoints(NodeLineStyle::StyleTwoPointCircle, controlPoints, points, geoParameters.steps))
     {
         setStateInvalid();
     }
@@ -1245,7 +1247,7 @@ void TwoPointCircle::draw(QPainter& painter)
         path = QPainterPath();
         if (!controlPoints.isEmpty())
         {
-            if (calculateCloseLinePoints(NodeLineStyle::StyleTwoPointCircle, controlPoints, points))
+            if (calculateCloseLinePoints(NodeLineStyle::StyleTwoPointCircle, controlPoints, points, geoParameters.steps))
             {
                 if (!points.isEmpty())
                 {
@@ -1418,7 +1420,7 @@ void SimpleArea::mouseReleaseEvent(QMouseEvent* event)
 
 void SimpleArea::completeDrawing()
 {
-    if (!calculateCloseLinePoints(geoParameters.nodeLineStyle, controlPoints, points))
+    if (!calculateCloseLinePoints(geoParameters.nodeLineStyle, controlPoints, points, geoParameters.steps))
     {
         setStateInvalid();
     }
@@ -1453,7 +1455,7 @@ void SimpleArea::draw(QPainter& painter)
         path = QPainterPath();
         if (!controlPoints.isEmpty())
         {
-            if (calculateCloseLinePoints(geoParameters.nodeLineStyle, controlPoints, points))
+            if (calculateCloseLinePoints(geoParameters.nodeLineStyle, controlPoints, points, geoParameters.steps))
             {
                 if (!points.isEmpty())
                 {
@@ -1674,7 +1676,7 @@ void ComplexArea::endSegmentDrawing()
 
 void ComplexArea::completeDrawing()
 {
-    if (!calculateCloseLinePoints(component, controlPoints, pointss))
+    if (!calculateCloseLinePoints(component, controlPoints, pointss, geoParameters.steps))
     {
         setStateInvalid();
     }
@@ -1703,7 +1705,7 @@ void ComplexArea::draw(QPainter& painter)
 
         // 重新计算路径
         path = QPainterPath();
-        if (calculateCloseLinePoints(component, controlPoints, pointss))
+        if (calculateCloseLinePoints(component, controlPoints, pointss, geoParameters.steps))
         {
             for (auto& points : pointss)
             {

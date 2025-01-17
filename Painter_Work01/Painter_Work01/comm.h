@@ -127,7 +127,10 @@ struct GeoParameters {
 
 
 // debug
-#define openDebug true
+// #define DEBUG
+
+
+#ifdef DEBUG
 #include <QVector>
 #include <QPointF>
 extern QVector<QVector<QPointF>> Gpolygon;
@@ -135,6 +138,7 @@ extern QVector<QVector<QPointF>> Gpoints;
 extern QVector<QVector<QPointF>> GsplitLines;
 extern QVector<QVector<QPointF>> GfilteredSplitLines;
 extern QVector<QVector<QPointF>> GboundaryPointss;
+extern QVector<QVector<QPointF>> GsplitLines2;
 #include <QPainter>
 #include <QPainterPath>
 #include <QVector>
@@ -149,3 +153,5 @@ void drawPolygons(QPainter& painter,
     const QVector<QVector<QPointF>>& polygons,
     const QString& title,
     int baseOffset);
+
+#endif // DEBUG

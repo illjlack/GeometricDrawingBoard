@@ -57,7 +57,8 @@ extern float GlobalBufferLineDashPattern;     // 缓冲区虚线段长
 extern QColor GlobalBufferFillColor;            // 缓冲区填充颜色
 
 
-extern QStatusBar* GlobalStatusBar; // 状态栏
+extern QStatusBar* GlobalStatusBar;             // 状态栏
+extern float GlobalScaleView;                   // 视图的缩放比例
 
 void initializeGlobalDrawSettings();
 
@@ -126,19 +127,23 @@ struct GeoParameters {
 
 
 
-// debug
+// 开启debug
 // #define DEBUG
 
 
 #ifdef DEBUG
 #include <QVector>
 #include <QPointF>
-extern QVector<QVector<QPointF>> Gpolygon;
-extern QVector<QVector<QPointF>> Gpoints;
-extern QVector<QVector<QPointF>> GsplitLines;
-extern QVector<QVector<QPointF>> GfilteredSplitLines;
-extern QVector<QVector<QPointF>> GboundaryPointss;
-extern QVector<QVector<QPointF>> GsplitLines2;
+extern QVector<QVector<QPointF>> G1_intersections;
+extern QVector<QVector<QPointF>> G1_splitLines;
+extern QVector<QVector<QPointF>> G1_filterSplitLines;
+extern QVector<QVector<QPointF>> G1_boundaryPointss;
+extern QVector<QVector<QPointF>> G1_draftLines;
+
+
+extern QVector<QVector<QPointF>> G2_polygon;
+extern QVector<QPointF> G2_intersections;
+
 #include <QPainter>
 #include <QPainterPath>
 #include <QVector>
@@ -153,5 +158,11 @@ void drawPolygons(QPainter& painter,
     const QVector<QVector<QPointF>>& polygons,
     const QString& title,
     int baseOffset);
+
+void drawSelfCheck(QPainter& painter,
+    const QVector<QVector<QPointF>>& polygons,
+    const QVector<QPointF>& intersections);
+
+void test();
 
 #endif // DEBUG

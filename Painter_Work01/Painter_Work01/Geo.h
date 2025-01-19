@@ -34,6 +34,10 @@ public:
 
     void dragGeo(const QPointF& point);
 
+    bool isSelectedPoint(); // 是否是选择控制点
+
+    void setCurrentSelectedPoint(const QPointF& point); // 设置当前控制点
+
     // 完成构造
     virtual void completeDrawing();
     // 绘制方法

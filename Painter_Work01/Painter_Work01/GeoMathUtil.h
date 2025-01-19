@@ -2,15 +2,17 @@
 
 #include <QPointF>
 #include <QVector>
-#define M_PI 3.14159265358979323846
 #include "Enums.h"
-
 #include <QRectF>
+
+
 
 // ==========================================================================
 // 计算线段上的点
 // 对外的接口， 统一分配计算
 // ==========================================================================
+
+const double M_PI = 3.14159265358979323846;
 
 /**
 * 能代替尽量不失败绘制
@@ -73,6 +75,12 @@ int calculateCloseLinePoints(const QVector<Component>& component, const QVector<
  * @return 返回成功绘制分图的个数
  */
 int calculateParallelLinePoints(const QVector<Component>& components, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps = 20);
+
+
+
+// 计算缓冲区
+bool computeBufferBoundary(BufferCalculationMode mode, const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss);
+
 
 // ==========================================================================
 // 样条计算
@@ -266,50 +274,12 @@ double pointToLineDistanceWithDirection(const QPointF& point, const QPointF& lin
  */
 bool calculateParallelLineThroughPoint(const QVector<QPointF>& polyline, const QPointF& targetPoint, QVector<QPointF>& parallelPolyline);
 
-// ==========================================================================
-// 缓冲区计算（基于矢量的缓冲区分析算法：平行线、角平分线、凸圆弧角，但是自相交处理不来)
-// ==========================================================================
-
-/**
- * 根据起点、终点和圆心计算特点方向的圆弧上的点(顺时针方向，从左往右)
- * @param startPoint 圆弧的起点
- * @param endPoint 圆弧的终点
- * @param center 圆心
- * @param steps 步数，决定计算多少个点
- * @param clockwise 是否顺时针方向绘制圆弧，true 表示顺时针，false 表示逆时针
- * @param arcPoints 输出参数，保存计算得到的弧线上的点
- * @return 如果计算成功则返回 true，失败则返回 false
- */
-bool calculateArcPointsFromStartEndCenter(const QPointF& startPoint, const QPointF& endPoint, const QPointF& center,
-    int steps, QVector<QPointF>& arcPoints);
-
-/**
- * 判断点与向量的位置关系
- * @param point 点
- * @param vectorStart 向量的起点
- * @param vectorEnd 向量的终点
- * @return 返回：
- *         - 1：点在向量的左侧
- *         - -1：点在向量的右侧
- *         - 0：点在向量的同一直线上
- */
-int pointRelativeToVector(const QPointF& point, const QPointF& vectorStart, const QPointF& vectorEnd);
-
-/**
- * 计算折线的缓存区
- * @param polyline 输入折线的点列表
- * @param dis 平行线与折线的距离
- * @param points 输出参数
- * @return 如果计算成功则返回 true，失败则返回 false
- */
-bool calculateLineBuffer(const QVector<QPointF>& polyline, double dis, QVector<QPointF>& points);
-
-
-bool computeBufferBoundaryWithVector(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss);
-
 // ==========================================================================================
 // 基于栅格的缓冲区分析算法（暴力枚举所有点，深搜排序）
 // ==========================================================================================
+
+// 简化线
+void simpleLine(QVector<QPointF>& points);
 
 // GridMap 数据结构，用于存储网格映射信息
 struct GridMap {
@@ -389,4 +359,5 @@ bool computeBufferBoundaryWithGrid(const QVector<QVector<QPointF>>& pointss, dou
 
 
 
-bool computeBufferBoundary(BufferCalculationMode mode, const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss);
+
+bool computeBufferBoundaryWithVector(const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss);

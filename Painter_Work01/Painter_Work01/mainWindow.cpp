@@ -213,6 +213,9 @@ void Canvas::scaleView(qreal scaleFactor)
     QTransform scale;
     scale.scale(scaleFactor, scaleFactor);
     view *= scale; // 累积缩放
+
+    GlobalScaleView = view.m11(); // 把缩放设置给全局变量
+
     update();      // 触发重绘
 }
 
@@ -278,12 +281,15 @@ void Canvas::paintEvent(QPaintEvent* event)
     }
 
 #ifdef DEBUG
-    drawPolygons(painter, GsplitLines2, L("打散线段"), -1200);
-    drawPolygons(painter, Gpolygon, L("打散分图"), -800);
-    drawPolygons(painter, Gpoints, L("交点"), -400);
-    drawPolygons(painter, GsplitLines, L("分割线段"), 0);
-    drawPolygons(painter, GfilteredSplitLines, L("过滤后线段"), 400);
-    drawPolygons(painter, GboundaryPointss, L("闭合曲线"), 800);
+    drawPolygons(painter, G1_draftLines, L("缓冲区草图"), -1200);
+    drawPolygons(painter, G1_intersections, L("交点数"), -400);
+    drawPolygons(painter, G1_splitLines, L("线段数"), 0);
+    drawPolygons(painter, G1_filterSplitLines, L("过滤后线段数"), 400);
+    drawPolygons(painter, G1_boundaryPointss, L("闭合曲线数"), 800);
+
+    //if(!G2_polygon.size())test();
+    // 对拍折线比较扫描线
+    //drawSelfCheck(painter, G2_polygon, G2_intersections);
 #endif // DEBUG
 
 }
@@ -381,6 +387,20 @@ void Canvas::mousePressEvent(QMouseEvent* event)
                 emit selectedGeo(geo);
                 selected = true;
                 break;
+            }
+        }
+        // 如果点击的是右键,可以移动控制点
+        if (event->button() == Qt::RightButton)
+        {
+            // 右键点击的处理逻辑
+            if (currentSelectGeo && currentSelectGeo->isSelectedPoint())
+            {
+                CoordinateInputDialog dialog(this);
+                if (dialog.exec() == QDialog::Accepted)
+                {
+                    QPointF newCoordinates = dialog.getCoordinates();
+                    currentSelectGeo->setCurrentSelectedPoint(newCoordinates); 
+                }
             }
         }
     }
@@ -487,6 +507,43 @@ QPointF Canvas::mapPoint(const QPointF& pos) const
     return view.inverted().map(pos);
 }
 
+// =========================================================================== CoordinateInputDialog
+CoordinateInputDialog::CoordinateInputDialog(QWidget* parent)
+    : QDialog(parent)
+{
+    // 设置对话框标题
+    setWindowTitle(L("调整坐标"));
+
+    // 创建布局
+    QFormLayout* layout = new QFormLayout(this);
+
+    // 创建输入框，限定输入为数字
+    xEdit = new QLineEdit(this);
+    xEdit->setValidator(new QDoubleValidator(this));
+    yEdit = new QLineEdit(this);
+    yEdit->setValidator(new QDoubleValidator(this));
+
+    // 添加到布局
+    layout->addRow(new QLabel(L("X 坐标:")), xEdit);
+    layout->addRow(new QLabel(L("Y 坐标:")), yEdit);
+
+    // 确认按钮
+    QPushButton* okButton = new QPushButton(L("确定"), this);
+    layout->addRow(okButton);
+
+    connect(okButton, &QPushButton::clicked, this, &CoordinateInputDialog::onOkClicked);
+}
+
+QPointF CoordinateInputDialog::getCoordinates() const
+{
+    return QPointF(xEdit->text().toDouble(), yEdit->text().toDouble());
+}
+
+void CoordinateInputDialog::onOkClicked()
+{
+    // 关闭对话框
+    accept();
+}
 
 // =========================================================================== GeoPropertyEditor
 GeoPropertyEditor::GeoPropertyEditor(QWidget* parent)

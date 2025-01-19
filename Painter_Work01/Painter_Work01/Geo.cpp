@@ -51,6 +51,8 @@ void Geo::initialize()
 
 void Geo::drawControlPoints(QPainter& painter)
 {
+
+
     if (isStateDrawing() && !tempControlPoints.isNull())controlPoints.push_back(tempControlPoints);
     for (auto& controlPoint : controlPoints)
     {
@@ -58,11 +60,23 @@ void Geo::drawControlPoints(QPainter& painter)
         painter.setPen(QPen(Qt::lightGray, 2));
         painter.setBrush(Qt::NoBrush);
         // 绘制控制点
-        painter.drawRect(controlPoint.x() - 6, controlPoint.y() - 6, 12, 12);
+        painter.drawRect(controlPoint.x() - 6 , controlPoint.y() - 6 , 12 , 12 );
 
         painter.setBrush(QBrush(Qt::red));
         painter.setPen(Qt::NoPen);
-        painter.drawRect(controlPoint.x() - 5, controlPoint.y() - 5, 10, 10);
+        painter.drawRect(controlPoint.x() - 5 , controlPoint.y() - 5 , 10 , 10 );
+
+        // 绘制每个点的坐标标记
+        QFont font = painter.font();
+        font.setPointSize(10 ); // 设置字体大小
+        painter.setFont(font);
+
+        painter.setPen(Qt::black);
+        painter.drawText(
+            controlPoint+QPoint(10,10),
+            QString("(%1, %2)").arg(QString::number(controlPoint.x(), 'f', 2),
+                QString::number(controlPoint.y(), 'f', 2))
+        );
 
         painter.setBrush(Qt::NoBrush);
     }
@@ -113,6 +127,20 @@ void Geo::dragGeo(const QPointF& point)
         markControlPointsChanged();
     }
     hitPoint = point;
+}
+
+bool Geo::isSelectedPoint()
+{
+    return currentSelectedPoint != nullptr;
+}
+
+void Geo::setCurrentSelectedPoint(const QPointF& point)
+{
+    if (currentSelectedPoint)
+    {
+        *currentSelectedPoint = point;
+        markControlPointsChanged();
+    }
 }
 
 
@@ -337,12 +365,6 @@ void Point::draw(QPainter& painter)
         drawBuffer(painter);
     }
 
-    // 如果被选中，绘制控制点
-    if (isStateSelected())
-    {
-        drawControlPoints(painter);
-    }
-
     QPointF point;
     if (isStateDrawing())
     {
@@ -376,6 +398,13 @@ void Point::draw(QPainter& painter)
         }
     }
     painter.setBrush(Qt::NoBrush);
+
+    // 如果被选中，绘制控制点
+    if (isStateSelected())
+    {
+        drawControlPoints(painter);
+    }
+
 }
 
 void Point::drawBuffer(QPainter& painter)
@@ -556,12 +585,6 @@ void SimpleLine::draw(QPainter& painter)
         drawBuffer(painter);
     }
 
-    // 如果被选中，绘制控制点
-    if (isStateSelected())
-    {
-        drawControlPoints(painter);
-    }
-
 
     // 设置画笔
     QPen pen;
@@ -588,6 +611,11 @@ void SimpleLine::draw(QPainter& painter)
         markControlPointsChanged();
     }
 
+    // 如果被选中，绘制控制点
+    if (isStateSelected())
+    {
+        drawControlPoints(painter);
+    }
 
 }
 
@@ -811,12 +839,6 @@ void DoubleLine::draw(QPainter& painter)
         drawBuffer(painter);
     }
 
-    // 如果被选中，绘制控制点
-    if (isStateSelected())
-    {
-        drawControlPoints(painter);
-    }
-
     // 设置画笔
     QPen pen;
     pen.setColor(geoParameters.lineColor);
@@ -841,6 +863,12 @@ void DoubleLine::draw(QPainter& painter)
         controlPoints.pop_back();
         component.last().len--;
         markControlPointsChanged();
+    }
+
+    // 如果被选中，绘制控制点
+    if (isStateSelected())
+    {
+        drawControlPoints(painter);
     }
 }
 
@@ -1073,13 +1101,6 @@ void ParallelLine::draw(QPainter& painter)
         drawBuffer(painter);
     }
 
-    // 如果被选中，绘制控制点
-    if (isStateSelected())
-    {
-        drawControlPoints(painter);
-    }
-
-
     // 设置画笔
     QPen pen;
     pen.setColor(geoParameters.lineColor);
@@ -1106,6 +1127,11 @@ void ParallelLine::draw(QPainter& painter)
         markControlPointsChanged();
     }
 
+    // 如果被选中，绘制控制点
+    if (isStateSelected())
+    {
+        drawControlPoints(painter);
+    }
 }
 
 void ParallelLine::drawBuffer(QPainter& painter)
@@ -1273,12 +1299,6 @@ void TwoPointCircle::draw(QPainter& painter)
         drawBuffer(painter);
     }
 
-    // 如果被选中，绘制控制点
-    if (isStateSelected())
-    {
-        drawControlPoints(painter);
-    }
-
     // 设置画笔样式
     QPen pen;
     pen.setColor(geoParameters.lineColor);
@@ -1304,7 +1324,11 @@ void TwoPointCircle::draw(QPainter& painter)
     // 恢复无填充样式
     painter.setBrush(Qt::NoBrush);
 
-
+    // 如果被选中，绘制控制点
+    if (isStateSelected())
+    {
+        drawControlPoints(painter);
+    }
 }
 
 void TwoPointCircle::drawBuffer(QPainter& painter)
@@ -1483,12 +1507,6 @@ void SimpleArea::draw(QPainter& painter)
         drawBuffer(painter);
     }
 
-    // 如果被选中，绘制控制点
-    if (isStateSelected())
-    {
-        drawControlPoints(painter);
-    }
-
     // 如果状态完成且缓冲区可见，绘制缓冲区
     if (isStateComplete() && geoParameters.bufferVisible)
     {
@@ -1521,6 +1539,12 @@ void SimpleArea::draw(QPainter& painter)
     painter.drawPath(path);
     // 恢复无填充画刷
     painter.setBrush(Qt::NoBrush);
+
+    // 如果被选中，绘制控制点
+    if (isStateSelected())
+    {
+        drawControlPoints(painter);
+    }
 }
 
 void SimpleArea::drawBuffer(QPainter& painter)
@@ -1734,12 +1758,6 @@ void ComplexArea::draw(QPainter& painter)
         drawBuffer(painter);
     }
 
-    // 如果被选中，绘制控制点
-    if (isStateSelected())
-    {
-        drawControlPoints(painter);
-    }
-
     // 设置画笔
     QPen pen;
     pen.setColor(geoParameters.lineColor);
@@ -1764,6 +1782,12 @@ void ComplexArea::draw(QPainter& painter)
 
     // 恢复无填充画刷
     painter.setBrush(Qt::NoBrush);
+
+        // 如果被选中，绘制控制点
+    if (isStateSelected())
+    {
+        drawControlPoints(painter);
+    }
 }
 
 void ComplexArea::drawBuffer(QPainter& painter)

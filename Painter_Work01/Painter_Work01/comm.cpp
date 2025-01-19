@@ -33,6 +33,8 @@ QColor GlobalBufferFillColor;            // 缓冲区填充颜色
 
 QStatusBar* GlobalStatusBar;            // 状态栏
 
+float GlobalScaleView;                  //视图的缩放比例
+
 void initializeGlobalDrawSettings()
 {
     // 全局绘图模式初始化为选择模式
@@ -74,23 +76,32 @@ void initializeGlobalDrawSettings()
 
     // 状态栏初始化
     GlobalStatusBar = new QStatusBar();                 // 创建状态栏实例
+
+
+    GlobalScaleView = 1.0;
 }
 
 
 
 #ifdef DEBUG
-QVector<QVector<QPointF>> Gpolygon;
-QVector<QVector<QPointF>> GsplitLines;
-QVector<QVector<QPointF>> GfilteredSplitLines;
-QVector<QVector<QPointF>> GboundaryPointss;
-QVector<QVector<QPointF>> Gpoints;
-QVector<QVector<QPointF>> GsplitLines2;
+QVector<QVector<QPointF>> G1_splitLines;
+QVector<QVector<QPointF>> G1_filterSplitLines;
+QVector<QVector<QPointF>> G1_boundaryPointss;
+QVector<QVector<QPointF>> G1_draftLines;
+QVector<QVector<QPointF>> G1_intersections;
+
+QVector<QPointF> G2_intersections;
+QVector<QVector<QPointF>> G2_polygon;
+
 
 void drawPolygons(QPainter& painter,
     const QVector<QVector<QPointF>>& polygons,
     const QString& title,
     int baseOffset)
 {
+    if (!polygons.size())return;
+    if (!polygons[0].size())return;
+
     int cnt = 50;
     int pathIndex = 0; // 分图索引
 
@@ -113,6 +124,7 @@ void drawPolygons(QPainter& painter,
     // 遍历所有多边形并绘制
     for (const auto& points : polygons)
     {
+        if (points.isEmpty())continue;
         painter.setBrush(Qt::NoBrush);
 
         // 设置线条颜色（根据 cnt 生成不同颜色）
@@ -223,7 +235,47 @@ void drawPolygons(QPainter& painter,
 
         QPointF overlayTitlePos(-200, averageHeight + baseOffset + 200); // 调整叠加标题位置
         painter.setPen(Qt::black);
-        painter.drawText(overlayTitlePos, QString("%1").arg(title));
+        painter.drawText(overlayTitlePos, QString("%1:%2").arg(title).arg(polygons.size()));
+    }
+}
+
+
+void drawSelfCheck(QPainter& painter,
+    const QVector<QVector<QPointF>>& polygons,
+    const QVector<QPointF>& intersections)
+{
+    // 设置画笔和颜色
+    QPen pen;
+    pen.setColor(Qt::blue);  // 折线的颜色
+    painter.setPen(pen);
+
+    // 绘制所有折线
+    for (const QVector<QPointF>& polygon : polygons) {
+        for (int i = 0; i < polygon.size() - 1; ++i) {
+            painter.drawLine(polygon[i], polygon[i + 1]);
+        }
+    }
+
+    // 设置画笔用于绘制交点
+    pen.setColor(Qt::red);  // 交点的颜色
+    painter.setPen(pen);
+    painter.setBrush(QBrush(Qt::red));
+
+
+    for (const QPointF& intersection : intersections) {
+        painter.drawEllipse(intersection, 2, 2); // 画一个半径为2的圆表示交点
+
+        // 绘制每个点的坐标标记
+        //QFont font = painter.font();
+        //font.setPointSize(10); // 设置字体大小
+        //painter.setFont(font);
+
+        //painter.setPen(Qt::black);
+        //painter.drawText(
+        //    intersection + QPoint(10, 10),
+        //    QString("(%1, %2)").arg(QString::number(intersection.x(), 'f', 2),
+        //        QString::number(intersection.y(), 'f', 2))
+        //);
     }
 }
 

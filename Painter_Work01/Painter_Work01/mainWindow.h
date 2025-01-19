@@ -89,6 +89,23 @@ private:
     QPointF hitPoint;
 };
 
+// ===================================================== GeoPropertyEditor
+
+class CoordinateInputDialog : public QDialog
+{
+    Q_OBJECT
+
+public:
+    explicit CoordinateInputDialog(QWidget* parent = nullptr);
+    QPointF getCoordinates() const;
+
+private slots:
+    void onOkClicked();
+
+private:
+    QLineEdit* xEdit;
+    QLineEdit* yEdit;
+};
 
 // ===================================================== GeoPropertyEditor
 

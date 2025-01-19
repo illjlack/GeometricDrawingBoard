@@ -105,6 +105,7 @@
   <ItemGroup>
     <ClCompile Include="comm.cpp" />
     <ClCompile Include="Geo.cpp" />
+    <ClCompile Include="PolygonBuffer.cpp" />
     <QtRcc Include="mainWindow.qrc" />
     <QtMoc Include="MainWindow.h" />
     <ClCompile Include="GeoMathUtil.cpp" />
@@ -121,6 +122,7 @@
     <ClInclude Include="Geo.h" />
     <ClInclude Include="GeoMathUtil.h" />
     <ClInclude Include="comm.h" />
+    <ClInclude Include="PolygonBuffer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Condition="Exists('$(QtMsBuild)\qt.targets')">

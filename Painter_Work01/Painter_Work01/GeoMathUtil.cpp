@@ -1,4 +1,6 @@
 #include "GeoMathUtil.h"
+#include "comm.h"
+#include "PolygonBuffer.h"
 #include <QVector>
 #include <QPointF>
 #include <cmath>
@@ -6,7 +8,6 @@
 #include <queue>
 #include <stack>
 #include <QApplication>
-#include "comm.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <QPainterPath>
@@ -14,7 +15,7 @@
 #include <QVector2D>
 
 using Point = QPointF;
-using Line = QVector<Point>;                 // 表示一条线
+using Line = QVector<Point>;                   // 表示一条线
 using Polygon = QVector<Line>;                 // 表示一个面
 using Polygons = QVector<Polygon>;             // 表示面集合
 
@@ -25,7 +26,7 @@ const double EPSILON = 1e-2; // float的精度太低
 // ==========================================================================
 
 // 比较器（给std容器用）
-struct QPointFComparator 
+struct PointComparator 
 {
     bool operator()(const Point& p1, const Point& p2) const 
     {
@@ -37,7 +38,7 @@ struct QPointFComparator
     }
 };
 
-struct QPointFEqual 
+struct PointEqual 
 {
     bool operator()(const Point& p1, const Point& p2) const 
     {
@@ -46,7 +47,7 @@ struct QPointFEqual
 };
 
 // 用于比较 Point 的哈希和相等
-struct QPointFHash
+struct PointHash
 {
     std::size_t operator()(const Point& point) const
     {
@@ -57,15 +58,15 @@ struct QPointFHash
 };
 
 struct PairIPEqual {
-    bool operator()(const std::pair<int, QPointF>& a, const std::pair<int, QPointF>& b) const {
-        return a.first == b.first && QPointFEqual{}(a.second, b.second);
+    bool operator()(const std::pair<int, Point>& a, const std::pair<int, Point>& b) const {
+        return a.first == b.first && PointEqual{}(a.second, b.second);
     }
 };
 
 struct PairIPHash {
-    std::size_t operator()(const std::pair<int, QPointF>& p) const {
+    std::size_t operator()(const std::pair<int, Point>& p) const {
         auto h1 = std::hash<int>{}(p.first);
-        auto h2 = QPointFHash{}(p.second);
+        auto h2 = PointHash{}(p.second);
         return h1 ^ (h2 << 1); // XOR 和左移组合
     }
 };
@@ -235,7 +236,6 @@ bool isClockwise(const Line& line) {
     return sum < 0.0; // >0 表示顺时针，<0 表示逆时针 (其实上下坐标是反的，外面是数学坐标的逆时针) 
 }
 
-
 // 点是否在面内
 bool isPointInsidePolygon(const Point& point, const Polygon& polygon)
 {
@@ -253,7 +253,7 @@ bool isPointInsidePolygon(const Point& point, const Polygon& polygon)
             // 判断点是否在边框上
             if (pointOnSegment(point, p1, p2))
             {
-                return false; // 点在边上，认为不在多边形内
+                return true; // 点在边上，认为在多边形内(因为线和图形不相交,在边框上就是边框,需要保留)
             }
 
             // 计算绕数
@@ -562,6 +562,27 @@ int calculateParallelLinePoints(const QVector<Component>& components, const Line
         }
     }
     return result;
+}
+
+bool computeBufferBoundary(BufferCalculationMode mode, const Polygon& pointss, double r, Polygon& boundaryPointss)
+{
+    boundaryPointss.clear();
+    // 单独处理点
+    if (pointss.size() == 1 && pointss[0].size() == 1)
+    {
+        Point point = pointss[0][0];
+        boundaryPointss.push_back({});
+        calculateArcPoints(point, r, 0, 2 * M_PI, GlobalSteps, boundaryPointss.last());
+        return true;
+    }
+
+    Polygon polygon = pointss;
+
+    for (auto& line : polygon)
+        simpleLine(line);
+
+    if (mode == BufferCalculationMode::Raster)return computeBufferBoundaryWithGrid(polygon, r, boundaryPointss);
+    else return computeBufferBoundaryWithVector(polygon, r, boundaryPointss);
 }
 
 
@@ -1215,1150 +1236,6 @@ bool calculateParallelLineThroughPoint(const Line& polyline, const Point& target
 }
 
 // ==========================================================================================
-// 缓冲区计算(基于矢量的缓冲区分析算法：平行线、角平分线、凸圆弧角,融合path)
-// ==========================================================================================
-
-/**
- * 根据起点、终点和圆心计算特点方向的圆弧上的点(顺时针方向，从左往右)
- * @param startPoint 圆弧的起点
- * @param endPoint 圆弧的终点
- * @param center 圆心
- * @param steps 步数，决定计算多少个点
- * @param clockwise 是否顺时针方向绘制圆弧，true 表示顺时针，false 表示逆时针
- * @param arcPoints 输出参数，保存计算得到的弧线上的点
- * @return 如果计算成功则返回 true，失败则返回 false
- */
-bool calculateArcPointsFromStartEndCenter(const Point& startPoint, const Point& endPoint, const Point& center,
-    int steps, Line& arcPoints)
-{
-    // 计算起点和终点的角度
-    double startAngle = std::atan2(startPoint.y() - center.y(), startPoint.x() - center.x());
-    double endAngle = std::atan2(endPoint.y() - center.y(), endPoint.x() - center.x());
-
-    startAngle = normalizeAngle(startAngle);
-    endAngle = normalizeAngle(endAngle);
-
-    // 计算角度差（弧度差）
-    double angleDiff = normalizeAngle(endAngle - startAngle);
-
-
-        
-    // 计算圆弧上的点
-    return calculateArcPoints(center, std::sqrt((center.x() - startPoint.x()) * (center.x() - startPoint.x())
-        + (center.y() - startPoint.y()) * (center.y() - startPoint.y())), startAngle, angleDiff, steps, arcPoints);
-}
-
-// 计算线段长度是否满足条件，如果不满足则返回true表示需要打断
-bool isLengthEnough(double x1, double y1, double x2, double y2, double r) {
-    
-    auto computeHalfAngleTan = [](double x1, double y1, double x2, double y2) {
-        // 计算向量长度
-        double len1 = length(x1, y1);
-        double len2 = length(x2, y2);
-
-        // 计算点积和叉积
-        double dotProduct = dot(x1, y1, x2, y2);
-        double crossProduct = std::fabs(cross(x1, y1, x2, y2));
-
-        // 计算 sin 和 cos
-        double cosTheta = dotProduct / (len1 * len2);
-        double sinTheta = crossProduct / (len1 * len2);
-
-        // 返回 tan(θ / 2)
-        return sinTheta / (1 + cosTheta);
-    };
-    double needLen = r / computeHalfAngleTan(x1, y1, x2, y2);
-    // 计算线段长度
-    double len1 = length(x1, y1);
-    double len2 = length(x2, y2);
-    return len1 >= needLen && len2 >= needLen;
-}
-
-/**
- * 计算折线的缓存区
- * @param polyline 输入折线的点列表
- * @param dis 平行线与折线的距离
- * @param points 输出参数
- * @return 如果计算成功则返回 true，失败则返回 false
- */
-// 参考：https://zhuanlan.zhihu.com/p/539904045
-bool calculateLineBuffer(const Line& polyline, double dis, Line& points)
-{
-    // 思路：做折线的平行线，大于PI的角做圆弧处理，先从左往右画
-
-    int plLen = polyline.size();
-    if (plLen < 2)
-    {
-        return false; // 折线至少需要两个点
-    }
-
-    // 遍历折线的每个点
-    for (int i = 0; i < plLen; ++i)
-    {
-        if (i == 0)
-        {
-            // 如果是折线的起点
-            double x1 = polyline[i].x(), y1 = polyline[i].y();
-            double x2 = polyline[i + 1].x(), y2 = polyline[i + 1].y();
-
-            auto [vx, vy] = normalize(y1 - y2, x2 - x1);// （dy, -dx） = p1 - p2 方向是指向p1
-
-            calculateArcPointsFromStartEndCenter(Point(x1 + vx * dis, y1 + vy * dis), Point(x1 - vx * dis, y1 - vy * dis), polyline[i], GlobalSteps, points);
-        }
-        else if (i == plLen - 1)
-        {
-            // 如果是折线的终点
-            double x1 = polyline[i - 1].x(), y1 = polyline[i - 1].y();
-            double x2 = polyline[i].x(), y2 = polyline[i].y();
-
-            auto [vx, vy] = normalize(y1 - y2, x2 - x1);
-
-            calculateArcPointsFromStartEndCenter( Point(x2 - vx * dis, y2 - vy * dis), Point(x2 + vx * dis, y2 + vy * dis), polyline[i], GlobalSteps, points);
-        }
-        else
-        {
-            // 对于折线的中间点
-            double x0 = polyline[i].x(), y0 = polyline[i].y();
-            double x1 = polyline[i - 1].x(), y1 = polyline[i - 1].y();
-            double x2 = polyline[i + 1].x(), y2 = polyline[i + 1].y();
-
-            // 计算前后两段向量的单位向量
-            auto [x01, y01] = normalize(x1 - x0, y1 - y0);
-            auto [x02, y02] = normalize(x2 - x0, y2 - y0);
-
-            if (sgn(cross(x01, y01, x02, y02)) == 0)
-            {
-                // 如果前后线段的方向向量共线,直接用法向量加入点
-                auto [vx, vy] = normalize(y01, -x01);// （dy, -dx） = p1 - p2 方向是指向p1
-                points.append(Point(x0 - vx * dis, y0 - vy * dis));
-                continue;
-            }
-
-            // 计算角平分线的单位向量（两个向量的平均）
-            auto [vx, vy] = normalize((x01 + x02) / 2, (y01 + y02) / 2);
-
-            // 计算角平分线的长度，用于确定平行线的偏移量
-            double sinX = std::fabs(cross(vx, vy, x02, y02));
-            double disBisector = dis / sinX;  // 使用叉乘来确定夹角的大小，得出平行线的距离
-
-            // 选择左侧或右侧的平行线
-            if (cross(x1 - x0, y1 - y0, x2 - x0, y2 - y0) > 0) // p2在左侧，直线方向是指向p1的，在画右边（角度大于PI）
-            {
-                points.append(Point(x0 + vx * disBisector, y0 + vy * disBisector));
-            }
-            else
-            {
-                auto [vx01, vy01] = normalize(y0 - y1, x1 - x0);
-                auto [vx20, vy20] = normalize(y2 - y0, x0 - x2);
-                calculateArcPointsFromStartEndCenter(Point(x0 + vx01 * dis, y0 + vy01 * dis), Point(x0 + vx20 * dis, y0 + vy20 * dis), polyline[i], GlobalSteps, points);
-            }
-        }
-    }
-
-    // 遍历折线的每个点(反方向)
-    for (int i = plLen - 2; i > 0; --i)
-    {
-        // 对于折线的中间点
-        double x0 = polyline[i].x(), y0 = polyline[i].y();
-        double x1 = polyline[i + 1].x(), y1 = polyline[i + 1].y();
-        double x2 = polyline[i - 1].x(), y2 = polyline[i - 1].y();
-
-        // 计算前后两段向量的单位向量
-        auto [x01, y01] = normalize(x1 - x0, y1 - y0);
-        auto [x02, y02] = normalize(x2 - x0, y2 - y0);
-
-        if (sgn(cross(x01, y01, x02, y02)) == 0)
-        {
-            // 如果前后线段的方向向量共线,直接用法向量加入点
-            auto [vx, vy] = normalize(y01, -x01);// （dy, -dx） = p1 - p2 方向是指向p1
-            continue;
-        }
-
-        // 计算角平分线的单位向量（两个向量的平均）
-        auto [vx, vy] = normalize((x01 + x02) / 2, (y01 + y02) / 2);
-
-        // 计算角平分线的长度，用于确定平行线的偏移量
-        double sinX = std::fabs(cross(vx, vy, x02, y02));
-        double disBisector = dis / sinX;  // 使用叉乘来确定夹角的大小，得出平行线的距离
-
-        // 选择左侧或右侧的平行线
-        if (cross(x1 - x0, y1 - y0, x2 - x0, y2 - y0) > 0) // p2在左侧，直线方向是指向p1的，在画右边（角度大于PI）
-        {
-            points.append(Point(x0 + vx * disBisector, y0 + vy * disBisector));
-        }
-        else
-        {
-            auto [vx01, vy01] = normalize(y0 - y1, x1 - x0);
-            auto [vx20, vy20] = normalize(y2 - y0, x0 - x2);
-            calculateArcPointsFromStartEndCenter(Point(x0 + vx01 * dis, y0 + vy01 * dis), Point(x0 + vx20 * dis, y0 + vy20 * dis), polyline[i], GlobalSteps, points);
-        }
-    }
-    if (points.size())points.append(points[0]);
-
-    return true;
-}
-
-// 折线的缓存区,闭合版本
-bool calculateClosedLineBuffer(const Line& polyline, double dis, Polygon& lines)
-{
-    // 思路：处理闭合折线，生成缓冲区，包括角平分线和圆弧的计算
-    int plLen = polyline.size() - 1;
-    if (plLen < 3)
-    {
-        return false; // 闭合折线至少需要三个点
-    }
-
-    Line currentLine;
-
-    // 遍历折线的每个点（闭合处理，首尾相连）
-    for (int i = 0; i < plLen; ++i)
-    {
-        // 获取当前点、前一点、后一点
-        double x0 = polyline[i].x(), y0 = polyline[i].y();
-        double x1 = polyline[(i - 1 + plLen) % plLen].x(), y1 = polyline[(i - 1 + plLen) % plLen].y();
-        double x2 = polyline[(i + 1) % plLen].x(), y2 = polyline[(i + 1) % plLen].y();
-
-
-        // 计算前后两段向量的单位向量
-        auto [x01, y01] = normalize(x1 - x0, y1 - y0);
-        auto [x02, y02] = normalize(x2 - x0, y2 - y0);
-
-        if (sgn(cross(x01, y01, x02, y02)) == 0)
-        {
-            // 如果前后线段的方向向量共线,直接用法向量加入点
-            auto [vx, vy] = normalize(y01, -x01);// （dy, -dx） = p1 - p2 方向是指向p1
-            currentLine.append(Point(x0 - vx * dis, y0 - vy * dis));
-            continue;
-        }
-
-        // 计算角平分线的单位向量（两个向量的平均）
-        auto [vx, vy] = normalize((x01 + x02) / 2, (y01 + y02) / 2);
-
-        // 计算角平分线的长度，用于确定平行线的偏移量
-        double sinX = std::fabs(cross(vx, vy, x02, y02));
-        double disBisector = dis / sinX;  // 使用叉乘来确定夹角的大小，得出平行线的距离
-
-        // 选择左侧或右侧的平行线
-        if (cross(x1 - x0, y1 - y0, x2 - x0, y2 - y0) > 0) // p2在左侧，直线方向是指向p1的，在画右边（角度大于PI）
-        {
-            currentLine.append(Point(x0 + vx * disBisector, y0 + vy * disBisector));
-        }
-        else
-        {
-            auto [vx01, vy01] = normalize(y0 - y1, x1 - x0);
-            auto [vx20, vy20] = normalize(y2 - y0, x0 - x2);
-            calculateArcPointsFromStartEndCenter(Point(x0 + vx01 * dis, y0 + vy01 * dis), Point(x0 + vx20 * dis, y0 + vy20 * dis), polyline[i], GlobalSteps, currentLine);
-        }
-    }
-    // 闭合当前线条，并添加到结果中
-    if (!currentLine.isEmpty())
-    {
-        currentLine.append(currentLine[0]);
-        lines.append(currentLine);
-    }
-
-    currentLine.clear();
-    // 遍历折线的每个点(反方向)
-    for (int i = plLen -1; i >= 0; --i)
-    {
-        // 获取当前点、前一点、后一点
-        double x0 = polyline[i].x(), y0 = polyline[i].y();
-        double x1 = polyline[(i + 1) % plLen].x(), y1 = polyline[(i + 1) % plLen].y();
-        double x2 = polyline[(i - 1 + plLen) % plLen].x(), y2 = polyline[(i - 1 + plLen) % plLen].y();
-
-        // 计算前后两段向量的单位向量
-        auto [x01, y01] = normalize(x1 - x0, y1 - y0);
-        auto [x02, y02] = normalize(x2 - x0, y2 - y0);
-
-        if (sgn(cross(x01, y01, x02, y02)) == 0)
-        {
-            // 如果前后线段的方向向量共线,直接用法向量加入点
-            auto [vx, vy] = normalize(y01, -x01);// （dy, -dx） = p1 - p2 方向是指向p1
-            continue;
-        }
-
-        // 计算角平分线的单位向量（两个向量的平均）
-        auto [vx, vy] = normalize((x01 + x02) / 2, (y01 + y02) / 2);
-
-        // 计算角平分线的长度，用于确定平行线的偏移量
-        double sinX = std::fabs(cross(vx, vy, x02, y02));
-        double disBisector = dis / sinX;  // 使用叉乘来确定夹角的大小，得出平行线的距离
-
-        // 选择左侧或右侧的平行线
-        if (cross(x1 - x0, y1 - y0, x2 - x0, y2 - y0) > 0) // p2在左侧，直线方向是指向p1的，在画右边（角度大于PI）
-        {
-            currentLine.append(Point(x0 + vx * disBisector, y0 + vy * disBisector));
-        }
-        else
-        {
-            auto [vx01, vy01] = normalize(y0 - y1, x1 - x0);
-            auto [vx20, vy20] = normalize(y2 - y0, x0 - x2);
-            calculateArcPointsFromStartEndCenter(Point(x0 + vx01 * dis, y0 + vy01 * dis), Point(x0 + vx20 * dis, y0 + vy20 * dis), polyline[i], GlobalSteps, currentLine);
-        }
-    }
-    // 闭合当前线条，并添加到结果中
-    if (!currentLine.isEmpty())
-    {
-        currentLine.append(currentLine[0]);
-        lines.append(currentLine);
-    }
-
-
-    return true;
-}
-
-
-// 计算夹角处缓冲区
-void computeAngleBufferIntersection(const QVector2D& v1, const QVector2D& v2, double r, Point o, Line& joinedPath)
-{
-    Line p1, p2;
-    // 计算单位向量和法向量
-    QVector2D u1 = v1.normalized();
-    QVector2D u2 = v2.normalized();
-    QVector2D normal1(-u1.y(), u1.x());
-    QVector2D normal2(-u2.y(), u2.x());
-    // 计算 p1 的圆弧和起终点
-    QVector2D arcStart1 = v1 - normal1 * r;
-    QVector2D arcEnd1 = v1 + normal1 * r;
-    QVector2D end1 = normal1 * r;
-    calculateArcPointsFromStartEndCenter(arcStart1.toPointF(), arcEnd1.toPointF(), v1.toPointF(), GlobalSteps, p1);
-    p1.push_back(end1.toPointF());
-    // 计算 p2 的圆弧和起终点
-    QVector2D arcStart2 = v2 + normal2 * r;
-    QVector2D arcEnd2 = v2 - normal2 * r;
-    QVector2D end2 = -normal2 * r;
-    p2.push_back(end2.toPointF());
-    calculateArcPointsFromStartEndCenter(arcEnd2.toPointF(), arcStart2.toPointF(), v2.toPointF(), GlobalSteps, p2);
-    // 寻找交点
-    Point intersection;
-    int p1IntersectIndex = -1, p2IntersectIndex = -1;
-    for (int i = 0; i < p1.size() - 1; ++i)
-    {
-        for (int j = 0; j < p2.size() - 1; ++j)
-        {
-            Point p1Start = p1[i], p1End = p1[i + 1];
-            Point p2Start = p2[j], p2End = p2[j + 1];
-
-            if (segmentsIntersect(p1Start, p1End, p2Start, p2End, intersection))
-            {
-                p1IntersectIndex = i;
-                p2IntersectIndex = j;
-                break;
-            }
-        }
-        if (p1IntersectIndex != -1) break;
-    }
-
-    // 如果找到交点，截断并连接路径
-    if (p1IntersectIndex != -1 && p2IntersectIndex != -1)
-    {
-        // 将 p1 截断到交点
-        for (int i = 0; i <= p1IntersectIndex; ++i)
-        {
-            joinedPath.push_back(p1[i] + o);
-        }
-        joinedPath.push_back(intersection + o);
-
-        // 将 p2 从交点开始添加
-        for (int j = p2IntersectIndex + 1; j < p2.size(); ++j)
-        {
-            joinedPath.push_back(p2[j] + o);
-        }
-    }
-}
-
-
-// 计算夹角小的两段线缓存区
-bool calculateLittleLineBuffer(const Line& polyline, double dis, Line& points)
-{
-    // 思路：做折线的平行线，大于PI的角做圆弧处理，先从左往右画
-
-    int plLen = polyline.size();
-    if (plLen != 3)
-    {
-        return false;
-    }
-
-    // 共线,交给其他函数
-    if (pointRelativeToVector(polyline[0], polyline[1], polyline[2]) == 0)
-    {
-        calculateLineBuffer(polyline, dis, points);
-        return true;
-    }
-
-    auto draw = [&](Point point1, Point point2, Point point3)
-    {
-        // 对于折线的中间点
-        float x0 = point2.x(), y0 = point2.y();
-        float x1 = point1.x(), y1 = point1.y();
-        float x2 = point3.x(), y2 = point3.y();
-
-        // 计算前后两段向量的单位向量
-        auto [x01, y01] = normalize(x1 - x0, y1 - y0);
-        auto [x02, y02] = normalize(x2 - x0, y2 - y0);
-
-        // 选择左侧或右侧的平行线
-        if (cross(x1 - x0, y1 - y0, x2 - x0, y2 - y0) > 0) // p2在左侧，直线方向是指向p1的，在画右边（角度大于PI）
-        {
-            QVector2D v1 = { x1 - x0, y1 - y0 }, v2 = { x2 - x0, y2 - y0 };
-            Point o = { x0,y0 };
-            computeAngleBufferIntersection(v1, v2, dis, o, points);
-        }
-        else
-        {
-            auto [vx01, vy01] = normalize(y0 - y1, x1 - x0);
-            auto [vx20, vy20] = normalize(y2 - y0, x0 - x2);
-            calculateArcPointsFromStartEndCenter(Point(x0 + vx01 * dis, y0 + vy01 * dis), Point(x0 + vx20 * dis, y0 + vy20 * dis), point2, GlobalSteps, points);
-        }
-    };
-
-    draw(polyline[0], polyline[1], polyline[2]);
-    draw(polyline[2], polyline[1], polyline[0]);
-
-    points.push_back(points.first());
-    return true;
-}
-
-// 线段结构体
-struct Segment
-{
-    Point start, end;
-
-    // 确保线段的起点小于终点（按 x 排序）
-    Segment(Point s, Point e)
-    {
-        if (s.x() > e.x() || (s.x() == e.x() && s.y() > e.y()))
-        {
-            start = e;
-            end = s;
-        }
-        else
-        {
-            start = s;
-            end = e;
-        }
-
-        if (end.x() - start.x() == 0) slope = std::numeric_limits<double>::infinity();
-        else slope = (end.y() - start.y()) / (end.x() - start.x());
-    }
-
-    double slope; // 更新起点，不重复计算
-};
-
-
-void sweepLineFindIntersections(const Polygon& pointss, Line& intersections, bool isArea = true) {
-
-    // 事件类型
-    enum EventType { Intersection = 1, Start, End, ReStart};
-
-    struct Event {
-        Point point;                          // 当前事件的坐标
-        int segmentIndex;                       // 所属线段的索引
-        EventType type;                         // 事件类型
-
-        // 重载比较运算符（用于优先队列）
-        bool operator>(const Event& other) const
-        {
-            // 首先比较 x 坐标
-            if (std::fabs(point.x() - other.point.x()) > EPSILON)
-            {
-                return point.x() > other.point.x();
-            }
-
-            return type > other.type;
-            // y 不重要
-        }
-    };
-
-    std::vector<Segment> segments;
-
-    // Step 1: 构造线段和事件点
-
-    std::priority_queue<Event, std::vector<Event>, std::greater<Event>> events; // 优先队列
-
-    // 用于记录每个闭合曲线的索引区间（用来判断段的向量关系）
-    std::vector<std::pair<int, int>> ringRanges;
-
-    int cnt = 0;
-    // 闭合曲线
-    for (const auto& points : pointss) {
-
-        int startIndex = cnt;
-        for (int i = 0; i < points.size() - 1; ++i) {
-            // 创建线段
-            Segment segment(points[i], points[i + 1]);
-            segments.push_back(segment);
-            cnt++;
-
-
-            // 生成起点和终点事件
-            Event startEvent{
-                segment.start,                                  // 起点坐标
-                cnt - 1,                                        // 线段索引
-                Start                                           // 事件类型
-            };
-
-            Event endEvent{
-                segment.end,                                    // 终点坐标
-                cnt - 1,                                        // 线段索引
-                End                                             // 事件类型
-            };
-
-            // 将事件插入优先队列
-            events.push(startEvent);
-            events.push(endEvent);
-        }
-        int endIndex = cnt - 1; // 最后一个线段索引
-        ringRanges.push_back({ startIndex, endIndex });
-    }
-
-    // Step 2: 扫描事件点
-    // 维护y的顺序对应的段 (y + x + 斜率 ,段号)
-    struct CustomComparator {
-        bool operator()(const std::pair<Point, double>& a, const std::pair<Point, double>& b) const {
-            // 确定比较的 x 值（较大值）
-            double x_target = std::max(a.first.x(), b.first.x());
-
-            // 计算 a 和 b 在 x = x_target 处的 y 值
-            double y_a = a.first.y() + a.second * (x_target - a.first.x()); // y = y0 + k * (x - x0)
-            double y_b = b.first.y() + b.second * (x_target - b.first.x());
-
-            // 比较 y 值，考虑精度
-            if (std::abs(y_a - y_b) > EPSILON) 
-            {
-                return y_a < y_b;
-            }
-
-            // 如果 y 相同，按斜率进行比较，考虑精度
-            if (std::abs(a.second - b.second) > EPSILON) 
-            {
-                return a.second < b.second;
-            }
-
-            // 如果 y 和斜率都相同，按 x 坐标比较
-            return a.first.x() < b.first.x();
-        }
-    };
-
-    std::multimap<std::pair<Point, double>, int, CustomComparator >statusTree;
-
-    auto isAdjacentSegments = [&](int segIndex1, int segIndex2) {
-
-        if (segIndex2 == segIndex1)return true;
-
-        // 使用 std::lower_bound 查找第一个区间的终点大于 segIndex 的位置
-        auto it = std::lower_bound(ringRanges.begin(), ringRanges.end(), segIndex1,
-            [](const std::pair<int, int>& range, int value) {
-                return range.second < value; // 找到尾部大于 segIndex 的区间
-            });
-
-        const auto& range = *it;
-
-        if (!isArea) // 不是围成区域，不能首尾相邻
-        {
-            return segIndex2 == std::max(segIndex1 - 1, range.first) ||
-                segIndex2 == std::min(segIndex1 + 1, range.second);
-        }
-        else
-        {
-            int prevSegment = (segIndex1 == range.first) ? range.second : segIndex1 - 1;
-            int nextSegment = (segIndex1 == range.second) ? range.first : segIndex1 + 1;
-
-            return (prevSegment == segIndex2 || nextSegment == segIndex2);
-        }
-    };
-
-    // 一个交点算一次就行，太容易死锁了
-    std::unordered_set<Point, QPointFHash, QPointFEqual> recordedIntersections;
-
-    std::unordered_set<std::pair<int, QPointF>, PairIPHash, PairIPEqual> st;
-
-    auto addIntersectionEvent = [&](int seg1, int seg2)
-    {
-        if (isAdjacentSegments(seg1, seg2))
-        {
-            return; // 如果两段相邻，忽略计算交点
-        }
-        Point intersecPoint;
-        if (segmentsIntersect(segments[seg1].start, segments[seg1].end, segments[seg2].start, segments[seg2].end, intersecPoint)) 
-        {
-            // 限制条件：单线单交点事件放入一次
-            if (!st.count({ seg1, intersecPoint }))
-            {
-                events.push({ intersecPoint,seg1, Intersection });
-                st.insert({ seg1, intersecPoint });
-            }
-            if (!st.count({ seg2, intersecPoint }))
-            {
-                events.push({ intersecPoint,seg2, Intersection });
-                st.insert({ seg2, intersecPoint });
-            }
-            
-            // 如果已经有交点
-            if (recordedIntersections.count(intersecPoint))return;
-            else recordedIntersections.insert(intersecPoint);
-            // 如果通过所有判断，记录交点和事件
-            intersections.push_back(intersecPoint);
-        }
-    };
-
-    while (!events.empty()) {
-        Event event = events.top();
-        events.pop();
-
-        int segmentIdx = event.segmentIndex;
-
-        if (event.type == Start || event.type == ReStart) {
-            // 计算线段的 key 值
-            std::pair<Point, double> key = { segments[segmentIdx].start, segments[segmentIdx].slope };
-
-            // 插入线段到状态树
-            auto inserted = statusTree.insert({ key, segmentIdx });
-            auto it = inserted;
-
-            // 检查新插入线段与相邻线段是否相交
-            if (it != statusTree.begin()) {
-                addIntersectionEvent(segmentIdx, std::prev(it)->second);
-            }
-            if (std::next(it) != statusTree.end()) {
-                addIntersectionEvent(segmentIdx, std::next(it)->second);
-            }
-        }
-        else if (event.type == End) {
-            // 计算线段的 key 值
-            std::pair<Point, double> key = { segments[segmentIdx].start, segments[segmentIdx].slope };
-
-            // 查找要移除的线段
-            auto it = statusTree.find(key);
-            if (it != statusTree.end()) {
-                // 获取相邻的线段
-                auto prevIt = (it == statusTree.begin()) ? statusTree.end() : std::prev(it);
-                auto nextIt = std::next(it);
-
-                // 如果存在相邻线段，检查它们之间是否相交
-                if (prevIt != statusTree.end() && nextIt != statusTree.end()) {
-                    addIntersectionEvent(prevIt->second, nextIt->second);
-                }
-                // 从状态树中删除线段
-                statusTree.erase(it);
-            }
-        }
-        else if (event.type == Intersection) {
-            // 处理交点事件
-            int seg = event.segmentIndex;
-
-            // 计算线段的 key 值
-            std::pair<Point, double> key = { segments[seg].start, segments[seg].slope };
-
-            // 删除原有线段
-            // 使用 find 方法确认是否在状态树中存在相同 key 对应的段
-            auto range1 = statusTree.equal_range(key);
-            // 删除特定的线段
-            for (auto it = range1.first; it != range1.second; ++it) {
-                if (it->second == seg) {
-                    it = statusTree.erase(it);
-                    break;
-                }
-            }
-
-            segments[seg].start = event.point;
-
-            // 到交点了，继续插入检查
-            // 把开始加入event
-            if(!QPointFEqual()(segments[seg].start, segments[seg].end))
-                events.push({segments[seg].start, seg, ReStart});
-        }
-    }
-}
-
-
-void sweepLineFindIntersections(const Polygons& pointsss, Line& intersections)
-{
-    QVector < Line>polygons;
-
-    for (auto& pointss : pointsss)
-    {
-        for (auto& points : pointss)
-        {
-            polygons.push_back(points);
-        }
-    }
-    sweepLineFindIntersections(polygons, intersections);
-}
-
-void splitLineByIntersections(const Polygon& polygons,
-    const Line& intersectionPoints,
-    Polygon& splitLines,
-    QVector<int>& belong)
-{
-    // 遍历每个多边形的每条边
-    for (int polygonIndex = 0; polygonIndex < polygons.size(); ++polygonIndex)
-    {
-        const auto& polygon = polygons[polygonIndex];
-        int n = polygon.size();
-        splitLines.push_back({});
-        belong.push_back(polygonIndex); // 初始线段属于当前多边形
-
-        for (int i = 0; i < n - 1; ++i)
-        {
-            const Point& start = polygon[i];
-            const Point& end = polygon[i + 1];
-
-            // 找到当前边上的交点
-            Line pointsOnSegment;
-            for (const Point& intersection : intersectionPoints)
-            {
-                if (pointOnSegment(intersection, start, end))
-                {
-                    pointsOnSegment.append(intersection);
-                }
-            }
-
-            splitLines.last().append(start); // 左闭右开
-
-            if (pointsOnSegment.isEmpty())
-            {
-                continue;
-            }
-
-            // 按离起点的距离对交点排序
-            std::sort(pointsOnSegment.begin(), pointsOnSegment.end(),
-                [&start](const Point& p1, const Point& p2)
-                {
-                    return QLineF(start, p1).length() < QLineF(start, p2).length();
-                });
-
-            // 根据排序后的点生成线段
-            for (int j = 0; j < pointsOnSegment.size(); ++j)
-            {
-                splitLines.last().append(pointsOnSegment[j]); // 交点是段的起点和终点
-
-                if (splitLines.last().size() == 2 && QPointFEqual()(splitLines.last()[0], splitLines.last()[1]))
-                {
-                    splitLines.last().pop_back();
-                }
-                else
-                {
-                    // 新增一条线段并记录所属图形
-                    splitLines.push_back({ pointsOnSegment[j] });
-                    belong.push_back(polygonIndex); // 新增线段也属于当前多边形
-                }
-            }
-        }
-        splitLines.last().append(polygon.last()); // 添加多边形最后一个点
-    }
-}
-
-void splitLineByIntersections(const Polygons& pointsss,
-    const Line& intersectionPoints,
-    Polygon& splitLines,
-    QVector<int>& belong)
-{
-    Polygon polygons;
-    QVector<int> belongPolygon;
-    for (int i = 0; i < pointsss.size(); i++)
-    {
-        for (auto& points : pointsss[i])
-        {
-            polygons.push_back(points);
-            belongPolygon.push_back(i);
-        }
-    }
-
-    // 调用实际的分割函数进行处理
-    QVector<int> tempBelong;
-    splitLineByIntersections(polygons, intersectionPoints, splitLines, tempBelong);
-
-    // 根据 tempBelong 中的索引和 polygonIndices，填充最终的 belong
-    for (int i = 0; i < tempBelong.size(); ++i)
-    {
-        belong.push_back(belongPolygon[tempBelong[i]]);
-    }
-}
-
-void reconstructPolygons(const Polygon& splitLines,
-    Polygon& mergedPolygons)
-{
-    // 建立表：每个交点的出向边和入向边
-    std::unordered_map<Point, std::pair<std::vector<int>, std::vector<int>>, QPointFHash, QPointFEqual> table;
-
-    // 记录哪些线段已经被使用
-    std::vector<bool> used(splitLines.size(), false);
-
-    // 填充表：记录每个点的出向边和入向边
-    for (int i = 0; i < splitLines.size(); i++)
-    {
-        const auto& line = splitLines[i];
-        if (line.size() == 1 || line.size() == 2 && QPointFEqual()(line[0], line[1]))
-        {
-            used[i] = 1;
-            continue;
-        }
-        table[line.first()].first.push_back(i); // 起点 -> 出向边
-        table[line.last()].second.push_back(i); // 终点 -> 入向边
-    }
-
-    // 遍历所有线段并重建多边形
-    for (int i = 0; i < splitLines.size(); i++)
-    {
-        if (used[i])
-            continue; // 跳过已经使用的线段
-
-        Line polygon;
-        int currentLineIndex = i;
-
-        // 构建多边形
-        while (true)
-        {
-            // 获取当前线段
-            const auto& line = splitLines[currentLineIndex];
-
-            for (auto& point : line) polygon.append(point);
-
-            used[currentLineIndex] = true; // 标记当前线段已使用
-
-            // 查找当前线段终点的出向边
-            const Point& endPoint = line.last();
-            auto& outEdges = table[endPoint].first;
-
-            // 找到未被使用的出向边
-            int nextLineIndex = -1;
-            for (int edgeIndex : outEdges)
-            {
-                if (!used[edgeIndex])
-                {
-                    nextLineIndex = edgeIndex;
-                    break;
-                }
-            }
-
-            if (nextLineIndex == -1)
-            {
-                break;
-            }
-
-            currentLineIndex = nextLineIndex; // 移动到下一条线段
-        }
-
-        // 添加到结果中
-        if (polygon.size() > 2) // 至少三个点才能构成多边形
-        {
-            mergedPolygons.append(polygon);
-        }
-    }
-}
-
-void filterSplitLinesInsidePolygons(const Polygon& splitLines,
-    const QVector<int>& belong,
-    const Polygons& polygons,
-    Polygon& filteredSplitLines)
-{
-    for (int i = 0; i < splitLines.size(); ++i)
-    {
-        const auto& line = splitLines[i];
-        int polygonIndex = belong[i]; // 获取当前线段所属多边形的索引
-
-        Point midPoint;
-        // 计算线上上的一点
-        if (line.size() > 2)
-        {
-            midPoint = line[line.size() / 2];
-        }
-        else midPoint = (line[0] + line[1]) * 0.5;
-
-        bool isInsideOtherPolygon = false;
-
-        // 检查中点是否在其他闭合多边形的内部
-        for (int j = 0; j < polygons.size(); ++j)
-        {
-            if (j == polygonIndex)
-            {
-                continue; // 跳过当前线段所属的多边形
-            }
-
-            if (isPointInsidePolygon(midPoint, polygons[j]))
-            {
-                isInsideOtherPolygon = true;
-                break;
-            }
-        }
-
-        // 如果中点不在其他多边形内部，保留该线段
-        if (!isInsideOtherPolygon)
-        {
-            filteredSplitLines.append(line);
-        }
-    }
-}
-
-void breakLineOnLen(const Line& points, double r, Polygon& segments)
-{
-    if (points.size() < 2) {
-        return;
-    }
-
-    QVector<bool> vis(points.size());
-    Line tempSegment;           // 临时段
-
-    auto computeHalfAngleTan = [](double x1, double y1, double x2, double y2) {
-        // 计算向量模长
-        double len1 = std::sqrt(x1 * x1 + y1 * y1);
-        double len2 = std::sqrt(x2 * x2 + y2 * y2);
-
-        // 计算点积和叉积
-        double dotProduct = x1 * x2 + y1 * y2;          // 点积
-        double crossProduct = x1 * y2 - y1 * x2;        // 叉积
-
-        // 计算 sin 和 cos
-        double cosTheta = dotProduct / (len1 * len2);
-        double sinTheta = std::fabs(crossProduct) / (len1 * len2);
-
-        // 计算 tan(θ / 2)
-        return sinTheta / (1 + cosTheta);
-    };
-
-    for (int i = 1; i < points.size() - 1; ++i) {
-        double x0 = points[i].x(), y0 = points[i].y();
-        double x1 = points[i + 1].x(), y1 = points[i + 1].y();
-        double x2 = points[i - 1].x(), y2 = points[i - 1].y();
-
-        // 计算前后两段向量
-        double x01 = x1 - x0, y01 = y1 - y0;
-        double x02 = x2 - x0, y02 = y2 - y0;
-
-        double needLen = r / computeHalfAngleTan(x01, y01, x02, y02);
-
-        // 判断是否需要打断
-        if (std::sqrt(x01 * x01 + y01 * y01) < needLen || std::sqrt(x02 * x02 + y02 * y02) < needLen) 
-        {
-            vis[i] = true; // 需要打断
-        }
-    }
-
-    for (int i = 0; i < points.size(); ++i)
-    {
-        if (tempSegment.size() && vis[i])
-        {
-            Point midPoint1 = (tempSegment.last() + points[i]) / 2;
-            tempSegment.push_back(midPoint1);
-            segments.push_back(tempSegment);
-            tempSegment.clear();
-
-            Point midPoint2 = (points[i] + points[i + 1]) / 2;
-            segments.push_back({ midPoint1, points[i], midPoint2 });
-
-            tempSegment.push_back(midPoint2);
-        }
-        else
-        {
-            tempSegment.push_back(points[i]);
-        }
-    }
-    if(tempSegment.size() > 1)segments.push_back(tempSegment);
-    return;
-}
-
-void breakLineOnLen(const Polygon& pointss, double r, Polygon& segments)
-{
-    for (auto& points : pointss)
-    {
-        breakLineOnLen(points, r, segments);
-    }
-}
-
-void breakLineOnIntersections(const Polygon& polygons,
-    const Line& intersectionPoints,
-    Polygon& splitLines)
-{
-    // 遍历每个多边形的每条边
-    for (int polygonIndex = 0; polygonIndex < polygons.size(); ++polygonIndex)
-    {
-        const auto& polygon = polygons[polygonIndex];
-        int n = polygon.size();
-        splitLines.push_back({});
-
-        for (int i = 0; i < n - 1; ++i)
-        {
-            const Point& start = polygon[i];
-            const Point& end = polygon[i + 1];
-
-            if (QPointFEqual()(start, end))continue;
-
-            // 找到当前边上的交点
-            Line pointsOnSegment;
-            for (const Point& intersection : intersectionPoints)
-            {
-                if (QPointFEqual()(intersection, start))continue;
-                if (QPointFEqual()(intersection, end))continue;
-                if (pointOnSegment(intersection, start, end))
-                {
-                    pointsOnSegment.append(intersection);
-                }
-            }
-
-            splitLines.last().append(start); // 左闭右开
-
-            if (pointsOnSegment.isEmpty())
-            {
-                continue;
-            }
-
-            // 按离起点的距离对交点排序
-            std::sort(pointsOnSegment.begin(), pointsOnSegment.end(),
-                [&start](const Point& p1, const Point& p2)
-                {
-                    return QLineF(start, p1).length() < QLineF(start, p2).length();
-                });
-
-            // 根据排序后的点生成线段
-            for (int j = 0; j < pointsOnSegment.size(); ++j)
-            {
-                Point midPoint = (pointsOnSegment[j] + splitLines.last().last()) / 2;
-                splitLines.last().append(midPoint);
-
-                if (splitLines.last().size() == 2 && QPointFEqual()(splitLines.last()[0], splitLines.last()[1]))
-                {
-                    splitLines.last().pop_back();
-                }
-
-                if (QPointFEqual()(midPoint, pointsOnSegment[j]))continue;
-                splitLines.push_back({ midPoint, pointsOnSegment[j] });
-            }
-        }
-
-        splitLines.last().append(polygon.last()); // 添加多边形最后一个点
-    }
-}
-
-
-bool computeBufferBoundaryWithVector(const Polygon& pointss, double r, Polygon& boundaryPointss)
-{
-    // 自相交在前面在生成缓冲区前判断
-    // Step 0: 处理自相交线,夹角小的线的打断分割
-
-    // 三维,点组成线,多线组成面（正负缓冲区），多面
-    Polygons polygons;
-    Polygon splitLines2;
-    {
-        // 使用扫描线算法找到交点
-        Line intersectionPoints; // 存储所有交点
-        sweepLineFindIntersections(pointss, intersectionPoints, false); // 自定义扫描线算法函数
-
-        Polygon splitLines;
-        breakLineOnIntersections(pointss, intersectionPoints, splitLines); // 分割线段
-
-        
-        breakLineOnLen(splitLines, r, splitLines2);
-
-        for (auto& points : splitLines2)
-        {
-            polygons.push_back({});
-            if (points.size() == 3)
-            {
-                polygons.last().push_back({});
-                calculateLittleLineBuffer(points, r, polygons.last().last());
-            }
-            else if (points.first() == points.last())
-            {
-                calculateClosedLineBuffer(points, r, polygons.last());
-            }
-            else
-            {
-                polygons.last().push_back({});
-                calculateLineBuffer(points, r, polygons.last().last());
-            }
-        }
-    }
-
-
-    // 自己的计算很多错误，用path
-    if(false)
-    {
-        QPainterPath combinedPath;
-        for (auto& pointss : polygons)
-        {
-            QPainterPath path;
-
-            for (auto& points : pointss)
-            {
-                path.moveTo(points[0]);
-                for (int i = 1; i < points.size(); ++i)
-                {
-                    path.lineTo(points[i]);
-                }
-            }
-            path.closeSubpath();
-            combinedPath = combinedPath.united(path);
-        }
-
-        for (int i = 0; i < combinedPath.elementCount(); ++i)
-        {
-            if (combinedPath.elementAt(i).isMoveTo())
-            {
-                boundaryPointss.push_back({}); // 开始新的点集
-            }
-            boundaryPointss.last().append(Point(combinedPath.elementAt(i).x, combinedPath.elementAt(i).y));
-        }
-        return true;
-    }
-
-    // Step 1: 使用扫描线算法找到交点
-    Line intersectionPoints; // 存储所有交点
-    sweepLineFindIntersections(polygons, intersectionPoints); // 自定义扫描线算法函数
-
-    // Step 2: 根据交点分割线段
-    Polygon splitLines;
-    QVector<int> belong;
-    splitLineByIntersections(polygons, intersectionPoints, splitLines, belong); // 分割线段  
-
-    // Step 3: 过滤位于多边形内部的线段
-    Polygon filteredSplitLines;
-    filterSplitLinesInsidePolygons(splitLines, belong, polygons, filteredSplitLines); // 点集 pointss 表示原始多边形
-
-    // Step 4: 重建拓扑结构并合并多边形
-    reconstructPolygons(filteredSplitLines, boundaryPointss);
-
-
-
-#ifdef DEBUG
-    qDebug() << L("打散线段：%1").arg(splitLines2.size());
-    GsplitLines2.clear();
-    for (auto& line : splitLines2)
-        GsplitLines2.push_back(line);
-
-    qDebug() << L("子图个数：%1").arg(polygons.size());
-    Gpolygon.clear();
-    for (auto& polygon : polygons)
-        for (auto& line : polygon)
-            Gpolygon.push_back(line);
-
-    Gpoints.clear();
-    qDebug() << L("交点数：%1").arg(intersectionPoints.size());
-    for (auto& point : intersectionPoints)
-        Gpoints.push_back({ point });
-
-    qDebug() << L("线段数：%1").arg(splitLines.size());
-    GsplitLines.clear();
-    for (auto& line : splitLines)
-        GsplitLines.push_back(line);
-
-    qDebug() << L("过滤后线段数：%1").arg(filteredSplitLines.size());
-
-    GfilteredSplitLines.clear();
-    for (auto& line : filteredSplitLines)
-        GfilteredSplitLines.push_back(line);
-
-    qDebug() << L("闭合曲线数：%1").arg(boundaryPointss.size());
-    GboundaryPointss.clear();
-    for (auto& line : boundaryPointss)
-        GboundaryPointss.push_back(line);
-#endif // DEBUG
-
-    return true;
-}
-
-
-// ==========================================================================================
 // 缓冲区计算(基于栅格的缓冲区分析算法)
 // ==========================================================================================
 
@@ -2608,6 +1485,7 @@ void douglasPeucker(Line& points, double epsilon) {
 
 void simpleLine(Line& points)
 {
+    if (points.size() < 2)return;
     int midIndex = points.size() / 2;
 
     // 将边界点集拆分为前后两半
@@ -2675,23 +1553,205 @@ bool computeBufferBoundaryWithGrid(const Polygon& pointss, double r, Polygon& bo
     return true;
 }
 
-bool computeBufferBoundary(BufferCalculationMode mode, const Polygon& pointss, double r, Polygon& boundaryPointss)
+
+
+
+bool computeBufferBoundaryWithVector(const Polygon& pointss, double r, Polygon& boundaryPointss)
 {
-    boundaryPointss.clear();
-    // 单独处理点
-    if (pointss.size() == 1 && pointss[0].size() == 1)
+    GeoBuffer::Polygon polygon;
+    for (auto& line : pointss)
     {
-        Point point = pointss[0][0];
-        boundaryPointss.push_back({});
-        calculateArcPoints(point, r, 0, 2*M_PI, GlobalSteps, boundaryPointss.last());
-        return true;
+        polygon.push_back({});
+        auto& polyline = polygon.back();
+        for (auto& point : line)
+        {
+            polyline.emplace_back(point.x(), point.y());
+        }
     }
 
-    Polygon polygon = pointss;
+    GeoBuffer::Polygon lines;
+    GeoBuffer::calculateCompleteLineBuffer(polygon, r, lines);
 
-    for (auto& line : polygon)
-        simpleLine(line);
 
-    if (mode == BufferCalculationMode::Raster)return computeBufferBoundaryWithGrid(polygon, r, boundaryPointss);
-    else return computeBufferBoundaryWithVector(polygon, r, boundaryPointss);
+    for (auto& line : lines)
+    {
+        boundaryPointss.push_back({});
+        auto& polyline = boundaryPointss.back();
+        for (auto& point : line)
+        {
+            polyline.push_back({ point.x , point.y });
+        }
+    }
+
+    return true;
 }
+
+
+
+
+
+
+
+
+#ifdef DEBUG
+
+// 暴力求解所有交点（不计算同一条折线相邻线段的交点）
+void bruteForceFindIntersections1(const Polygon& polygons, Line& intersections)
+{
+
+    // 定义Segment结构体
+    struct Segment {
+        Point start;
+        Point end;
+        size_t lineIndex;  // 所属折线的索引
+        size_t segmentIndex;  // 线段在折线中的索引（顺序）
+
+        Segment(const Point& start, const Point& end, size_t lineIndex, size_t segmentIndex)
+            : start(start), end(end), lineIndex(lineIndex), segmentIndex(segmentIndex) {}
+    };
+
+    // 构造所有线段，并记录它们所属的折线索引和线段索引
+    QVector<Segment> segments;
+
+    for (size_t lineIndex = 0; lineIndex < polygons.size(); ++lineIndex)
+    {
+        const auto& lines = polygons[lineIndex];
+        for (size_t i = 0; i < lines.size() - 1; ++i)
+        {
+            segments.push_back(Segment(lines[i], lines[i + 1], lineIndex, i));
+        }
+    }
+
+    // 枚举两两线段组合，检查是否相交
+    for (size_t i = 0; i < segments.size(); ++i)
+    {
+        for (size_t j = i + 1; j < segments.size(); ++j)
+        {
+            // 如果两条线段属于同一条折线
+            if (segments[i].lineIndex == segments[j].lineIndex)
+            {
+                // 如果两条线段相邻，则跳过
+                if (std::abs(static_cast<int>(segments[i].segmentIndex) - static_cast<int>(segments[j].segmentIndex)) == 1 ||
+                    (segments[i].segmentIndex == 0 && segments[j].segmentIndex == polygons[segments[i].lineIndex].size() - 2) ||
+                    (segments[i].segmentIndex == polygons[segments[i].lineIndex].size() - 2 && segments[j].segmentIndex == 0))
+                {
+                    continue; // 跳过相邻的线段
+                }
+            }
+
+            Point intersection;
+            if (segmentsIntersect(segments[i].start, segments[i].end,
+                segments[j].start, segments[j].end, intersection))
+            {
+                intersections.push_back(intersection);
+            }
+        }
+    }
+}
+
+
+
+// 生成随机数的工具函数
+double randomInRange(double min, double max) {
+    return min + static_cast<double>(rand()) / RAND_MAX * (max - min);
+}
+
+// 生成一个随机闭合曲线
+Line generateRandomLine(int numPoints, int num) {
+    QVector<Point> polygon;
+    polygon.reserve(numPoints);
+
+    // 设置随机种子
+    srand(static_cast<unsigned int>(time(0) + num * 100));
+
+    // 随机生成多边形的点
+    for (int i = 0; i < numPoints; ++i) {
+        double x = randomInRange(0, 1000);  // 随机生成x坐标
+        double y = randomInRange(0, 1000);  // 随机生成y坐标
+        polygon.push_back(Point(x, y));
+    }
+
+    // 确保最后一个点与第一个点重合，闭合多边形
+    polygon.push_back(polygon[0]);
+
+    // 返回一个包含多边形和其他线段的Polygon结构体
+    return polygon;  // 假设只生成一个多边形
+}
+
+void test()
+{
+    int flag = 0;
+    int cnt = 0;
+    while (!flag)
+    {
+
+        // 构造测试数据
+        //Polygon polygons = { generateRandomLine(10),  generateRandomLine(6) };
+        Polygon polygons;
+
+        for (int i = 0; i < 2; i++)
+        {
+            auto x = generateRandomLine(10, i);
+            polygons.push_back(x);
+        }
+
+        Line bruteIntersections;  // 暴力结果
+        Line sweepIntersections;  // 扫描线结果
+        // 执行暴力算法
+        bruteForceFindIntersections1(polygons, bruteIntersections);
+        // 执行扫描线算法
+        //sweepLineFindIntersections(polygons, sweepIntersections);
+
+        // 对拍比较
+        std::unordered_set<Point, PointHash, PointEqual> bruteSet(bruteIntersections.begin(), bruteIntersections.end());
+        std::unordered_set<Point, PointHash, PointEqual> sweepSet(sweepIntersections.begin(), sweepIntersections.end());
+
+
+
+        // 差异：暴力交点不在扫描线结果中
+        std::unordered_set<Point, PointHash, PointEqual> diffBrute;
+        for (const auto& p : bruteSet)
+        {
+            if (sweepSet.find(p) == sweepSet.end())  // 在暴力结果中但不在扫描线结果中
+            {
+                diffBrute.insert(p);
+            }
+        }
+
+        // 差异：扫描线交点不在暴力结果中
+        std::unordered_set<Point, PointHash, PointEqual> diffSweep;
+        for (const auto& p : sweepSet)
+        {
+            if (bruteSet.find(p) == bruteSet.end())  // 在扫描线结果中但不在暴力结果中
+            {
+                diffSweep.insert(p);
+            }
+        }
+
+        if (diffBrute.size() || diffSweep.size())
+        {
+            flag = 1;
+        }
+        else
+        {
+            cnt++;
+            continue;
+        }
+
+        qDebug() << L("第") << cnt << L("次对拍");
+
+        // 对比结果
+        qDebug() << L("对拍失败：结果不一致。");
+        qDebug() << L("在暴力算法中但不在扫描线算法中找到: ") << diffBrute.size();
+        qDebug() << L("在扫描线算法中但不在暴力算法中找到: ") << diffSweep.size();
+
+        Line diff;
+        for (auto& point : diffBrute) diff.push_back(point);
+        for (auto& point : diffSweep) diff.push_back(point);
+        G2_polygon = polygons;
+        G2_intersections = diff;
+    }
+
+}
+
+#endif // DEBUG

@@ -339,10 +339,10 @@ bool pointOnSegment2(const Point& q, const Point& p, const Point& r)
     if ((q - p).directionTo2(r - p))return false;
 
     // 检查 q 是否在点 p 和点 r 的范围内
-    return (q.x <= std::max(p.x, r.x) + EPSILON_POINT &&
-        q.x >= std::min(p.x, r.x) - EPSILON_POINT &&
-        q.y <= std::max(p.y, r.y) + EPSILON_POINT &&
-        q.y >= std::min(p.y, r.y) - EPSILON_POINT);
+    return (q.x <= std::max(p.x, r.x) + EPSILON_DRAW &&
+        q.x >= std::min(p.x, r.x) - EPSILON_DRAW &&
+        q.y <= std::max(p.y, r.y) + EPSILON_DRAW &&
+        q.y >= std::min(p.y, r.y) - EPSILON_DRAW);
 }
 
 // 线段是否相交和计算坐标
@@ -511,8 +511,8 @@ struct PointHash2
 {
     std::size_t operator()(const Point& point) const
     {
-        auto roundedX = std::round(point.x / EPSILON_POINT) * EPSILON_POINT;
-        auto roundedY = std::round(point.y / EPSILON_POINT) * EPSILON_POINT;
+        auto roundedX = std::round(point.x / EPSILON_DRAW) * EPSILON_DRAW;
+        auto roundedY = std::round(point.y / EPSILON_DRAW) * EPSILON_DRAW;
         return std::hash<double>()(roundedX) ^ (std::hash<double>()(roundedY) << 1);
     }
 };
@@ -908,7 +908,7 @@ void filterSplitLinesCloseToPolyLines(const Polygon& splitLines,
     Polygon& filteredSplitLines)
 {
 
-    double dis2 = dis * dis - EPSILON_POINT * 2/GlobalScaleView; // 图形上的误差可能比较大
+    double dis2 = dis * dis - EPSILON_DRAW * 10/GlobalScaleView; // 图形上的误差可能比较大
 
     for (auto& line : splitLines)
     {
@@ -955,7 +955,7 @@ void filterSplitLinesCloseToPolyLines(const Polygon& splitLines,
 void reconstructPolygons(const Polygon& splitLines, Polygon& mergedPolygons)
 {
     // 创建表：记录每个交点的出向边和入向边
-    std::unordered_map<Point, std::vector<int>, PointHash2> table;
+    std::unordered_map<Point, std::vector<int>, PointHash> table;
 
     // 记录哪些线段已经被使用
     std::vector<bool> used(splitLines.size(), false);
@@ -969,13 +969,28 @@ void reconstructPolygons(const Polygon& splitLines, Polygon& mergedPolygons)
             used[i] = true;
             continue;
         }
+
+        if (line.front() == line.back())
+        {
+            mergedPolygons.push_back({});
+            mergedPolygons.back().insert(mergedPolygons.back().end(), line.begin(), line.end());
+            used[i] = true;
+            continue;
+        }
+
         table[line.front()].push_back(i); // 起点 -> 出向边
     }
 
     std::vector<int>path;
     bool isClose = false;
+
+    int cnt = 0;
+
     std::function<void(int, int)> dfs = [&](int start, int pos)
     {
+        // 可能是有很多重复点的原因,导致搜索树很大，指数爆炸了
+        if (cnt++ > 1e8)return;
+
         if (splitLines[pos].back() == splitLines[start].front())
         {
             isClose = true;
@@ -1016,11 +1031,15 @@ void reconstructPolygons(const Polygon& splitLines, Polygon& mergedPolygons)
             {
                 used[idx] = true;
                 mergedPolygons.back().insert(mergedPolygons.back().end(), splitLines[idx].begin(), splitLines[idx].end());
-                path.clear();
-                isClose = false;
+
             }
+            path.clear();
+            isClose = false;
         }
     }
+
+
+
 }
 
 bool calculateCompleteLineBuffer(const Polygon& polygon, double dis, Polygon& lines, int step)

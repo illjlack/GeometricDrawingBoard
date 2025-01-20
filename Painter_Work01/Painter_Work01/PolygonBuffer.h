@@ -24,13 +24,13 @@ namespace GeoBuffer
 {
 const double _M_PI = 3.14159265358979323846;
 const double EPSILON = 1e-4;
-const double EPSILON_POINT = 1; // 点误差（误差留大一点）
+const double EPSILON_DRAW = 2; // 绘制误差（比如圆弧上的折线到圆心的距离小于缓冲区距离）
 
 // 精度处理（低精度）
 inline int sgn2(double x)
 {
-    if (x < - EPSILON_POINT) return -1;
-    else if (x > EPSILON_POINT) return 1;
+    if (x < - EPSILON_DRAW) return -1;
+    else if (x > EPSILON_DRAW) return 1;
     else return 0;
 }
 

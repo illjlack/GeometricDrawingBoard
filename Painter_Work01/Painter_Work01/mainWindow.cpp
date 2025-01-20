@@ -281,7 +281,7 @@ void Canvas::paintEvent(QPaintEvent* event)
     }
 
 #ifdef DEBUG
-    drawPolygons(painter, G1_draftLines, L("缓冲区草图"), -1200);
+    drawPolygons(painter, G1_draftLines, L("缓冲区草图"), -800);
     drawPolygons(painter, G1_intersections, L("交点数"), -400);
     drawPolygons(painter, G1_splitLines, L("线段数"), 0);
     drawPolygons(painter, G1_filterSplitLines, L("过滤后线段数"), 400);

@@ -152,8 +152,7 @@ extern QVector<QPointF> G2_intersections;
 #include <QColor>
 #include <QPen>
 #include <QFont>
-#include <cmath> // 用于数学计算
-
+#include <cmath>
 void drawPolygons(QPainter& painter,
     const QVector<QVector<QPointF>>& polygons,
     const QString& title,

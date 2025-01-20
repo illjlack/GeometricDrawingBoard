@@ -51,8 +51,6 @@ void Geo::initialize()
 
 void Geo::drawControlPoints(QPainter& painter)
 {
-
-
     if (isStateDrawing() && !tempControlPoints.isNull())controlPoints.push_back(tempControlPoints);
     for (auto& controlPoint : controlPoints)
     {
@@ -66,18 +64,21 @@ void Geo::drawControlPoints(QPainter& painter)
         painter.setPen(Qt::NoPen);
         painter.drawRect(controlPoint.x() - 5 , controlPoint.y() - 5 , 10 , 10 );
 
-        // 绘制每个点的坐标标记
-        QFont font = painter.font();
-        font.setPointSize(10 ); // 设置字体大小
-        painter.setFont(font);
+        // 绘制每个点的坐标标记(流线太多不画，可以加一个控件选择是否显示 )
+        if(geoParameters.nodeLineStyle!=NodeLineStyle::StyleStreamline)
+        {
+            QFont font = painter.font();
+            font.setPointSize(10); // 设置字体大小
+            painter.setFont(font);
 
-        painter.setPen(Qt::black);
-        painter.drawText(
-            controlPoint+QPoint(10,10),
-            QString("(%1, %2)").arg(QString::number(controlPoint.x(), 'f', 2),
-                QString::number(controlPoint.y(), 'f', 2))
-        );
+            painter.setPen(Qt::black);
+            painter.drawText(
+                controlPoint + QPoint(10, 10),
+                QString("(%1, %2)").arg(QString::number(controlPoint.x(), 'f', 2),
+                    QString::number(controlPoint.y(), 'f', 2))
+            );
 
+        }
         painter.setBrush(Qt::NoBrush);
     }
     if (isStateDrawing() && !tempControlPoints.isNull())controlPoints.pop_back();

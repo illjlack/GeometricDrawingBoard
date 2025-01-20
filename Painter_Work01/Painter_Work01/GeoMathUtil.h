@@ -43,7 +43,14 @@ bool calculateCloseLinePoints(NodeLineStyle lineStyle, const QVector<QPointF>& c
 struct Component {
     int len;
     NodeLineStyle nodeLineStyle;
+
+    Component() : len(0), nodeLineStyle(NodeLineStyle::NoStyle) {}
+    Component(int length, NodeLineStyle style) : len(length), nodeLineStyle(style) {}
+
 };
+
+Q_DECLARE_METATYPE(Component);
+Q_DECLARE_METATYPE(QVector<Component>);
 
 /**
  * 根据多个线段的组件和控制点计算线上的点

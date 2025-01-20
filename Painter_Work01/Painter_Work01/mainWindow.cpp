@@ -579,7 +579,7 @@ GeoPropertyEditor::GeoPropertyEditor(QWidget* parent)
     splineNodeCountSpinBox->setRange(2, 100);
 
     stepsSpinBox = new QSpinBox(this);
-    stepsSpinBox->setRange(1, 100);
+    stepsSpinBox->setRange(1, 1000);
 
     // 缓冲区属性
     bufferVisibleCheckBox = new QCheckBox(L("显示缓冲区"), this);
@@ -588,7 +588,7 @@ GeoPropertyEditor::GeoPropertyEditor(QWidget* parent)
     bufferCalculationModeComboBox->addItems({ L("矢量"), L("栅格") });
 
     bufferDistanceSpinBox = new QSpinBox(this);
-    bufferDistanceSpinBox->setRange(1, 1000);
+    bufferDistanceSpinBox->setRange(1, 10000);
 
     // 缓冲区线属性
     bufferLineStyleComboBox = new QComboBox(this);

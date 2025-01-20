@@ -527,7 +527,7 @@ bool SimpleLine::hitTesting(const QPointF& point)
 {
     bool selected = false;
 
-    const double epsilon = 5.0;
+    const double epsilon = geoParameters.lineWidth;
 
     // 遍历折线的所有线段
     for (int i = 0; i < points.size() - 1; ++i) 
@@ -767,7 +767,7 @@ bool DoubleLine::hitTesting(const QPointF& point)
 {
     bool selected = false;
 
-    const double epsilon = 5.0;
+    const double epsilon = geoParameters.lineWidth;
 
     for (auto& points : pointss)
     {
@@ -1040,7 +1040,7 @@ bool ParallelLine::hitTesting(const QPointF& point)
 {
     bool selected = false;
 
-    const double epsilon = 5.0;
+    const double epsilon = geoParameters.lineWidth;
 
     for (auto& points : pointss)
     {

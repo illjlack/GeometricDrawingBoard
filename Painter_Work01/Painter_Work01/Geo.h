@@ -8,13 +8,17 @@
 #include <QPainterPath>
 #include "GeoMathUtil.h"
 #include "comm.h"
+#include "ShapefileManager.h"
 
+class ShapefileManager;
 class Geo;
 Geo* createGeo(DrawMode mode);
 
 // ===================================================================== Geo
 class Geo 
 {
+    // 用来保存
+    friend class ShapefileManager;
 public:
     virtual ~Geo() = default;
 
@@ -100,6 +104,8 @@ private:
 // ===================================================================== Point
 class Point : public Geo 
 {
+    // 用来保存
+    friend class ShapefileManager;
 public:
     Point();
 
@@ -142,6 +148,8 @@ protected:
 // ===================================================================== DoubleLine
 class DoubleLine : public Geo 
 {
+    // 用来保存
+    friend class ShapefileManager;
 public:
     DoubleLine();
     void initialize() override;
@@ -172,6 +180,8 @@ protected:
 // ===================================================================== ParallelLine
 class ParallelLine : public Geo 
 {
+    // 用来保存
+    friend class ShapefileManager;
 public:
     ParallelLine();
     void initialize() override;
@@ -201,6 +211,8 @@ protected:
 // ===================================================================== TwoPointCircle
 class TwoPointCircle : public Geo 
 {
+    // 用来保存
+    friend class ShapefileManager;
 public:
     TwoPointCircle();
 
@@ -226,6 +238,8 @@ protected:
 // ===================================================================== SimpleArea
 class SimpleArea : public Geo 
 {
+    // 用来保存
+    friend class ShapefileManager;
 public:
     SimpleArea();
 
@@ -250,6 +264,8 @@ protected:
 // ===================================================================== ComplexArea 
 class ComplexArea : public Geo 
 {
+    // 用来保存
+    friend class ShapefileManager;
 public:
     ComplexArea();
     void initialize() override;

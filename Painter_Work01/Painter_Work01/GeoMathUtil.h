@@ -4,15 +4,15 @@
 #include <QVector>
 #include "Enums.h"
 #include <QRectF>
-
-
+#include <QMetaType>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonDocument>
 
 // ==========================================================================
 // 计算线段上的点
 // 对外的接口， 统一分配计算
 // ==========================================================================
-
-const double M_PI = 3.14159265358979323846;
 
 /**
 * 能代替尽量不失败绘制
@@ -47,10 +47,84 @@ struct Component {
     Component() : len(0), nodeLineStyle(NodeLineStyle::NoStyle) {}
     Component(int length, NodeLineStyle style) : len(length), nodeLineStyle(style) {}
 
+    // 序列化和反序列化
+    static inline QString nodeLineStyleToString(NodeLineStyle style) {
+        switch (style) {
+        case NodeLineStyle::NoStyle: return "N";
+        case NodeLineStyle::StylePolyline: return "P";
+        case NodeLineStyle::StyleSpline: return "S";
+        case NodeLineStyle::StyleThreePointArc: return "T";
+        case NodeLineStyle::StyleArc: return "A";
+        case NodeLineStyle::StyleTwoPointCircle: return "C";
+        case NodeLineStyle::StyleStreamline: return "L";
+        default: return "U";
+        }
+    }
+
+    static inline QString serializeComponent(const Component& component) {
+        QJsonObject jsonObject;
+        jsonObject["l"] = component.len;
+        jsonObject["n"] = nodeLineStyleToString(component.nodeLineStyle);
+        // 将 QJsonObject 转换为 JSON 字符串
+        QJsonDocument doc(jsonObject);
+        return doc.toJson(QJsonDocument::Compact);  // 使用紧凑格式的JSON字符串
+    }
+
+    static inline NodeLineStyle stringToNodeLineStyle(const QString& str) {
+        if (str == "N") return NodeLineStyle::NoStyle;
+        if (str == "P") return NodeLineStyle::StylePolyline;
+        if (str == "S") return NodeLineStyle::StyleSpline;
+        if (str == "T") return NodeLineStyle::StyleThreePointArc;
+        if (str == "A") return NodeLineStyle::StyleArc;
+        if (str == "C") return NodeLineStyle::StyleTwoPointCircle;
+        if (str == "L") return NodeLineStyle::StyleStreamline;
+        return NodeLineStyle::NoStyle;
+    }
+
+    static inline Component deserializeComponent(const QString& data) {
+        Component component;
+        // 将 JSON 字符串转换为 QJsonObject
+        QJsonDocument doc = QJsonDocument::fromJson(data.toUtf8());
+        if (doc.isObject()) {
+            QJsonObject jsonObject = doc.object();
+            component.len = jsonObject["l"].toInt();
+            component.nodeLineStyle = stringToNodeLineStyle(jsonObject["n"].toString());
+        }
+        return component;
+    }
+
+    // 序列化 QVector<Component> 为 JSON 字符串
+    static inline QString serializeComponentVector(const QVector<Component>& components) {
+        QJsonArray jsonArray;
+        for (const Component& component : components) {
+            // 每个 component 序列化为 JSON 字符串
+            jsonArray.append(serializeComponent(component));
+        }
+        // 将 QJsonArray 转换为 JSON 字符串
+        QJsonDocument doc(jsonArray);
+        return doc.toJson(QJsonDocument::Compact);  // 使用紧凑格式的JSON字符串
+    }
+
+    // 反序列化 JSON 字符串 为 QVector<Component>
+    static inline QVector<Component> deserializeComponentVector(const QString& data) {
+        QVector<Component> components;
+        // 将 JSON 字符串转换为 QJsonArray
+        QJsonDocument doc = QJsonDocument::fromJson(data.toUtf8());
+        if (doc.isArray()) {
+            QJsonArray jsonArray = doc.array();
+            for (const QJsonValue& value : jsonArray) {
+                if (value.isString()) {
+                    components.append(deserializeComponent(value.toString()));
+                }
+            }
+        }
+        return components;
+    }
 };
 
-Q_DECLARE_METATYPE(Component);
-Q_DECLARE_METATYPE(QVector<Component>);
+
+Q_DECLARE_METATYPE(Component)
+Q_DECLARE_METATYPE(QVector<Component>)
 
 /**
  * 根据多个线段的组件和控制点计算线上的点

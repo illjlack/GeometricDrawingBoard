@@ -12,7 +12,7 @@
 #include <QCheckBox>
 #include <QTransform>
 #include "Geo.h"
-
+#include "ShapefileManager.h"
 
 class Canvas;
 class GeoPropertyEditor;
@@ -33,11 +33,11 @@ private:
     Canvas* canvas;   // 绘制区域
     GeoPropertyEditor* geoEditor; // 配置窗口
     GeoPropertyEditor* propertyEditor; // 属性窗口
+    ShapefileManager* shapefileManager; // 文件加载、保存
 
 private slots:
     void openFile();        // 打开文件
     void saveFile();        // 保存文件
-    void exportToShp();     // 导出到 SHP 文件
     void showAbout();       // 显示关于信息
 };
 
@@ -57,8 +57,9 @@ public:
     void scaleView(qreal scaleFactor);        // 视图缩放
     void translateView(qreal dx, qreal dy);   // 视图平移
 
-protected:
     void pushGeo(Geo* shape);           // 加入对象
+    void getGeos(QVector<Geo*>& geos);
+protected:
     void removeGeo(Geo* geo);           // 移除对象
 
     void paintEvent(QPaintEvent* event) override;
@@ -83,9 +84,7 @@ private:
     std::list<Geo*> geoList;
     // 映射 Geo 指针到链表中对应元素的迭代器
     std::map<Geo*, std::list<Geo*>::iterator> geoMap;
-
-    QTransform view; // 视图矩阵（用于缩放和平移）
-
+    QTransform view; // 视图矩阵（用于缩放和平移
     QPointF hitPoint;
 };
 

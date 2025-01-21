@@ -11,6 +11,7 @@
 #include <QCheckBox>
 #include "comm.h"
 #include <QElapsedTimer>
+#include "ShapefileManager.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent),
@@ -40,6 +41,8 @@ MainWindow::MainWindow(QWidget* parent)
     createNodeLineToolBar();
     createStatusBar();
 
+    shapefileManager = new ShapefileManager;
+
     connect(canvas, &Canvas::selectedGeo, propertyEditor, &GeoPropertyEditor::setGeo);
     connect(propertyEditor, &GeoPropertyEditor::updateGeo, canvas, [this]() {
         canvas->update();
@@ -52,7 +55,7 @@ MainWindow::MainWindow(QWidget* parent)
 
 MainWindow::~MainWindow()
 {
-
+    delete shapefileManager;
 }
 
 void MainWindow::createMenuBar()
@@ -63,13 +66,11 @@ void MainWindow::createMenuBar()
     QMenu* fileMenu = menuBar->addMenu(L("文件(&F)"));
     QAction* openAction = fileMenu->addAction(L("打开(&O)..."));
     QAction* saveAction = fileMenu->addAction(L("保存(&S)..."));
-    QAction* exportAction = fileMenu->addAction(L("导出到 SHP 文件(&E)..."));
     fileMenu->addSeparator();
     QAction* exitAction = fileMenu->addAction(L("退出(&Q)"));
 
     connect(openAction, &QAction::triggered, this, &MainWindow::openFile);
     connect(saveAction, &QAction::triggered, this, &MainWindow::saveFile);
-    connect(exportAction, &QAction::triggered, this, &MainWindow::exportToShp);
     connect(exitAction, &QAction::triggered, this, &MainWindow::close);
 
     // 帮助菜单
@@ -176,15 +177,74 @@ void MainWindow::createStatusBar()
 
 void MainWindow::openFile()
 {
+    // 弹出选择 Shapefile 文件的对话框
+    QString filePath = QFileDialog::getOpenFileName(
+        this,
+        L("选择 Shapefile 文件"),
+        "", // 默认路径
+        L("Shapefile 文件 (*.shp)")
+    );
+
+    // 如果用户取消选择，则返回
+    if (filePath.isEmpty())
+        return;
+
+    // 调用 ShapefileManager 打开文件
+    if (!shapefileManager->openFile(filePath))
+    {
+        QMessageBox::warning(this, L("文件打开失败"), L("无法打开文件:\n%1").arg(filePath));
+        return;
+    }
+
+    // 清空 Canvas 并加载几何数据
+    QVector<Geo*> geos;
+    shapefileManager->getGeos(geos);
+
+    for (auto& geo : geos)
+    {
+        canvas->pushGeo(geo);
+    }
+
+    QMessageBox::information(this, L("文件打开成功"), L("已成功加载文件:\n%1").arg(filePath));
 }
+
 
 void MainWindow::saveFile()
 {
+    // 弹出选择保存目录的对话框
+    QString dirPath = QFileDialog::getExistingDirectory(
+        this,
+        L("选择保存目录"),
+        "", // 默认路径
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks
+    );
+
+    // 如果用户取消选择，则返回
+    if (dirPath.isEmpty())
+        return;
+
+    // 清除已有几何数据
+    shapefileManager->clearGeometry();
+
+    // 获取当前 Canvas 上的所有几何数据
+    QVector<Geo*> geos;
+    canvas->getGeos(geos);
+
+    for (auto geo : geos)
+    {
+        shapefileManager->saveGeo(geo);
+    }
+
+    // 调用 ShapefileManager 保存文件
+    if (!shapefileManager->saveFile(dirPath))
+    {
+        QMessageBox::warning(this, L("文件保存失败"), L("无法保存文件至:\n%1").arg(dirPath));
+        return;
+    }
+
+    QMessageBox::information(this, L("文件保存成功"), L("文件已成功保存至:\n%1").arg(dirPath));
 }
 
-void MainWindow::exportToShp()
-{
-}
 
 void MainWindow::showAbout()
 {
@@ -239,6 +299,14 @@ void Canvas::pushGeo(Geo* geo)
     geoMap[geo] = it;
 }
 
+void Canvas::getGeos(QVector<Geo*>& geos)
+{
+    for (auto geo : geoList)
+    {
+        geos.push_back(geo);
+    }
+}
+
 // 从链表和映射表中移除对象
 void Canvas::removeGeo(Geo* geo)
 {
@@ -287,9 +355,9 @@ void Canvas::paintEvent(QPaintEvent* event)
     drawPolygons(painter, G1_filterSplitLines, L("过滤后线段数"), 400);
     drawPolygons(painter, G1_boundaryPointss, L("闭合曲线数"), 800);
 
-    //if(!G2_polygon.size())test();
+    // if(!G2_polygon.size())test();
     // 对拍折线比较扫描线
-    //drawSelfCheck(painter, G2_polygon, G2_intersections);
+    // drawSelfCheck(painter, G2_polygon, G2_intersections);
 #endif // DEBUG
 
 }

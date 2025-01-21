@@ -11,22 +11,25 @@
 #include "Geo.h"
 #include "comm.h"
 
+class Geo;
+
 class ShapefileManager
 {
 public:
     ShapefileManager();
     bool openFile(const QString& filePath);  // 打开 Shapefile 文件
+    bool getGeos(QVector<Geo*>& geos);  
+
     bool saveFile(const QString& filePath);
     void clearGeometry();
-    // 保存 Shapefile 文件
+
     void addGeometry(const QString& geometry, const QMap<QString, QVariant>& attr);  // 添加几何数据
-    QVector<QString> getAllGeometries() const;                       // 获取所有几何数据
     void addField(const QString& fieldName);                    // 添加字段
-    QVector<QString> getFields() const;                              // 获取所有字段
+    QVector<QString> getFields() const;                         // 获取所有字段
 
     void initializeFields();
 
-    using Line = QVector<QPointF>;                   // 表示一条线
+    using Line = QVector<QPointF>;                 // 表示一条线
     using Polygon = QVector<Line>;                 // 表示一个面
     using Polygons = QVector<Polygon>;             // 表示面集合
 
@@ -41,8 +44,8 @@ public:
     Geo* loadGeo(const QMap<QString, QVariant>& attributes, const QString& geometryWKT);
 
 private:
-    QVector<QString> geometries;                                  // 存储几何数据
-    QVector<QMap<QString, QVariant>> attributes;     // 存储属性数据
+    QVector<QString> geometries;                                    // 存储几何数据
+    QVector<QMap<QString, QVariant>> attributes;                    // 存储属性数据
     QVector<QString> fields;                                         // 存储字段
-    GDALDataset* dataset;                                       // GDAL 数据集，管理读取和写入的 Shapefile 文件
+    GDALDataset* dataset;                                           // GDAL 数据集，管理读取和写入的 Shapefile 文件
 };

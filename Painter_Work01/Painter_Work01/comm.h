@@ -1,6 +1,6 @@
 #pragma once
 
-// 中文
+// =====================================================中文
 
 #include <QTextCodec>
 
@@ -10,15 +10,44 @@ inline QString L(const char* str) {
 }
 
 
-// 日志
-
-
+// ========================================================================================日志
 #include <QDebug>
+#include <QString>
+#include <sstream>
+#include <filesystem>
 
-#define STR(x) # x
+class LogHelper
+{
+public:
+    inline LogHelper(const char* file, int line)
+        : file_(file), line_(line) {}
 
-#define Log(str) \
-    qDebug() << "Log:" << L(str) << ", file:" << __FILE__ << ", line:" << __LINE__;
+    template <typename T>
+    LogHelper& operator<<(const T& value)
+    {
+        stream_ << value;
+        return *this;
+    }
+
+    inline LogHelper& operator<<(const QString& value) {
+        stream_ << value.toStdString();
+        return *this;
+    }
+
+    inline ~LogHelper()
+    {
+        qDebug() << "Log:" << QString::fromStdString(stream_.str())
+            << ", file:" << QString::fromStdString(std::filesystem::path(file_).filename().string()) << ", line:" << line_;
+    }
+
+private:
+    std::ostringstream stream_;
+    const char* file_;
+    int line_;
+};
+
+// 流式宏定义
+#define Log LogHelper(__FILE__, __LINE__)
 
 
 
@@ -128,7 +157,7 @@ struct GeoParameters {
 
 
 // 开启debug
-// #define DEBUG
+#define DEBUG
 
 
 #ifdef DEBUG

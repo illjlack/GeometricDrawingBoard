@@ -1,6 +1,8 @@
 #include "ShapefileManager.h"
 #include "ogrsf_frmts.h"
 #include <QtCore/qregularexpression.h>
+#include <QDir>
+
 ShapefileManager::ShapefileManager() : dataset(nullptr)
 {
     // 初始化 GDAL 库（仅需一次）
@@ -8,59 +10,98 @@ ShapefileManager::ShapefileManager() : dataset(nullptr)
     initializeFields();
 
     qRegisterMetaType<Component>("Component");
+    qRegisterMetaType<QVector<Component>>("QVector<Component>");
 }
 
-bool ShapefileManager::openFile(const QString& filePath)
+
+
+bool ShapefileManager::getGeos(QVector<Geo*>& geos)
 {
-    if (filePath.isEmpty())
+    int n = geometries.size();
+    assert(n == attributes.size());
+
+    for (int i = 0; i < n; i++)
     {
-        // 文件路径为空，显示提示信息
-        if (GlobalStatusBar) GlobalStatusBar->showMessage(L("文件路径为空，无法打开文件"));
+        geos.append(loadGeo(attributes[i], geometries[i]));
+    }
+    return true;
+}
+
+bool ShapefileManager::openFile(const QString& shpFilePath)
+{
+    if (shpFilePath.isEmpty())
+    {
+        Log << L("文件路径为空，无法打开文件");
+        return false;
+    }
+
+    QFileInfo fileInfo(shpFilePath);
+    if (!fileInfo.exists() || fileInfo.suffix().toLower() != "shp")
+    {
+        Log << L("指定的文件不存在或不是一个 Shapefile 文件：") << shpFilePath;
         return false;
     }
 
     // 打开 Shapefile 文件
-    dataset = static_cast<GDALDataset*>(GDALOpenEx(filePath.toUtf8().data(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr));
+    dataset = static_cast<GDALDataset*>(GDALOpenEx(shpFilePath.toUtf8().data(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr));
     if (dataset == nullptr)
     {
-        // 无法打开文件，显示提示信息
-        if (GlobalStatusBar) GlobalStatusBar->showMessage(L("无法打开 Shapefile 文件：") + filePath);
+        Log << L("无法打开 Shapefile 文件：") << shpFilePath;
         return false;
     }
 
-    // 成功打开文件，显示提示信息
-    if (GlobalStatusBar) GlobalStatusBar->showMessage(L("成功打开 Shapefile 文件：") + filePath);
+    Log << L("成功打开 Shapefile 文件：") << shpFilePath;
 
-    // 获取第一个图层
-    OGRLayer* layer = dataset->GetLayer(0);
+    // 获取第一个有效的图层
+    OGRLayer* layer = nullptr;
+    for (int i = 0; i < dataset->GetLayerCount(); ++i)
+    {
+        layer = dataset->GetLayer(i);
+        if (layer != nullptr)
+        {
+            break;
+        }
+    }
+
     if (layer == nullptr)
     {
-        // 无法获取图层，显示提示信息
-        if (GlobalStatusBar) GlobalStatusBar->showMessage(L("无法获取图层"));
+        Log << L("无法获取图层");
         GDALClose(dataset);
         dataset = nullptr;
         return false;
     }
 
-    // 清空现有的几何和属性数据
+    // 清空之前的数据
     geometries.clear();
     attributes.clear();
 
-    // 遍历图层中的要素（几何和属性数据）
+    // 遍历图层中的要素
     OGRFeature* feature = nullptr;
-    layer->ResetReading(); // 重置图层读取指针
+    layer->ResetReading();
+
+    if (layer->GetFeatureCount() == 0) {
+        Log << L("图层中没有要素");
+        GDALClose(dataset);  // 确保在这里关闭文件
+        dataset = nullptr;
+        return false;
+    }
+
     while ((feature = layer->GetNextFeature()) != nullptr)
     {
-        // 获取几何数据
+        // 获取几何数据并转换为 WKT 格式
         OGRGeometry* geometry = feature->GetGeometryRef();
         if (geometry != nullptr)
         {
             char* wkt = nullptr;
-            geometry->exportToWkt(&wkt); // 导出为 WKT 格式
-            if (wkt != nullptr)
+            OGRErr err = geometry->exportToWkt(&wkt);
+            if (err == OGRERR_NONE && wkt != nullptr)
             {
                 geometries.append(QString::fromUtf8(wkt));
-                CPLFree(wkt); // 释放 GDAL 分配的内存
+                CPLFree(wkt);
+            }
+            else
+            {
+                Log << L("无法转换几何数据为 WKT 格式");
             }
         }
 
@@ -78,104 +119,129 @@ bool ShapefileManager::openFile(const QString& filePath)
         }
         attributes.append(attr);
 
-        // 销毁要素对象
+        // 销毁当前要素
         OGRFeature::DestroyFeature(feature);
     }
+
+    GDALClose(dataset);  // 确保文件在函数结束时被关闭
+    dataset = nullptr;
 
     return true;
 }
 
 
-bool ShapefileManager::saveFile(const QString& filePath)
+
+bool ShapefileManager::saveFile(const QString& folderPath)
 {
-    if (filePath.isEmpty())
+    if (folderPath.isEmpty())
     {
-        if (GlobalStatusBar) GlobalStatusBar->showMessage(L("文件路径为空，无法保存文件"));
+        Log << L("文件夹路径为空，无法保存文件");
         return false;
     }
 
-    // 创建 Shapefile 文件
+    QDir folder(folderPath);
+    if (!folder.exists() && !folder.mkpath("."))
+    {
+        Log << L("无法创建文件夹：") << folderPath;
+        return false;
+    }
+
+    QString shpFilePath = folder.filePath("main.shp");
+
     GDALDriver* driver = GetGDALDriverManager()->GetDriverByName("ESRI Shapefile");
     if (driver == nullptr)
     {
-        // 显示无法获取 Shapefile 驱动的提示信息
-        if (GlobalStatusBar) GlobalStatusBar->showMessage(L("无法获取 Shapefile 驱动"));
+        Log << L("无法获取 Shapefile 驱动");
         return false;
     }
 
-    dataset = driver->Create(filePath.toUtf8().data(), 0, 0, 0, GDT_Unknown, nullptr);
+    // 删除已有文件（如果存在）
+    if (QFile::exists(shpFilePath))
+    {
+        if (driver->Delete(shpFilePath.toUtf8().data()) != CE_None)
+        {
+            Log << L("无法删除已有 Shapefile 文件：") << shpFilePath;
+            return false;
+        }
+    }
+
+    dataset = driver->Create(shpFilePath.toUtf8().data(), 0, 0, 0, GDT_Unknown, nullptr);
     if (dataset == nullptr)
     {
-        // 显示无法创建 Shapefile 文件的提示信息
-        if (GlobalStatusBar) GlobalStatusBar->showMessage(L("无法创建 Shapefile 文件：") + filePath);
+        Log << L("无法创建 Shapefile 文件：") << shpFilePath;
         return false;
     }
 
-    // 创建图层
-    OGRLayer* layer = dataset->CreateLayer("Layer1", nullptr, wkbPoint, nullptr);
+    OGRLayer* layer = dataset->CreateLayer("Layer1", nullptr, wkbLineString, nullptr);
     if (layer == nullptr)
     {
-        // 显示无法创建图层的提示信息
-        if (GlobalStatusBar) GlobalStatusBar->showMessage(L("无法创建图层"));
+        Log << L("无法创建图层");
         GDALClose(dataset);
         return false;
     }
 
-    // 创建字段
     for (const auto& field : fields)
     {
         OGRFieldDefn fieldDefn(field.toUtf8().data(), OFTString);
         layer->CreateField(&fieldDefn);
     }
 
-    // 添加几何和属性数据
     for (int i = 0; i < geometries.size(); ++i)
     {
         OGRFeature* feature = OGRFeature::CreateFeature(layer->GetLayerDefn());
 
-        // 添加几何数据
         OGRGeometry* geometry = nullptr;
-        const char* wkt = geometries[i].toUtf8().data();
-        OGRErr err = OGRGeometryFactory::createFromWkt(wkt, nullptr, &geometry);
+        std::string wktStr = geometries[i].toStdString();
+        const char* wkt = wktStr.c_str();
+        // 创建无投影的坐标系
+        OGRSpatialReference spatialRef;
+        spatialRef.SetLocalCS("Non-Geographic");
 
+        // 解析 WKT 数据时指定坐标系
+        OGRErr err = OGRGeometryFactory::createFromWkt(wkt, &spatialRef, &geometry);
+
+        // 解析失败
         if (err != OGRERR_NONE || geometry == nullptr)
         {
-            // 如果创建几何失败，显示错误信息
-            if (GlobalStatusBar) GlobalStatusBar->showMessage(L("无法解析 WKT 几何数据：") + geometries[i]);
+            // 根据错误代码构建错误信息
+            QString errMsg = QString("OGRErr code: %1").arg(err);
+
+            // 记录日志，增加更多详细信息
+            Log << L("无法解析 WKT 几何数据：") << geometries[i]
+                << L(" 错误码：") << errMsg;
+
+            // 销毁 feature 并跳过当前循环
             OGRFeature::DestroyFeature(feature);
-            continue;  // 跳过此条记录
+            continue;
         }
 
+        // 设置几何数据到 feature
         feature->SetGeometry(geometry);
 
-       // QVector<QMap<QString, QVariant>>
-        // 添加属性数据
+        // 设置字段
         for (auto it = attributes[i].begin(); it != attributes[i].end(); ++it)
         {
-            const QString& fieldName = it.key();
-            const QVariant& fieldValue = it.value();
-            feature->SetField(fieldName.toUtf8().data(), fieldValue.toString().toUtf8().data());
+            feature->SetField(it.key().toUtf8().data(), it.value().toString().toUtf8().data());
         }
 
-        // 将要素添加到图层
-        layer->CreateFeature(feature);
+        // 创建 feature 到图层
+        OGRErr featureErr = layer->CreateFeature(feature);
+        if (featureErr != OGRERR_NONE)
+        {
+            Log << L("无法创建要素，错误码：") << featureErr;
+            OGRFeature::DestroyFeature(feature);
+            continue;
+        }
         OGRFeature::DestroyFeature(feature);
     }
 
-    // 关闭文件
     GDALClose(dataset);
 
-    // 显示保存文件成功的提示信息
-    if (GlobalStatusBar) GlobalStatusBar->showMessage(L("文件保存成功：") + filePath);
+    Log << L("文件保存成功：") << shpFilePath;
 
     return true;
 }
 
-QVector<QString> ShapefileManager::getAllGeometries() const
-{
-    // 返回所有几何数据
-    return geometries;
-}
 
 void ShapefileManager::addField(const QString& fieldName)
 {
@@ -189,15 +255,13 @@ QVector<QString> ShapefileManager::getFields() const
     return fields;
 }
 
-
 void ShapefileManager::initializeFields()
 {
     addField("GeoType");
     addField("Components");
 
-
     // 点形状相关字段
-    addField("NodeLineStyle");
+    addField("NodeLine");
     addField("PointShape");
     addField("PointColor");
 
@@ -205,30 +269,30 @@ void ShapefileManager::initializeFields()
     addField("LineStyle");
     addField("LineWidth");
     addField("LineColor");
-    addField("LineDashPattern");
+    addField("LineDash");
 
     // 填充颜色字段
     addField("FillColor");
 
     // 样条相关字段
-    addField("SplineOrder");
-    addField("SplineNodeCount");
+    addField("SplineOrd");
+    addField("SplineCnt");
     addField("Steps");
 
     // 缓冲区相关字段
-    addField("BufferVisible");
+    addField("BufferVis");
     addField("BufferMode");
-    addField("BufferDistance");
+    addField("BufferDist");
 
     // 缓冲区线属性字段
-    addField("BufferHasBorder");
-    addField("BufferLineStyle");
-    addField("BufferLineWidth");
-    addField("BufferLineColor");
-    addField("BufferLineDash");
+    addField("BufferBord");
+    addField("BufferLine");
+    addField("BufferWid");
+    addField("BufferCol");
+    addField("BufferDash");
 
     // 缓冲区面属性字段
-    addField("BufferFillColor");
+    addField("BufferFill");
 }
 
 
@@ -261,82 +325,126 @@ QString ShapefileManager::lineToWKT(const Line& line) const
     return QString("LINESTRING (%1)").arg(points.join(", "));
 }
 
-// 从 WKT 转换为 Line
 Line ShapefileManager::wktToLine(const QString& wkt) const
 {
     Line line;
-    QRegularExpression re(R"(\(([^()]+)\))"); // 匹配括号中的坐标
-    QRegularExpressionMatch match = re.match(wkt);
+
+    // 匹配括号中的坐标部分
+    QRegularExpression re(R"(\(([^()]+)\))");
+    QRegularExpressionMatch match = re.match(wkt.trimmed());
 
     if (match.hasMatch())
     {
-        QString lineStr = match.captured(1);
-        QStringList pointStrs = lineStr.split(", ");
+        QString lineStr = match.captured(1).trimmed();
+        // 使用正则表达式移除可能的额外空格
+        QStringList pointStrs = lineStr.split(QRegularExpression(R"(\s*,\s*)")); // 允许前后有空格
         for (const auto& pointStr : pointStrs)
         {
-            QStringList coords = pointStr.split(" ");
+            QStringList coords = pointStr.split(QRegularExpression(R"(\s+)")); // 坐标之间用空格分隔
             if (coords.size() == 2)
             {
-                line.append(QPointF(coords[0].toDouble(), coords[1].toDouble()));
+                bool ok1, ok2;
+                double x = coords[0].toDouble(&ok1);
+                double y = coords[1].toDouble(&ok2);
+                if (ok1 && ok2)
+                {
+                    line.append(QPointF(x, y));
+                }
+                else
+                {
+                    Log << L("坐标转换失败：") << pointStr;
+                }
+            }
+            else
+            {
+                Log << L("坐标格式错误：") << pointStr;
             }
         }
+    }
+    else
+    {
+        Log << L("无法匹配 WKT 数据：") << wkt;
     }
 
     return line;
 }
 
 
-
-// 将 GeoParameters 转换为 QMap<QString, QVariant>
 void ShapefileManager::GeoParametersToAttributes(const GeoParameters& params, QMap<QString, QVariant>& attributes)
 {
-    attributes["nodeLineStyle"] = static_cast<int>(params.nodeLineStyle);
-    attributes["pointShape"] = static_cast<int>(params.pointShape);
-    attributes["pointColor"] = params.pointColor.name();                  // QColor 转为字符串
-    attributes["lineStyle"] = static_cast<int>(params.lineStyle);
-    attributes["lineWidth"] = params.lineWidth;
-    attributes["lineColor"] = params.lineColor.name();
-    attributes["lineDashPattern"] = params.lineDashPattern;
-    attributes["fillColor"] = params.fillColor.name();
-    attributes["splineOrder"] = params.splineOrder;
-    attributes["splineNodeCount"] = params.splineNodeCount;
-    attributes["steps"] = params.steps;
-    attributes["bufferVisible"] = params.bufferVisible;
-    attributes["bufferCalculationMode"] = static_cast<int>(params.bufferCalculationMode);
-    attributes["bufferDistance"] = params.bufferDistance;
-    attributes["bufferHasBorder"] = params.bufferHasBorder;
-    attributes["bufferLineStyle"] = static_cast<int>(params.bufferLineStyle);
-    attributes["bufferLineWidth"] = params.bufferLineWidth;
-    attributes["bufferLineColor"] = params.bufferLineColor.name();
-    attributes["bufferLineDashPattern"] = params.bufferLineDashPattern;
-    attributes["bufferFillColor"] = params.bufferFillColor.name();
+    // 点形状相关字段
+    attributes["NodeLine"] = static_cast<int>(params.nodeLineStyle);
+    attributes["PointShape"] = static_cast<int>(params.pointShape);
+    attributes["PointColor"] = params.pointColor.name(QColor::HexArgb); // 包括透明度
+
+    // 线形相关字段
+    attributes["LineStyle"] = static_cast<int>(params.lineStyle);
+    attributes["LineWidth"] = params.lineWidth;
+    attributes["LineColor"] = params.lineColor.name(QColor::HexArgb);  // 包括透明度
+    attributes["LineDash"] = params.lineDashPattern;
+
+    // 填充颜色字段
+    attributes["FillColor"] = params.fillColor.name(QColor::HexArgb);  // 包括透明度
+
+    // 样条相关字段
+    attributes["SplineOrd"] = params.splineOrder;
+    attributes["SplineCnt"] = params.splineNodeCount;
+    attributes["Steps"] = params.steps;
+
+    // 缓冲区相关字段
+    attributes["BufferVis"] = params.bufferVisible;
+    attributes["BufferMode"] = static_cast<int>(params.bufferCalculationMode);
+    attributes["BufferDist"] = params.bufferDistance;
+
+    // 缓冲区线属性字段
+    attributes["BufferBord"] = params.bufferHasBorder;
+    attributes["BufferLine"] = static_cast<int>(params.bufferLineStyle);
+    attributes["BufferWid"] = params.bufferLineWidth;
+    attributes["BufferCol"] = params.bufferLineColor.name(QColor::HexArgb);  // 包括透明度
+    attributes["BufferDash"] = params.bufferLineDashPattern;
+
+    // 缓冲区面属性字段
+    attributes["BufferFill"] = params.bufferFillColor.name(QColor::HexArgb);  // 包括透明度
 }
 
-// 从 QMap<QString, QVariant> 转换为 GeoParameters
-void ShapefileManager::AttributesToGeoParameters(const QMap<QString, QVariant>& attributes, GeoParameters&params)
+
+void ShapefileManager::AttributesToGeoParameters(const QMap<QString, QVariant>& attributes, GeoParameters& params)
 {
-    GeoParameters params;
-    params.nodeLineStyle = static_cast<NodeLineStyle>(attributes["nodeLineStyle"].toInt());
-    params.pointShape = static_cast<PointShape>(attributes["pointShape"].toInt());
-    params.pointColor = QColor(attributes["pointColor"].toString());
-    params.lineStyle = static_cast<LineStyle>(attributes["lineStyle"].toInt());
-    params.lineWidth = attributes["lineWidth"].toFloat();
-    params.lineColor = QColor(attributes["lineColor"].toString());
-    params.lineDashPattern = attributes["lineDashPattern"].toFloat();
-    params.fillColor = QColor(attributes["fillColor"].toString());
-    params.splineOrder = attributes["splineOrder"].toInt();
-    params.splineNodeCount = attributes["splineNodeCount"].toInt();
-    params.steps = attributes["steps"].toInt();
-    params.bufferVisible = attributes["bufferVisible"].toBool();
-    params.bufferCalculationMode = static_cast<BufferCalculationMode>(attributes["bufferCalculationMode"].toInt());
-    params.bufferDistance = attributes["bufferDistance"].toDouble();
-    params.bufferHasBorder = attributes["bufferHasBorder"].toBool();
-    params.bufferLineStyle = static_cast<LineStyle>(attributes["bufferLineStyle"].toInt());
-    params.bufferLineWidth = attributes["bufferLineWidth"].toFloat();
-    params.bufferLineColor = QColor(attributes["bufferLineColor"].toString());
-    params.bufferLineDashPattern = attributes["bufferLineDashPattern"].toFloat();
-    params.bufferFillColor = QColor(attributes["bufferFillColor"].toString());
+    // 点形状相关字段
+    params.nodeLineStyle = static_cast<NodeLineStyle>(attributes["NodeLine"].toInt());
+    params.pointShape = static_cast<PointShape>(attributes["PointShape"].toInt());
+    params.pointColor = QColor(attributes["PointColor"].toString());
+
+    // 线形相关字段
+    params.lineStyle = static_cast<LineStyle>(attributes["LineStyle"].toInt());
+    params.lineWidth = attributes["LineWidth"].toFloat();
+    params.lineColor = QColor(attributes["LineColor"].toString());
+    params.lineDashPattern = attributes["LineDash"].toFloat();
+
+    // 填充颜色字段
+    params.fillColor = QColor(attributes["FillColor"].toString());
+
+    // 样条相关字段
+    params.splineOrder = attributes["SplineOrd"].toInt();
+    params.splineNodeCount = attributes["SplineCnt"].toInt();
+    params.steps = attributes["Steps"].toInt();
+
+    // 缓冲区相关字段
+    params.bufferVisible = attributes["BufferVis"].toBool();
+    params.bufferCalculationMode = static_cast<BufferCalculationMode>(attributes["BufferMode"].toInt());
+    params.bufferDistance = attributes["BufferDist"].toDouble();
+
+    // 缓冲区线属性字段
+    params.bufferHasBorder = attributes["BufferBord"].toBool();
+    params.bufferLineStyle = static_cast<LineStyle>(attributes["BufferLine"].toInt());
+    params.bufferLineWidth = attributes["BufferWid"].toFloat();
+    params.bufferLineColor = QColor(attributes["BufferCol"].toString());
+    params.bufferLineDashPattern = attributes["BufferDash"].toFloat();
+
+    // 缓冲区面属性字段
+    params.bufferFillColor = QColor(attributes["BufferFill"].toString());
 }
+
 
 
 void ShapefileManager::saveGeo(Geo* geo)
@@ -369,7 +477,7 @@ void ShapefileManager::saveGeo(Geo* geo)
         addGeometry(str, attributes);
         break;
     case TypeComplexArea:
-        attributes["Components"] = QVariant::fromValue(static_cast<ComplexArea*>(geo)->component);
+        attributes["Components"] = Component::serializeComponentVector(static_cast<ComplexArea*>(geo)->component);
         addGeometry(str, attributes);
         break;
     default:
@@ -415,7 +523,7 @@ Geo* ShapefileManager::loadGeo(const QMap<QString, QVariant>& attributes, const 
 
         if (attributes.contains("Components"))
         {
-            doubleLine->component = attributes["Components"].value<QVector<Component>>();
+            doubleLine->component = Component::deserializeComponentVector(attributes["Components"].toString());
         }
         geo = doubleLine;
     }
@@ -429,7 +537,7 @@ Geo* ShapefileManager::loadGeo(const QMap<QString, QVariant>& attributes, const 
 
         if (attributes.contains("Components"))
         {
-            parallelLine->component = attributes["Components"].value<QVector<Component>>();
+            parallelLine->component = Component::deserializeComponentVector(attributes["Components"].toString());
         }
         geo = parallelLine;
     }
@@ -461,7 +569,7 @@ Geo* ShapefileManager::loadGeo(const QMap<QString, QVariant>& attributes, const 
 
         if (attributes.contains("Components"))
         {
-            complexArea->component = attributes["Components"].value<QVector<Component>>();
+            complexArea->component = Component::deserializeComponentVector(attributes["Components"].toString());
         }
         geo = complexArea;
     }
@@ -474,10 +582,13 @@ Geo* ShapefileManager::loadGeo(const QMap<QString, QVariant>& attributes, const 
     // 从属性加载其他参数
     if (geo)
     {
+        geo->initialize();
         GeoParameters geoParams;
         AttributesToGeoParameters(attributes, geoParams);
         geo->setGeoParameters(geoParams);
-    }
+        geo->markControlPointsChanged();
+        geo->completeDrawing();
 
+    }  
     return geo;
 }

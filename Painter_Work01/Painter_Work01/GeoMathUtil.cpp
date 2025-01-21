@@ -19,6 +19,8 @@ using Line = QVector<Point>;                   // 表示一条线
 using Polygon = QVector<Line>;                 // 表示一个面
 using Polygons = QVector<Polygon>;             // 表示面集合
 
+const double M_PI = 3.14159265358979323846;
+
 const double EPSILON = 1e-2; // float的精度太低
 
 // ==========================================================================
@@ -1691,7 +1693,7 @@ void test()
 
         for (int i = 0; i < 2; i++)
         {
-            auto x = generateRandomLine(10, i);
+            auto x = generateRandomLine(20, i);
             polygons.push_back(x);
         }
 
@@ -1700,7 +1702,7 @@ void test()
         // 执行暴力算法
         bruteForceFindIntersections1(polygons, bruteIntersections);
         // 执行扫描线算法
-        //sweepLineFindIntersections(polygons, sweepIntersections);
+        //GeoBuffer::sweepLineFindIntersections(polygons, sweepIntersections);
 
         // 对拍比较
         std::unordered_set<Point, PointHash, PointEqual> bruteSet(bruteIntersections.begin(), bruteIntersections.end());

@@ -137,7 +137,7 @@ struct MyPoint
 
     inline double distanceTo(const MyPoint& other) const
     {
-        return (operator-(other)).length();
+        return (operator-(other).length());
     }
 
     inline MyPoint normalize() const

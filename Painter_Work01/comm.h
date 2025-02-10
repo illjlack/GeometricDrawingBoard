@@ -1,6 +1,7 @@
 #pragma once
 
 // =====================================================ÖÐÎÄ
+
 #include <QTextCodec>
 
 inline QString L(const char* str) {
@@ -28,8 +29,7 @@ public:
         return *this;
     }
 
-    inline LogHelper& operator<<(const QString& value) 
-    {
+    inline LogHelper& operator<<(const QString& value) {
         stream_ << value.toStdString();
         return *this;
     }
@@ -157,7 +157,7 @@ struct GeoParameters {
 
 
 // ¿ªÆôdebug
-// #define DEBUG
+#define DEBUG
 
 
 #ifdef DEBUG

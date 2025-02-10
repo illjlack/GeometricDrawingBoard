@@ -77,6 +77,7 @@ void Geo::drawControlPoints(QPainter& painter)
                 QString("(%1, %2)").arg(QString::number(controlPoint.x(), 'f', 2),
                     QString::number(controlPoint.y(), 'f', 2))
             );
+
         }
         painter.setBrush(Qt::NoBrush);
     }

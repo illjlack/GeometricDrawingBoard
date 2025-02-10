@@ -122,6 +122,7 @@ struct Component {
     }
 };
 
+
 Q_DECLARE_METATYPE(Component)
 Q_DECLARE_METATYPE(QVector<Component>)
 

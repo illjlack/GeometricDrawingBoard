@@ -89,8 +89,7 @@ enum GeoState
     EndGeoState = BeginGeoState + 1
 };
 
-enum LineStyle 
-{
+enum LineStyle {
     BeginStyle = EndGeoState,
 
     Solid,      // 实线
@@ -99,8 +98,7 @@ enum LineStyle
     EndStyle
 };
 
-enum PointShape 
-{
+enum PointShape {
     BeginPointShape = EndStyle,
 
     Square,     // 方形
@@ -110,12 +108,11 @@ enum PointShape
 };
 
 
-enum BufferCalculationMode 
-{
+enum BufferCalculationMode {
     BeginBufferCalculationMode = EndPointShape,
 
-    Vector,     // 矢量模式
-    Raster,     // 栅格模式
+    Vector,  // 矢量模式
+    Raster,   // 栅格模式
 
     EndBufferCalculationMode
 };

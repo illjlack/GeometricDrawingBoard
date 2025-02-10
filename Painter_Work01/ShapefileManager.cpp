@@ -296,9 +296,9 @@ void ShapefileManager::initializeFields()
 }
 
 
-using Line = QVector<QPointF>;                      // 表示一条线
-using Polygon = QVector<Line>;                      // 表示一个面
-using Polygons = QVector<Polygon>;                  // 表示面集合
+using Line = QVector<QPointF>;                   // 表示一条线
+using Polygon = QVector<Line>;                 // 表示一个面
+using Polygons = QVector<Polygon>;             // 表示面集合
 
 void ShapefileManager::clearGeometry()
 {

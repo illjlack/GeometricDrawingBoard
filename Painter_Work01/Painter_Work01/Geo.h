@@ -10,15 +10,21 @@
 #include "comm.h"
 #include "ShapefileManager.h"
 
+#ifdef SHAPE_FILE_MANAGER
 class ShapefileManager;
+#endif // SHAPE_FILE_MANAGER
+
+
 class Geo;
 Geo* createGeo(DrawMode mode);
 
 // ===================================================================== Geo
 class Geo 
 {
-    // 用来保存
+#ifdef SHAPE_FILE_MANAGER
+    // 用来保存数据
     friend class ShapefileManager;
+#endif // SHAPE_FILE_MANAGER
 public:
     virtual ~Geo() = default;
 

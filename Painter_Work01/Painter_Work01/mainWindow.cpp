@@ -41,8 +41,10 @@ MainWindow::MainWindow(QWidget* parent)
     createNodeLineToolBar();
     createStatusBar();
 
+#ifdef SHAPE_FILE_MANAGER
     shapefileManager = new ShapefileManager;
-
+#endif
+    
     connect(canvas, &Canvas::selectedGeo, propertyEditor, &GeoPropertyEditor::setGeo);
     connect(propertyEditor, &GeoPropertyEditor::updateGeo, canvas, [this]() {
         canvas->update();
@@ -55,7 +57,9 @@ MainWindow::MainWindow(QWidget* parent)
 
 MainWindow::~MainWindow()
 {
+#ifdef SHAPE_FILE_MANAGER
     delete shapefileManager;
+#endif
 }
 
 void MainWindow::createMenuBar()
@@ -188,14 +192,13 @@ void MainWindow::openFile()
     // 如果用户取消选择，则返回
     if (filePath.isEmpty())
         return;
-
+#ifdef SHAPE_FILE_MANAGER
     // 调用 ShapefileManager 打开文件
     if (!shapefileManager->openFile(filePath))
     {
         QMessageBox::warning(this, L("文件打开失败"), L("无法打开文件:\n%1").arg(filePath));
         return;
     }
-
     // 清空 Canvas 并加载几何数据
     QVector<Geo*> geos;
     shapefileManager->getGeos(geos);
@@ -206,6 +209,11 @@ void MainWindow::openFile()
     }
 
     QMessageBox::information(this, L("文件打开成功"), L("已成功加载文件:\n%1").arg(filePath));
+#endif
+
+#ifndef SHAPE_FILE_MANAGER
+    QMessageBox::information(this, L("没有shp格式保存方式"), L("没有shp格式保存方式"));
+#endif // !SHAPE_FILE_MANAGER
 }
 
 
@@ -223,6 +231,7 @@ void MainWindow::saveFile()
     if (dirPath.isEmpty())
         return;
 
+#ifdef SHAPE_FILE_MANAGER
     // 清除已有几何数据
     shapefileManager->clearGeometry();
 
@@ -243,6 +252,11 @@ void MainWindow::saveFile()
     }
 
     QMessageBox::information(this, L("文件保存成功"), L("文件已成功保存至:\n%1").arg(dirPath));
+#endif
+
+#ifndef SHAPE_FILE_MANAGER
+    QMessageBox::information(this, L("没有shp格式保存方式"), L("没有shp格式保存方式"));
+#endif // !SHAPE_FILE_MANAGER
 }
 
 

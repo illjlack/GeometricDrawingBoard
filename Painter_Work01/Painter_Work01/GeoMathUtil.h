@@ -11,7 +11,7 @@
 
 // ==========================================================================
 // 计算线段上的点
-// 对外的接口， 统一分配计算
+// 对外的接口， 统一分配
 // ==========================================================================
 
 /**
@@ -145,7 +145,6 @@ int calculateLinePoints(const QVector<Component>& component, const QVector<QPoin
  */
 int calculateCloseLinePoints(const QVector<Component>& component, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps = 20);
 
-
 /**
  * 根据多个线段的组件和控制点计算平行线（第二个分离一个点来控制距离）
  * @param component 组件列表
@@ -155,8 +154,6 @@ int calculateCloseLinePoints(const QVector<Component>& component, const QVector<
  * @return 返回成功绘制分图的个数
  */
 int calculateParallelLinePoints(const QVector<Component>& components, const QVector<QPointF>& controlPoints, QVector<QVector<QPointF>>& linePointss, int steps = 20);
-
-
 
 // 计算缓冲区
 bool computeBufferBoundary(BufferCalculationMode mode, const QVector<QVector<QPointF>>& pointss, double r, QVector<QVector<QPointF>>& boundaryPointss);

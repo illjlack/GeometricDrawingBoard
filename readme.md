@@ -1,173 +1,69 @@
+| **模块**             | **功能**                                                     |
+| :------------------- | ------------------------------------------------------------ |
+| **comm**             | 关于中文显示的宏、简单日志的定义和宏、全局变量。             |
+| **Enums**            | 定义项目中使用的枚举类型。                                   |
+| **Geo**              | 定义几何基类和它派生的各种图形、点、线、面。                 |
+| **GeoMathUtil**      | 提供几何和数学计算相关的工具函数，通过控制点辅助Geo绘制图形。 |
+| **MainWindow**       | 负责主界面的显示和管理，处理用户界面的交互事件               |
+| **PolygonBuffer**    | 处理与多边形相关的缓冲区，涉及图形绘制、空间分析等，生成多边形边界的扩展区域（缓冲区）。 |
+| **ShapefileManager** | 管理 Shapefile 格式数据，广泛应用于地理信息系统（GIS），包括读取、写入、解析 Shapefile 文件及空间数据处理。 |
 
+#### 环境 vs2019 + qt5 + GDAL(用于读写shp文件)
 
-### **1. 框架结构**
+### 项目功能：
 
-大致可以分为以下几个模块：
+#### 1.绘制基本图形
 
-1. **主窗口** (`MainWindow`): 包含菜单栏、工具栏、状态栏等全局控件。
-2. **绘图区域** (`Canvas`): 一个自定义控件，用于处理绘图和用户交互。
-3. **图形管理** (`Shapes`): 定义不同类型的图形（如矩形、圆形、线条等）的类。
-4. **工具模块**: 包含绘图工具（画笔、颜色选择、图形选择等）。
-5. **数据管理模块**: 保存绘图数据，支持撤销、重做和文件保存。
+自定义数据结构，显示几何图形：点、简单线、双线、平行线、简单面、复杂面
 
-------
+1)点:支持颜色，方形，圆形 调整；
 
-### **2. 主窗口设计 (`MainWindow`)**
+2)简单线、双线、平行线：支持颜色、节点线型（折线，样条线，三点圆弧，两点圆弧、流线）、线宽、线型（实线、虚线（如：1.0*1.0、3.0*1.0））
 
-主窗口是整个程序的入口，主要功能包括：
+3)简单面、复杂面：支持颜色、节点线型（同上）、线型（同上）、面内颜色填充等
 
-- 菜单栏：文件操作（新建、打开、保存等）。
-- 工具栏：绘图工具（选择矩形、圆形、直线、橡皮擦等）。
-- 状态栏：显示鼠标坐标、选中图形的信息等。
+#### 2.支持修改、删除（不支持撤销）、拖拽、修改控制点、放大缩小视图
 
-#### 主窗口类结构：
+#### 3.缓冲区分析
 
-```cpp
-class MainWindow : public QMainWindow {
-    Q_OBJECT
-
-public:
-    MainWindow(QWidget *parent = nullptr);
-    ~MainWindow();
-
-private:
-    void createMenuBar();   // 创建菜单栏
-    void createToolBar();   // 创建工具栏
-    void createStatusBar(); // 创建状态栏
-
-    Canvas *canvas;         // 自定义绘图区域
-};
-```
-
-------
-
-### **3. 绘图区域设计 (`Canvas`)**
-
-`Canvas` 是用户实际绘图的地方，需要继承 `QWidget` 并重写以下方法：
-
-- `paintEvent(QPaintEvent *event)`: 使用 `QPainter` 绘制图形。
-- `mousePressEvent(QMouseEvent *event)`: 处理鼠标按下事件。
-- `mouseMoveEvent(QMouseEvent *event)`: 处理鼠标移动事件。
-- `mouseReleaseEvent(QMouseEvent *event)`: 处理鼠标释放事件。
-
-#### 示例代码：
-
-```cpp
-class Canvas : public QWidget {
-    Q_OBJECT
-
-public:
-    explicit Canvas(QWidget *parent = nullptr);
-
-    void setCurrentShape(int shapeType); // 设置当前绘图形状
-    void setPen(const QPen &pen);        // 设置画笔
-    void setBrush(const QBrush &brush); // 设置画刷
-
-protected:
-    void paintEvent(QPaintEvent *event) override;
-    void mousePressEvent(QMouseEvent *event) override;
-    void mouseMoveEvent(QMouseEvent *event) override;
-    void mouseReleaseEvent(QMouseEvent *event) override;
-
-private:
-    QVector<QSharedPointer<Shape>> shapes; // 保存所有图形
-    QSharedPointer<Shape> currentShape;   // 当前正在绘制的图形
-    QPen pen;
-    QBrush brush;
-};
-```
-
-------
-
-### **4. 图形管理模块 (`Shapes`)**
-
-不同图形可以抽象为一个基类，并为每种图形定义子类。
-
-```cpp
-class Shape {
-public:
-    virtual ~Shape() = default;
-    virtual void draw(QPainter &painter) = 0; // 绘制方法
-    virtual void setStartPoint(const QPoint &point) = 0;
-    virtual void setEndPoint(const QPoint &point) = 0;
-};
-
-class Rectangle : public Shape {
-public:
-    void draw(QPainter &painter) override;
-    void setStartPoint(const QPoint &point) override;
-    void setEndPoint(const QPoint &point) override;
-
-private:
-    QRect rect;
-};
-```
-
-------
-
-### **5. 工具模块**
-
-工具模块主要用于选择画笔、画刷和图形类型：
-
-- 画笔设置工具：颜色、宽度、样式。
-- 图形选择工具：矩形、圆形、线条、自由绘制等。
-
-#### 示例：
-
-```cpp
-class ToolBar : public QToolBar {
-    Q_OBJECT
-
-public:
-    explicit ToolBar(QWidget *parent = nullptr);
-
-signals:
-    void shapeSelected(int shapeType);
-    void penChanged(const QPen &pen);
-    void brushChanged(const QBrush &brush);
-};
-```
-
-------
-
-### **6. 数据管理模块**
-
-支持撤销、重做和文件保存功能：
-
-- **撤销和重做**：通过栈（`QStack`）保存绘图操作的历史记录。
-- **文件保存和加载**：使用 `QImage` 或 `QPixmap` 保存到文件，支持常见图片格式（如 PNG、JPEG）。
-
-```cpp
-class DataManager {
-public:
-    void saveToFile(const QString &filePath, const QVector<QSharedPointer<Shape>> &shapes);
-    QVector<QSharedPointer<Shape>> loadFromFile(const QString &filePath);
-
-    void undo();
-    void redo();
-
-private:
-    QStack<QVector<QSharedPointer<Shape>>> undoStack;
-    QStack<QVector<QSharedPointer<Shape>>> redoStack;
-};
-```
-
-------
-
-### **7. 主程序入口**
-
-通过 `QApplication` 启动主窗口：
-
-```cpp
-int main(int argc, char *argv[]) {
-    QApplication app(argc, argv);
-
-    MainWindow mainWindow;
-    mainWindow.show();
-
-    return app.exec();
-}
-```
+![image-20250117163743108](./readme.assets/image-20250117163743108.png)
 
 
 
+### 技术亮点
+
+1. **灵活的图形绘制与控制**：支持点、线、面等多种几何图形的绘制，并提供了丰富的控制选项，如颜色、线型、填充等多种样式设置。
+2. **空间分析功能**：通过缓冲区分析模块，支持图形扩展区域的生成与处理，广泛应用于空间分析与地理信息系统（GIS）中。
+3. **高效的界面交互**：项目的主界面通过精心设计的 UI 提供友好的操作体验，用户能够轻松管理和操作图形，满足实际需求。
+
+
+
+#### 困难点
+
+1.结构设计
+
+要能画各种图形和线形，还要数据能够保存
+
+最后经过多次修改尝试，采用了基类维护控制点，子类只负责特定控制点的操作规则、计算模块通过控制点和相关描述计算出图像，这个结构效果良好。
+
+2.缓冲区
+
+缓冲区计算是GIS中的一个问题
+
+参考了相关论文，尝试过使用平行线矢量绘制、栅格法绘制
+
+平行线绘制有自相交问题。
+
+栅格法（矢量图映射到二维网格，遍历每个格子到所有图形上点的距离）有精度和计算量大的问题
+
+因为栅格法的计算量实在太大（复杂度O(n3)到O(n4)之间，n是二维网格边长）,绘制结果不理想，最后还是选择平行线的矢量绘制
+
+栅格画的结果：
+
+![image-20250219174835281](./readme.assets/image-20250219174835281.png)
+
+
+
+矢量用平行线绘制也遇到很多难题
+
+[矢量缓冲区自相交问题](矢量缓冲区自相交问题.md)

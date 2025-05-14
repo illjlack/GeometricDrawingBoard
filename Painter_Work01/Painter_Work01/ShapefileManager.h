@@ -1,5 +1,7 @@
-#pragma once
+// 保持数据shp格式，需要gdal库
 
+/*
+#pragma once
 
 #include <QString>
 #include <QStringList>
@@ -10,8 +12,9 @@
 #include <ogrsf_frmts.h>
 #include "Geo.h"
 #include "comm.h"
-
 class Geo;
+
+#define SHAPE_FILE_MANAGER
 
 class ShapefileManager
 {
@@ -49,3 +52,5 @@ private:
     QVector<QString> fields;                                         // 存储字段
     GDALDataset* dataset;                                           // GDAL 数据集，管理读取和写入的 Shapefile 文件
 };
+
+*/

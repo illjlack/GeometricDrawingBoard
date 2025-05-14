@@ -1,3 +1,4 @@
+/*
 #include "ShapefileManager.h"
 #include "ogrsf_frmts.h"
 #include <QtCore/qregularexpression.h>
@@ -451,7 +452,7 @@ void ShapefileManager::saveGeo(Geo* geo)
 {
     GeoType geoType = geo->getGeoType();
     QMap<QString, QVariant> attributes;
-    
+
     attributes["GeoType"] = static_cast<int>(geoType);
     GeoParametersToAttributes(geo->getGeoParameters(), attributes);
 
@@ -589,6 +590,8 @@ Geo* ShapefileManager::loadGeo(const QMap<QString, QVariant>& attributes, const 
         geo->markControlPointsChanged();
         geo->completeDrawing();
 
-    }  
+    }
     return geo;
 }
+
+*/

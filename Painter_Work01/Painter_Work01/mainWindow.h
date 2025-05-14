@@ -33,7 +33,10 @@ private:
     Canvas* canvas;   // 绘制区域
     GeoPropertyEditor* geoEditor; // 配置窗口
     GeoPropertyEditor* propertyEditor; // 属性窗口
+
+#ifdef SHAPE_FILE_MANAGER
     ShapefileManager* shapefileManager; // 文件加载、保存
+#endif
 
 private slots:
     void openFile();        // 打开文件
@@ -172,7 +175,6 @@ private:
     QColor currentFillColor; // 当前填充颜色
     QColor currentBufferLineColor; // 当前缓冲区线颜色
     QColor currentBufferFillColor; // 当前缓冲区填充颜色
-
 };
 
 
